@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# 建置產物
+build/
+dist/
+
+# 產生的 fixture（CI 現場產生）與不得入庫的樣本
+tests/fixtures/generated/
+tests/fixtures/offline/
+*.blind.pdf
+
+# 本機與 IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

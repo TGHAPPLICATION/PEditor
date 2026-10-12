@@ -1,0 +1,61 @@
+id,group,source,generator,expected,reason,phase,blind,storage,status,notes
+S01,latin,synthetic-pymupdf,latin_simple,support,,P1,false,generated,available,單行 Helvetica Tj
+S02,latin,synthetic-pymupdf,latin_multipage,support,,P1,false,generated,available,3 頁
+S03,latin,synthetic-pymupdf,latin_tj_array,support,,P2,false,generated,available,TJ 陣列含字距調整
+S04,cjk,synthetic-pymupdf,cjk_subset_embedded,support,,P2,false,generated,available,嵌入子集 CID 字型；模式 A／B 判定樣本
+S05,cjk,synthetic-pymupdf,cjk_not_embedded,reject,font_not_embedded,P1,false,generated,available,未嵌入 CJK 字型；預期值待人工確認
+S06,mixed,synthetic-pymupdf,mixed_line,support,,P2,false,generated,available,同一行中英混排、兩種字型
+S07,layout,synthetic-pymupdf,rotated_page,support,,P2,false,generated,available,/Rotate 90
+S08,layout,synthetic-pymupdf,rotated_text,support,,P2,false,generated,available,文字矩陣旋轉 90 度
+S09,table,synthetic-pymupdf,table_grid,support,,P6,false,generated,available,3x3 格線表格
+S10,occurrence,synthetic-pymupdf,repeated_occurrences,support,,P5,false,generated,available,同字串多次出現
+S11,reject-no-text,synthetic-pymupdf,image_only,reject,no_text_layer,P1,false,generated,available,僅影像，模擬掃描檔
+S12,reject-encrypted,synthetic-pymupdf,encrypted_user_pw,reject,encrypted,P1,false,generated,available,需開啟密碼
+S13,reject-encrypted,synthetic-pymupdf,encrypted_owner_only,reject,encrypted,P1,false,generated,available,僅權限密碼；預期值待人工確認
+S14,reject-broken,synthetic-pymupdf,truncated,reject,malformed,P1,false,generated,available,截斷一半
+S15,reject-broken,synthetic-pymupdf,not_pdf,reject,not_pdf,P1,false,generated,available,非 PDF 位元組
+S16,reject-unsupported,synthetic-pymupdf,form_field,reject,form_fields,P1,false,generated,available,AcroForm 文字欄位；預期值待人工確認
+S17,latin,synthetic-pymupdf,incremental_update,support,,P3,false,generated,available,含增量更新區段
+S18,reject-no-text,synthetic-pymupdf,empty_page,reject,no_text_layer,P1,false,generated,available,空白頁
+S19,perf,synthetic-pymupdf,many_pages,support,,P1,false,generated,available,50 頁
+S20,reject-unsupported,synthetic-pymupdf,invisible_text,reject,invisible_text,P1,false,generated,available,render mode 3（OCR 隱形層）；預期值待人工確認
+H01,latin,word,,support,,P1,false,repo,pending,Word 匯出，Calibri 英文段落；僅用 OFL 字型與合成內容
+H02,cjk,word,,support,,P2,false,repo,pending,Word 匯出，Noto Sans TC 內文；僅用 OFL 字型與合成內容
+H03,cjk,word,,support,,P2,false,repo,pending,Word 匯出，Noto Serif TC 內文；僅用 OFL 字型與合成內容
+H04,mixed,word,,support,,P2,false,repo,pending,Word 匯出，中英混排；僅用 OFL 字型與合成內容
+H05,table,word,,support,,P6,false,repo,pending,Word 表格；僅用 OFL 字型與合成內容
+H06,table,word,,support,,P6,false,repo,pending,Word 合併儲存格表格；僅用 OFL 字型與合成內容
+H07,layout,word,,support,,P2,false,repo,pending,Word 頁首頁尾與頁碼；僅用 OFL 字型與合成內容
+H08,layout,word,,support,,P2,false,repo,pending,Word 兩欄排版；僅用 OFL 字型與合成內容
+H09,occurrence,word,,support,,P5,false,repo,pending,Word 重複詞彙；僅用 OFL 字型與合成內容
+H10,cjk,word,,support,,P2,false,repo,pending,Word 匯出，全形標點與數字；僅用 OFL 字型與合成內容
+H11,layout,word,,support,,P2,false,repo,pending,Word 粗體斜體底線；僅用 OFL 字型與合成內容
+H12,cjk,word,,support,,P2,false,repo,pending,Word 直書（預期待人工確認）；僅用 OFL 字型與合成內容
+H13,perf,word,,support,,P1,false,repo,pending,Word 長文件 100 頁；僅用 OFL 字型與合成內容
+H14,cjk,word,,support,,P2,false,repo,pending,Word 列印成 PDF（Microsoft Print to PDF）；僅用 OFL 字型與合成內容
+H15,latin,libreoffice,,support,,P1,false,repo,pending,LibreOffice Writer 英文段落；僅用 OFL 字型與合成內容
+H16,cjk,libreoffice,,support,,P2,false,repo,pending,LibreOffice，Noto Sans TC 內文；僅用 OFL 字型與合成內容
+H17,cjk,libreoffice,,support,,P2,false,repo,pending,LibreOffice，Noto Serif TC 內文；僅用 OFL 字型與合成內容
+H18,mixed,libreoffice,,support,,P2,false,repo,pending,LibreOffice 中英混排；僅用 OFL 字型與合成內容
+H19,table,libreoffice,,support,,P6,false,repo,pending,LibreOffice 表格；僅用 OFL 字型與合成內容
+H20,table,libreoffice,,support,,P6,false,repo,pending,LibreOffice Calc 匯出試算表；僅用 OFL 字型與合成內容
+H21,layout,libreoffice,,support,,P2,false,repo,pending,LibreOffice 頁首頁尾；僅用 OFL 字型與合成內容
+H22,occurrence,libreoffice,,support,,P5,false,repo,pending,LibreOffice 重複詞彙；僅用 OFL 字型與合成內容
+H23,cjk,libreoffice,,support,,P2,false,repo,pending,LibreOffice PDF/A-1b 匯出；僅用 OFL 字型與合成內容
+H24,cjk,libreoffice,,support,,P2,false,repo,pending,LibreOffice 標記 PDF（tagged）；僅用 OFL 字型與合成內容
+H25,reject-unsupported,libreoffice,,reject,form_fields,P1,false,repo,pending,LibreOffice 表單欄位；僅用 OFL 字型與合成內容
+H26,perf,libreoffice,,support,,P1,false,repo,pending,LibreOffice 長文件 100 頁；僅用 OFL 字型與合成內容
+H27,reject-no-text,other,,reject,no_text_layer,P1,false,repo,pending,掃描器產生之影像 PDF（合成內容）；僅用 OFL 字型與合成內容
+H28,reject-unsupported,other,,reject,signed,P1,false,repo,pending,含數位簽章（合成憑證）；僅用 OFL 字型與合成內容
+B01,latin,word,,support,,P8,true,offline,pending,盲測樣本，由人工保管、不進 repo
+B02,cjk,word,,support,,P8,true,offline,pending,盲測樣本，由人工保管、不進 repo
+B03,mixed,word,,support,,P8,true,offline,pending,盲測樣本，由人工保管、不進 repo
+B04,table,word,,support,,P8,true,offline,pending,盲測樣本，由人工保管、不進 repo
+B05,latin,libreoffice,,support,,P8,true,offline,pending,盲測樣本，由人工保管、不進 repo
+B06,cjk,libreoffice,,support,,P8,true,offline,pending,盲測樣本，由人工保管、不進 repo
+B07,mixed,libreoffice,,support,,P8,true,offline,pending,盲測樣本，由人工保管、不進 repo
+B08,table,libreoffice,,support,,P8,true,offline,pending,盲測樣本，由人工保管、不進 repo
+B09,occurrence,word,,support,,P8,true,offline,pending,盲測樣本，由人工保管、不進 repo
+B10,layout,libreoffice,,support,,P8,true,offline,pending,盲測樣本，由人工保管、不進 repo
+B11,reject-no-text,other,,reject,no_text_layer,P8,true,offline,pending,盲測樣本，由人工保管、不進 repo
+B12,reject-broken,other,,reject,malformed,P8,true,offline,pending,盲測樣本，由人工保管、不進 repo
