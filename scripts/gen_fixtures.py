@@ -453,7 +453,7 @@ SYNTHETIC: list[Fixture] = [
     Fixture("S01", s01, "pymupdf", "Droid Sans Fallback", "reject", "MALFORMED_DOCUMENT",
             notes="檔案截斷一半（ADR-0007）"),
     Fixture("S02", s02, "pymupdf", "Helvetica", "reject", "ACTIVE_CONTENT",
-            notes="OpenAction JavaScript（含 sentinel）；不得執行；預期值待人工確認（ADR-0007）"),
+            notes="OpenAction JavaScript（含 sentinel）；不得執行（ADR-0007）"),
 ]  # fmt: skip
 
 BY_ID = {f.fixture_id: f for f in SYNTHETIC}

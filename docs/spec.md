@@ -87,7 +87,7 @@ PyMuPDF 的 redaction 是區域移除工具，會有誤傷重疊字形或圖形�
 工作：建立 repo／依賴 lock／最小測試流程、60 份 fixture manifest、至少 20 份可重現首批樣本、支援矩陣、ADR；先探查兩平台打包最小 Qt app，避免最後才發現原生依賴問題。
 輸出：可安裝開發環境、空白桌面 app、資料集腳本、追溯表。
 驗收 G0：Windows 11 x64 與 macOS Apple Silicon 均啟動；fixture hash 可驗證；沒有正式 PDF；指定每個需求的 test ID；嚴格 A 或允許 A/B 已記錄。
-停止：授權選擇衝突、沒有 macOS 實機可驗證、需求仍要求任意 PDF 無差別完美修改。（v1.1 提議修訂見附錄 A4，ADR-0003 接受後生效）
+停止：授權選擇衝突、~~沒有 macOS 實機可驗證~~ **P3 結束時仍無 macOS 實機取得方案**（v1.1 修訂，附錄 A4、ADR-0003）、需求仍要求任意 PDF 無差別完美修改。
 
 ### P1：只讀分析器與能力判定（4–6 人日）
 工作：開檔、逐頁渲染、文字／字形 bbox、font／xref 資訊、頁面幾何、圖片出現位置；建立 capability report；parser 在 worker 執行。
@@ -264,17 +264,17 @@ OS、架構、硬體、Python／套件／字型版本：
 
 ## 附錄 A：v1.1 修訂與決策回填
 
-v1.1 只做繁體校正與回填已確認決策；正文需求與驗收門檻維持 v1.0。標「待人工確認」的修訂在確認前不生效，正文不改。
+v1.1 做繁體校正並回填已確認決策（2026-10-12 負責人接受 ADR-0001～0008）。除 A4 修改 P0 停止條件外，正文需求與驗收門檻維持 v1.0。
 
 | # | 修訂 | 狀態 | 依據 |
 |---|---|---|---|
 | A1 | 簡體字校正為繁體（換、確、圖、預、數、單、內、應、並、與、會、規、則、為、約、階、於；泄漏→洩漏、坐標→座標） | 已完成 | 執行計畫書 v1.1 |
 | A2 | §3 編輯語義：**允許 A/B，優先 A**（非嚴格 A 模式）；B 須證明先移除舊內容（G2 第 5 點） | 已確認 | ADR-0001 |
 | A3 | §2 授權：AGPL-3.0，repo 已公開（TGHAPPLICATION/PEditor） | 已確認 | ADR-0002 |
-| A4 | §6 P0 停止條件：「沒有 macOS 實機可驗證」改為「P3 結束時仍無 macOS 實機取得方案」；G0 的 macOS 啟動以 CI（macos-15 arm64）證據達成，實機項目標 NOT RUN，G4、G7、G8 仍須實機 | **待人工確認** | ADR-0003 |
+| A4 | §6 P0 停止條件：「沒有 macOS 實機可驗證」改為「P3 結束時仍無 macOS 實機取得方案」；G0 的 macOS 啟動以 CI（macos-15 arm64）證據達成，實機項目標 NOT RUN，G4、G7、G8 仍須實機 | 已確認 | ADR-0003 |
 | A5 | §2 架構落地為 `src/peditor/{ui,core,worker,export}`（§5 的 `src/ui/` 等對應為同名子套件，以便打包與匯入） | 已實作 | ADR-0004 |
-| A6 | §2／§8.1 第二套解譯器採 **PDFium（pypdfium2）**，結構檢查採 **qpdf（經 pikepdf `check_pdf_syntax`）**；Poppler 因 Windows 安裝與維運成本高不列為必要 | **待人工確認** | ADR-0006 |
-| A7 | §7 錯誤碼補充 capability／拒絕用理由碼：`NO_TEXT_LAYER`、`MALFORMED_DOCUMENT`、`ACTIVE_CONTENT`、`UNSUPPORTED_FEATURE` | **待人工確認** | ADR-0007 |
-| A8 | §2 繁中字型：模式 B 與 fixture 採 Noto Sans TC（Noto Sans CJK TC 子集 OTF）與 Noto Serif TC，均 OFL-1.1；來源鎖定 commit 與 SHA-256 | **待人工確認** | ADR-0008 |
+| A6 | §2／§8.1 第二套解譯器採 **PDFium（pypdfium2）**，結構檢查採 **qpdf（經 pikepdf `check_pdf_syntax`）**；Poppler 因 Windows 安裝與維運成本高不列為必要 | 已確認 | ADR-0006 |
+| A7 | §7 錯誤碼補充 capability／拒絕用理由碼：`NO_TEXT_LAYER`、`MALFORMED_DOCUMENT`、`ACTIVE_CONTENT`、`UNSUPPORTED_FEATURE` | 已確認 | ADR-0007 |
+| A8 | §2 繁中字型：模式 B 與 fixture 採 Noto Sans TC（Noto Sans CJK TC 子集 OTF）與 Noto Serif TC，均 OFL-1.1；來源鎖定 commit 與 SHA-256 | 已確認 | ADR-0008 |
 | A9 | §5 fixture 編號採「群組字母 + 序號」（T01–T12、F01–F10、L01–L08、I01–I08、B01–B08、U01–U06、S01–S08）；盲測 12 份離線保管 | 已實作 | tests/fixtures/manifest.csv |
 | A10 | §5 報告目錄採 `reports/P0/` … `reports/P8/`，每段 `report.md` 依 §11 範本 | 已實作 | reports/TEMPLATE.md |

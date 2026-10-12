@@ -1,8 +1,8 @@
 # ADR-0007：補充能力判定理由碼
 
-- 狀態：提議；**需人工確認**
+- 狀態：已接受（2026-10-12，負責人確認）
 - 日期：2026-10-12
-- 需人工確認：是（P1 開工前；manifest 的 expected／reason_code 依此填寫）
+- 需人工確認：否（已確認）
 
 ## 背景
 
@@ -22,8 +22,8 @@ spec §7 錯誤碼著重於編輯操作（GLYPH_MISSING、TEXT_OVERFLOW…）。
 
 `expected` 欄位值：`support`（宣告支援）、`reject`（拒絕編輯）、`readonly`（可預覽但唯讀）。
 
-## 待確認
+## 已確認的預設
 
 - 含 JavaScript／附件的文件（S02、S05）預設為 `reject ACTIVE_CONTENT`。若希望「可編輯但絕不執行主動內容」，
-  改為 `support` 並在 P7 驗證不執行。
+  改為 `support` 並在 P7 驗證不執行（須另立 ADR）。
 - 經 MuPDF 自動修復可開啟的損毀檔（S01）預設拒絕，避免在修復結果上編輯後覆寫。

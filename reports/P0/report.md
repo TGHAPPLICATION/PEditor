@@ -33,7 +33,7 @@
 | G0-03 | 空白 app 啟動 | `tests/gui/test_app_smoke.py`（2 項） | 容器 offscreen、CI 雙平台 offscreen | PASS |
 | G0-04 | 兩平台打包最小 Qt app | `packaging/smoke_build.py` | 容器、CI 雙平台 | PASS（CI 證據） |
 | G0-05 | Windows 11 x64 實機啟動 | manual-steps §3 | Windows 實機 | NOT RUN（待人工） |
-| G0-06 | macOS Apple Silicon 實機啟動 | ADR-0003：P0–P3 以 CI macos-15 arm64 替代 | macOS 實機 | NOT RUN（無實機；ADR-0003 待確認） |
+| G0-06 | macOS Apple Silicon 實機啟動 | ADR-0003：P0–P3 以 CI macos-15 arm64 替代 | macOS 實機 | NOT RUN（無實機）；依 ADR-0003（已接受）以 CI macos-15 arm64 證據替代至 P3 |
 | G0-07 | 60 份 manifest、群組 T12／F10／L8／I8／B8／U6／S8 | `tests/unit/test_manifest.py` | 容器、CI | PASS |
 | G0-08 | ≥12 盲測、不進 repo | 同上 `::test_at_least_12_blind_fixtures_kept_offline` | 容器、CI | PASS（結構）；製作 NOT RUN |
 | G0-09 | ≥20 份可重現首批樣本、非單一產生器 | 21 份（PyMuPDF 14、ReportLab 5、PyMuPDF+pikepdf 1、加密 1）；`::test_generator_reproduces_committed_bytes` | 容器、CI 雙平台 | PASS |
@@ -111,16 +111,17 @@ CI run [38228037824](https://github.com/TGHAPPLICATION/PEditor/actions/runs/3822
 
 | # | 內容 | 影響 | 需誰確認 |
 | --- | --- | --- | --- |
-| U1 | ADR-0003：G0 macOS 以 CI 證據替代、停止條件改為 P3 結束 | G0 能否宣告 PASS | 負責人 |
-| U2 | ADR-0006：第二解譯器用 PDFium 非 Poppler | §8.1 證據工具 | 工程師 |
-| U3 | ADR-0007：新增 4 個理由碼；JS／附件預設拒絕；可修復損毀檔預設拒絕 | P1 能力判定基準 | 工程師 |
-| U4 | ADR-0008：Noto Sans TC／Noto Serif TC | P2 模式 B 字型 | 工程師 |
+| U1 | ADR-0003：G0 macOS 以 CI 證據替代、停止條件改為 P3 結束 | G0 能否宣告 PASS | 已接受（2026-10-12） |
+| U2 | ADR-0006：第二解譯器用 PDFium 非 Poppler | §8.1 證據工具 | 已接受（2026-10-12） |
+| U3 | ADR-0007：新增 4 個理由碼；JS／附件預設拒絕；可修復損毀檔預設拒絕 | P1 能力判定基準 | 已接受（2026-10-12） |
+| U4 | ADR-0008：Noto Sans TC／Noto Serif TC | P2 模式 B 字型 | 已接受（2026-10-12） |
 | U5 | 人工 fixture 預期值（I04、I07 等）於 P2 前鎖定（spec §5） | P1／P2 驗收 | 工程師 |
 
 人工待辦（詳細步驟見 `reports/P0/manual-steps.md`）：
 
 - [ ] GitHub：預設分支改 `main`、分支保護、secret scanning、Dependabot alerts、Actions 權限
-- [ ] 確認 ADR-0003、0006、0007、0008 與 fixture 預期值
+- [x] 確認 ADR-0003、0004、0006、0007、0008（2026-10-12 負責人接受）
+- [ ] 確認人工 fixture 預期值（I04、I07），P2 前鎖定
 - [ ] Windows 11 實機驗證（G0-05）
 - [ ] 製作 23 份人工 fixture 並登記
 - [ ] 盲測 12 份（由不參與實作者製作、離線保管）
@@ -130,8 +131,8 @@ CI run [38228037824](https://github.com/TGHAPPLICATION/PEditor/actions/runs/3822
 ## 10. 關卡結果
 
 - CI：run 38228037824 雙平台通過
-- **關卡結果：BLOCKED**（Claude Code 負責項目已完成；G0-05 Windows 實機、G0-06 macOS（ADR-0003 待確認）、G0-11／G0-12 人工審查未完成）
-- **下一段可開始：否**。條件：G0-05 PASS、ADR-0003 接受、人工審查 G0-11／G0-12。人工 fixture 可與 P1 並行，但須在 P1 驗收前完成。
+- **關卡結果：BLOCKED**（Claude Code 負責項目已完成；ADR-0001～0008 已接受；尚缺 G0-05 Windows 實機、G0-11／G0-12 人工審查。G0-06 依 ADR-0003 以 CI 證據替代，實機延至 P4）
+- **下一段可開始：否**。條件：G0-05 Windows 實機 PASS、人工審查 G0-11／G0-12（可於本 PR 審查時完成）。人工 fixture 可與 P1 並行，但須在 P1 驗收前完成。
 
 ## 11. 獨立核對紀錄
 

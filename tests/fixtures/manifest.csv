@@ -52,10 +52,10 @@ U04,U 特殊文件,,other,,Noto Sans TC,reject,SIGNED_DOCUMENT,0,text,,簽章測
 U05,U 特殊文件,,libreoffice,,Noto Sans TC,reject,UNSUPPORTED_FEATURE,0,text,,PDF/A 測試,,,,false,repo,pending,PDF/A-2b 匯出
 U06,U 特殊文件,,other,,,reject,UNSUPPORTED_FEATURE,0,,,,,,,true,offline,pending,盲測；XFA 表單
 S01,S 損毀與惡意,211847644e7d3182ff014226a55f6b7d7bf2942852785a269a062ed7146f677e,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Droid Sans Fallback,reject,MALFORMED_DOCUMENT,0,,,,,,,false,repo,available,檔案截斷一半（ADR-0007）
-S02,S 損毀與惡意,88e4c27ba76f9b8b8ebddb467472921aa7dc9e88083666f94b99f5583972df30,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Helvetica,reject,ACTIVE_CONTENT,0,,,,,,,false,repo,available,OpenAction JavaScript（含 sentinel）；不得執行；預期值待人工確認（ADR-0007）
+S02,S 損毀與惡意,88e4c27ba76f9b8b8ebddb467472921aa7dc9e88083666f94b99f5583972df30,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Helvetica,reject,ACTIVE_CONTENT,0,,,,,,,false,repo,available,OpenAction JavaScript（含 sentinel）；不得執行（ADR-0007）
 S03,S 損毀與惡意,,script-p7,,,reject,RESOURCE_LIMIT,0,,,,,,,false,repo,pending,解壓膨脹（壓縮炸彈），P7 產生
 S04,S 損毀與惡意,,script-p7,,,reject,RESOURCE_LIMIT,0,,,,,,,false,repo,pending,深層巢狀物件，P7 產生
-S05,S 損毀與惡意,,script-p7,,,reject,ACTIVE_CONTENT,0,,,,,,,false,repo,pending,嵌入附件；預期值待人工確認，P7 產生
+S05,S 損毀與惡意,,script-p7,,,reject,ACTIVE_CONTENT,0,,,,,,,false,repo,pending,嵌入附件（ADR-0007），P7 產生
 S06,S 損毀與惡意,,script-p7,,,reject,ACTIVE_CONTENT,0,,,,,,,false,repo,pending,Launch 動作，P7 產生
 S07,S 損毀與惡意,,script-p7,,,reject,MALFORMED_DOCUMENT,0,,,,,,,true,offline,pending,盲測
 S08,S 損毀與惡意,,script-p7,,,reject,RESOURCE_LIMIT,0,,,,,,,true,offline,pending,盲測
