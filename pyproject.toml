@@ -6,7 +6,7 @@ readme = "README.md"
 license = "AGPL-3.0-only"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 requires-python = ">=3.13,<3.14"
-# 版本下限為 P0 實測版本；實際鎖定版本以 uv.lock 為準（見 reports/P0.md）
+# 版本下限為 P0 實測版本；實際鎖定版本以 uv.lock 為準（見 reports/P0/report.md）
 dependencies = [
     "pymupdf>=1.26",          # AGPL-3.0（ADR-0002）
     "pikepdf>=9",             # MPL-2.0

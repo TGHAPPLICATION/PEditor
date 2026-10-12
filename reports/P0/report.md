@@ -4,7 +4,7 @@
 
 ## 1. 階段／commit／日期
 
-- 階段：P0　分支：`claude/compassionate-mayer-4gov5x`　commit：見 §4 CI run　日期：2026-10-12
+- 階段：P0　分支：`claude/compassionate-mayer-4gov5x`　commit：`06b8e0e`（CI 證據）；本報告修正見 git log　日期：2026-10-12
 - 撰寫：Claude Code；審查：<工程師>；獨立核對：未參與實作的 Claude 子代理人（§11）
 - 輸入：規格 v1.0（已匯入為 `docs/spec.md` v1.1）、執行計畫書 v1.1；repo 已公開
 
@@ -24,7 +24,7 @@
 
 ## 3. 需求 → test ID → fixture／hash → 結果
 
-完整對照見 `docs/traceability.md`（G0–G8 與 §8 共 80 項，均已指定 test ID）。G0 逐條：
+完整對照見 `docs/traceability.md`（G0–G8、§7 與 §8 共 86 項，均已指定 test ID）。G0 逐條：
 
 | 需求 ID | 內容 | 證據 | 環境 | 結果 |
 | --- | --- | --- | --- | --- |
@@ -72,7 +72,14 @@ uv run pytest                            → exit 0，21 passed（Linux 容器�
 uv run python packaging/smoke_build.py   → exit 0，PEDITOR_SMOKE_OK
 ```
 
-CI：見 §10（推送後回填 run 編號與雙平台結果）。
+CI run [38228037824](https://github.com/TGHAPPLICATION/PEditor/actions/runs/38228037824)（commit `06b8e0e`）：
+
+| job | 平台 | 字型下載 | lint | pytest | smoke build |
+| --- | --- | --- | --- | --- | --- |
+| test (windows-latest) | Windows Server 2025（10.0.26100）x64，Python 3.13.15 | SHA-256 相符 | 通過 | 21 passed | PEDITOR_SMOKE_OK，169.9 MiB |
+| test (macos-15) | macOS 15 arm64，Python 3.13.15 | SHA-256 相符 | 通過 | 通過（job success） | PEDITOR_SMOKE_OK，151.7 MiB |
+
+合成 fixture 在 Windows、macOS 與 Linux 重產的位元組皆與提交檔相同（`test_generator_reproduces_committed_bytes`）。
 
 ## 5. 真修改證據
 
@@ -90,7 +97,9 @@ CI：見 §10（推送後回填 run 編號與雙平台結果）。
 - §8.2 視覺門檻「P0／P2 以基準實測後鎖定」：P0 無編輯引擎可量測，NOT RUN，於 P2 鎖定（X-05）。
 - MuPDF 1.28 `subset_fonts()` 無法子集化 CFF 字型（Noto Sans TC），fixture 改以 fontTools 預先子集化；P2 模式 B 須沿用（ADR-0008）。
 - Noto Serif TC 為 variable font，ReportLab 嵌入預設 instance（ExtraLight），字形偏細但不影響測試。
-- smoke build 未瘦身（Windows 168 MiB、macOS 149.5 MiB），P8 處理。
+- smoke build 未瘦身（run 38228037824：Windows 169.9 MiB、macOS 151.7 MiB），P8 處理。
+- 「不可改動區域」目前為文字描述（如「頁面其餘內容」）；P2 以 EditPlan 的 allowed_change_mask 轉為座標遮罩（spec §8.2「遮罩由預先 manifest／EditPlan 決定」）。
+- fixture 原有 qpdf warning：合成 support／readonly 樣本皆為 0（`test_support_and_readonly_fixtures_pass_qpdf_check`）；人工樣本登記時須記錄，P1 加入欄位。
 
 ## 8. 安全審查
 
@@ -120,7 +129,7 @@ CI：見 §10（推送後回填 run 編號與雙平台結果）。
 
 ## 10. 關卡結果
 
-- CI：見下方（推送後回填）
+- CI：run 38228037824 雙平台通過
 - **關卡結果：BLOCKED**（Claude Code 負責項目已完成；G0-05 Windows 實機、G0-06 macOS（ADR-0003 待確認）、G0-11／G0-12 人工審查未完成）
 - **下一段可開始：否**。條件：G0-05 PASS、ADR-0003 接受、人工審查 G0-11／G0-12。人工 fixture 可與 P1 並行，但須在 P1 驗收前完成。
 
@@ -128,4 +137,15 @@ CI：見 §10（推送後回填 run 編號與雙平台結果）。
 
 第一輪（2026-10-12，計畫書版 P0）：子代理人核對發現 8 項不一致，已全部修正（CI run 取消、smoke 大小重複計算、威脅排序、T4 狀態、repo 可見度敘述、追溯表缺漏、理由碼性質測試、PySide6 三選一授權）。
 
-第二輪（規格 v1.1 版 P0）：見下方（核對後回填）。
+第二輪（2026-10-12，規格 v1.1 版 P0）：結論為 fixture hash、群組數、盲測、理由碼性質、bbox、manual-steps 皆一致；發現並已修正：
+
+| # | 發現 | 處理 |
+| --- | --- | --- |
+| 1 | 報告寫 CI 證據時新 commit 尚無 CI run | 回填 run 38228037824 結果（§4） |
+| 2 | smoke 大小來自舊 run | 改用新 run 數字 |
+| 3 | spec 正文直接改寫 G0 停止條件，但 ADR-0003 仍為提議 | 正文恢復 v1.0 原句，修訂只留附錄 A4 |
+| 4 | 「可重現 ≥20」測試只數 available | 改為只計 deterministic 樣本 |
+| 5 | 座標原點未寫明為 CropBox 左上角（L01） | schema 與產生器說明補上 |
+| 6 | 追溯表缺 G4 中文字型、§7 四個錯誤碼 | 補 G4-07、X-06～X-10 |
+| 7 | CLAUDE.md、pyproject 殘留舊路徑 | 修正 |
+| 8 | 「不可改動區域」非座標、缺 qpdf warning 欄 | 列入 §7 限制，P1／P2 處理 |

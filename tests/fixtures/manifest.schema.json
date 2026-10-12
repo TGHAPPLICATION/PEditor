@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "peditor/tests/fixtures/manifest.schema.json",
   "title": "PEditor fixture manifest row（spec §5）",
-  "description": "manifest.csv 每一列（csv.DictReader 讀成字串字典）須符合本 schema。座標慣例：未旋轉頁面空間、左上原點、y 向下、單位 pt；格式 x0,y0,x1,y1。",
+  "description": "manifest.csv 每一列（csv.DictReader 讀成字串字典）須符合本 schema。座標慣例：PyMuPDF 頁面座標，即未旋轉頁面空間、以 CropBox 左上角為原點、y 向下、單位 pt（CropBox 非零原點時與 PDF user space 有位移，如 L01）；格式 x0,y0,x1,y1。",
   "type": "object",
   "additionalProperties": false,
   "required": ["fixture_id", "group", "sha256", "generator", "generator_version", "fonts", "expected",

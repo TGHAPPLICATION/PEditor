@@ -46,7 +46,7 @@ uv run peditor                         # 啟動 app
 - 不得自動上傳 PDF、安裝 telemetry、加入線上服務。
 
 - 不在主行程（UI 行程）以 PyMuPDF／pikepdf 開啟使用者 PDF；一律經 worker（P1 起）。
-- 產品程式碼（`src/`）不得匯入任何網路模組（`tests/test_offline_guard.py` 會擋）。
+- 產品程式碼（`src/`）不得匯入任何網路模組（`tests/security/test_offline_guard.py` 會擋）。
 - 不提交真實公文、個資或非 OFL／非可再散布字型的 fixture；盲測樣本（B01–B12）不進 repo。
 - 日誌與錯誤訊息不得包含文件原文或完整檔案路徑。
 - 不升級相依版本、不改 `tool.uv.exclude-newer`，除非有對應 ADR 並跑完整 fixture 回歸。

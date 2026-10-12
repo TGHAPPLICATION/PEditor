@@ -6,8 +6,8 @@
 - 除加密樣本外，同一套鎖定版本下重跑位元組相同；產出提交於 tests/fixtures/files/，
   manifest 記錄 SHA-256（G0：fixture hash 可驗證）。
 
-座標慣例（manifest 的 bbox_pt／editable_region_pt）：未旋轉頁面空間、左上原點、
-y 向下、單位 pt（即 PyMuPDF 在 /Rotate=0 時的頁面座標）。
+座標慣例（manifest 的 bbox_pt／editable_region_pt）：PyMuPDF 頁面座標，即未旋轉頁面空間、
+以 CropBox 左上角為原點、y 向下、單位 pt。
 
 用法：
   uv run python scripts/fetch_fonts.py          # 先取得字型

@@ -22,11 +22,11 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | G0-10 | §6 G0 | fixture hash 可驗證 | `tests/unit/test_manifest.py::test_committed_fixture_hashes_match_manifest`、`::test_no_unlisted_files_in_fixture_dir` | 全部 available | PASS |
 | G0-11 | §6 G0 | 沒有正式 PDF（只有合成資料） | `scripts/gen_fixtures.py` 合成內容；人工 fixture 依 manual-steps §3 規則；人工審查 | 全部 | MANUAL |
 | G0-12 | §6 G0 | 每個需求指定 test ID | 本表 | — | MANUAL |
-| G0-13 | §6 G0 | 嚴格 A 或允許 A/B 已記錄 | `docs/adr/0001-edit-semantics.md` | — | PASS（已確認：允許 A/B） |
+| G0-13 | §3、§6 G0 | 嚴格 A 或允許 A/B 已記錄 | `docs/adr/0001-edit-semantics.md` | — | PASS（已確認：允許 A/B） |
 | G0-14 | §2 | LICENSE、THIRD_PARTY_NOTICES、SBOM 草案 | `LICENSE`、`THIRD_PARTY_NOTICES.md`、`packaging/sbom/sbom-runtime.cdx.json` | — | PASS（草案） |
 | G0-15 | §5 | fixture 預期性質正確（雙引擎擷取、qpdf、理由碼性質） | `tests/integration/test_fixtures.py::test_support_text_targets_found_by_both_engines`、`::test_support_and_readonly_fixtures_pass_qpdf_check`、`::test_reject_fixtures_have_stated_property`、`::test_mode_a_targets_have_new_glyphs_in_original_subset`、`::test_shared_image_fixtures` | 21 份合成 | PASS |
 | G0-16 | §1、P7 | 產品程式碼無網路模組（離線靜態護欄） | `tests/security/test_offline_guard.py::test_no_network_imports_in_product_code` | — | PASS |
-| G0-17 | §5 | 字型授權與來源可驗證 | `scripts/fetch_fonts.py`（SHA-256）、`tests/fixtures/fonts/LICENSE-*.txt`、ADR-0008 | — | PASS |
+| G0-17 | §2、§5 | 字型授權與來源可驗證 | `scripts/fetch_fonts.py`（SHA-256）、`tests/fixtures/fonts/LICENSE-*.txt`、ADR-0008 | — | PASS |
 
 ## G1：只讀分析器與能力判定（P1）
 
@@ -84,6 +84,7 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | G4-03 | G4 | 中文路徑、空白檔名、emoji 路徑 | `tests/gui/test_paths.py::test_unicode_paths` | T01 | PLANNED |
 | G4-04 | G4 | 取消不提交 | `tests/gui/test_e2e.py::test_cancel_does_not_commit` | T01 | PLANNED |
 | G4-05 | G4 | 不可編輯物件顯示原因 | `tests/gui/test_e2e.py::test_reason_shown_for_uneditable` | F05、U01 | PLANNED |
+| G4-07 | G4 | 中文字型正確顯示（UI 與預覽） | `tests/gui/test_fonts.py::test_cjk_font_rendering` + 實機人工 | T01、B02 | PLANNED |
 | G4-06 | P4 | Ctrl／Cmd 快捷鍵；worker 不阻塞 UI（≤100 ms） | `tests/gui/test_shortcuts.py::test_platform_shortcuts`、`tests/gui/test_responsiveness.py::test_ui_not_blocked` | T01 | PLANNED |
 
 ## G5：圖片替換（P5）
@@ -134,4 +135,9 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | X-02 | §8.3 | 50 次循環 worker 峰值 ≤2 GB、無單調洩漏 | `tests/perf/test_memory.py` | PLANNED |
 | X-03 | §8.4 | 錯誤標成可編輯率 = 0%；盲測誤判即回歸 | `tests/integration/test_analyzer.py::test_no_false_editable` | PLANNED |
 | X-04 | §8.4 | core 分支覆蓋率目標 85%（輔助） | `pytest --cov=peditor.core`（P1 起加入） | PLANNED |
+| X-06 | §7 | SHARED_RESOURCE_UNSAFE：共享資源無法安全 copy-on-write 時拒絕 | `tests/integration/test_edit_image.py::test_shared_resource_unsafe_rejected` | PLANNED |
+| X-07 | §7 | VALIDATION_FAILED：輸出驗證失敗不落地 | `tests/integration/test_transaction.py::test_validation_failed_no_output` | PLANNED |
+| X-08 | §7 | SAVE_FAILED：寫入失敗回報且原檔不變 | `tests/integration/test_crash_injection.py::test_save_failed_reported` | PLANNED |
+| X-09 | §7 | CANCELLED：預覽／長操作可取消 | `tests/integration/test_api_contract.py::test_cancel_returns_cancelled` | PLANNED |
+| X-10 | §7 | 錯誤包含可讀說明與是否可重試 | `tests/unit/test_errors.py::test_error_has_message_and_retryable` | PLANNED |
 | X-05 | §8.2 | 視覺門檻於 P0／P2 以基準實測後鎖定，修改須 ADR | P2 基準報告 | PLANNED（P0 NOT RUN：尚無編輯引擎可量測） |

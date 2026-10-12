@@ -41,9 +41,10 @@ def test_at_least_12_blind_fixtures_kept_offline(manifest_rows):
         assert not (FIXTURES / "files" / f"{row['fixture_id']}.pdf").exists(), row["fixture_id"]
 
 
-def test_first_batch_has_20_reproducible_fixtures_from_two_generators(available_rows):
-    assert len(available_rows) >= 20
-    assert len({r["generator"].split("+")[0] for r in available_rows}) >= 2
+def test_first_batch_has_20_reproducible_fixtures_from_two_generators(gen_fixtures):
+    reproducible = [f for f in gen_fixtures.SYNTHETIC if f.deterministic]
+    assert len(reproducible) >= 20
+    assert len({f.generator.split("+")[0] for f in reproducible}) >= 2
 
 
 def test_committed_fixture_hashes_match_manifest(available_rows):
