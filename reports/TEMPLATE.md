@@ -1,48 +1,53 @@
 # Pn 關卡報告：<主題>
 
-- 分支／commit：`<branch>` @ `<sha>`
-- 期間：YYYY-MM-DD ～ YYYY-MM-DD（實際工作天：N；計畫：N）
+> 依 spec §11 範本。未執行項目標 `NOT RUN`，不得以推測填 PASS；CI 證據與實機證據分開記錄。
+
+## 1. 階段／commit／日期
+
+- 階段：Pn　commit：`<sha>`　日期：YYYY-MM-DD
 - 撰寫：Claude Code；審查：<工程師>；獨立核對：<子代理人／日期>
 
-## 1. 結論
+## 2. 環境
 
-<一句話：通過／有條件通過／未通過，及主因>
-
-## 2. 關卡條文逐項
-
-| 條文 | 證據（test ID／檔案／CI run） | 環境 | 結果 |
+| 環境 | OS／架構 | 硬體 | Python／套件／字型版本 |
 | --- | --- | --- | --- |
-| Gn-1 | | Windows 實機／macOS 實機／CI windows／CI macos | PASS／FAIL／NOT RUN（原因） |
+| Windows 實機 | | | |
+| macOS 實機 | | | |
+| CI windows | | | |
+| CI macos | | | |
 
-環境欄必須區分「實機」與「CI」；CI 證據不得寫成實機證據（ADR-0003）。
+## 3. 需求 → test ID → fixture／hash → 結果
 
-## 3. 變更摘要
+| 需求 ID | test ID | fixture（hash 前 12 碼） | 環境 | 結果 |
+| --- | --- | --- | --- | --- |
+| Gn-01 | | | | PASS／FAIL／NOT RUN |
 
-<主要檔案與理由；不相關的變更不得出現>
-
-## 4. 測試結果
+## 4. 執行命令、exit code、測試數
 
 ```
-<pytest 摘要；CI run 連結>
+<命令>  → exit <code>，<N> passed
 ```
 
-## 5. 安全審查
+## 5. 真修改證據
 
-<vuln-scan／triage 結果摘要，或 NOT RUN 與理由；THREAT_MODEL.md 是否更新>
+<證據路徑、雙引擎擷取結果、視覺差異；本段無編輯時寫「不適用」>
 
-## 6. 不確定性與假設（S5）
+## 6. 資料完整性與資源／出站紀錄
+
+## 7. 限制、阻擋、未測項目
+
+## 8. 安全審查
+
+<vuln-scan／triage 摘要或 NOT RUN 理由；THREAT_MODEL.md 是否更新>
+
+## 9. 不確定性與人工確認項目
 
 | # | 內容 | 影響 | 需誰確認 |
 | --- | --- | --- | --- |
 
-## 7. 需人工確認事項
+## 10. 關卡結果
 
-- [ ] ...
+- 關卡結果：PASS／BLOCKED
+- 下一段可開始：是／否（條件）
 
-## 8. 用量與校準
-
-<Claude 用量、實際 vs 計畫工作天；偏差 > 30% 須提出重排>
-
-## 9. 交接備註
-
-<下一段開工需要知道的事>
+## 11. 獨立核對紀錄

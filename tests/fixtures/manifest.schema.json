@@ -1,37 +1,45 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "peditor/tests/fixtures/manifest.schema.json",
-  "title": "PEditor fixture manifest row",
-  "description": "manifest.csv 每一列（以 csv.DictReader 讀成字串字典）須符合本 schema。",
+  "title": "PEditor fixture manifest row（spec §5）",
+  "description": "manifest.csv 每一列（csv.DictReader 讀成字串字典）須符合本 schema。座標慣例：未旋轉頁面空間、左上原點、y 向下、單位 pt；格式 x0,y0,x1,y1。",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "group", "source", "generator", "expected", "reason", "phase", "blind", "storage", "status", "notes"],
+  "required": ["fixture_id", "group", "sha256", "generator", "generator_version", "fonts", "expected",
+               "reason_code", "page_index", "target", "bbox_pt", "original_text", "new_text",
+               "editable_region_pt", "protected_region", "blind", "storage", "status", "notes"],
   "properties": {
-    "id": {"type": "string", "pattern": "^(S|H|B)[0-9]{2}$", "description": "S=合成、H=人工產生、B=盲測"},
-    "group": {
-      "enum": ["latin", "cjk", "mixed", "layout", "table", "occurrence", "perf",
-               "reject-no-text", "reject-encrypted", "reject-broken", "reject-unsupported"]
+    "fixture_id": {"type": "string", "pattern": "^[TFLIBUS][0-9]{2}$", "description": "群組字母 + 序號（spec §5）"},
+    "group": {"enum": ["T 基礎文字", "F 字型與編碼", "L 幾何與背景", "I 圖片", "B 表格", "U 特殊文件", "S 損毀與惡意"]},
+    "sha256": {"type": "string", "pattern": "^([0-9a-f]{64})?$"},
+    "generator": {"enum": ["pymupdf", "reportlab", "pymupdf+pikepdf", "word", "libreoffice", "other", "script-p7"]},
+    "generator_version": {"type": "string"},
+    "fonts": {"type": "string"},
+    "expected": {"enum": ["support", "reject", "readonly"], "description": "精確可編輯清單於 P2 前鎖定（spec §5）"},
+    "reason_code": {
+      "enum": ["", "UNSUPPORTED_ENCODING", "UNSUPPORTED_LAYOUT", "GLYPH_MISSING", "TEXT_OVERFLOW",
+               "SHARED_RESOURCE_UNSAFE", "SIGNED_DOCUMENT", "ENCRYPTED_DOCUMENT", "RESOURCE_LIMIT",
+               "NO_TEXT_LAYER", "MALFORMED_DOCUMENT", "ACTIVE_CONTENT", "UNSUPPORTED_FEATURE"],
+      "description": "spec §7 錯誤碼；後四個為 ADR-0007 提議補充"
     },
-    "source": {"enum": ["synthetic-pymupdf", "word", "libreoffice", "other"]},
-    "generator": {"type": "string", "pattern": "^([a-z0-9_]+)?$", "description": "scripts/gen_fixtures.py 中的函式名；非合成時留空"},
-    "expected": {"enum": ["support", "reject"]},
-    "reason": {
-      "enum": ["", "font_not_embedded", "no_text_layer", "encrypted", "malformed", "not_pdf",
-               "form_fields", "invisible_text", "signed"]
-    },
-    "phase": {"enum": ["P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8"], "description": "第一個使用此樣本的關卡"},
+    "page_index": {"type": "string", "pattern": "^([0-9]+)?$"},
+    "target": {"type": "string", "pattern": "^(|text|image#[0-9]+|cell\\([0-9]+,[0-9]+\\))$"},
+    "bbox_pt": {"type": "string", "pattern": "^(|-?[0-9.]+,-?[0-9.]+,-?[0-9.]+,-?[0-9.]+)$"},
+    "original_text": {"type": "string"},
+    "new_text": {"type": "string"},
+    "editable_region_pt": {"type": "string", "pattern": "^(|-?[0-9.]+,-?[0-9.]+,-?[0-9.]+,-?[0-9.]+)$"},
+    "protected_region": {"type": "string"},
     "blind": {"enum": ["true", "false"]},
-    "storage": {"enum": ["generated", "repo", "offline"], "description": "generated=CI 現場產生；repo=提交於 tests/fixtures/files；offline=人工保管不進 repo"},
+    "storage": {"enum": ["repo", "offline"], "description": "repo=tests/fixtures/files/<id>.pdf；offline=人工保管不進 repo"},
     "status": {"enum": ["available", "pending"]},
     "notes": {"type": "string"}
   },
   "allOf": [
-    {"if": {"properties": {"source": {"const": "synthetic-pymupdf"}}},
-     "then": {"properties": {"generator": {"minLength": 1}, "storage": {"const": "generated"}}}},
-    {"if": {"properties": {"blind": {"const": "true"}}},
-     "then": {"properties": {"storage": {"const": "offline"}}}},
-    {"if": {"properties": {"expected": {"const": "reject"}}},
-     "then": {"properties": {"reason": {"minLength": 1}}},
-     "else": {"properties": {"reason": {"const": ""}}}}
+    {"if": {"properties": {"blind": {"const": "true"}}}, "then": {"properties": {"storage": {"const": "offline"}}}},
+    {"if": {"properties": {"expected": {"const": "support"}}},
+     "then": {"properties": {"reason_code": {"const": ""}}},
+     "else": {"properties": {"reason_code": {"minLength": 1}}}},
+    {"if": {"properties": {"status": {"const": "available"}}},
+     "then": {"properties": {"sha256": {"minLength": 64}, "generator_version": {"minLength": 1}}}}
   ]
 }

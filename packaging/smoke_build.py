@@ -1,7 +1,7 @@
 """G0 smoke build：以 PyInstaller 打包 onedir，並執行打包結果的 --smoke。
 
 只證明「相依可被凍結並在目標平台啟動」；正式打包（DMG、簽章、SBOM）在 P8。
-用法：uv run --group build python scripts/smoke_build.py
+用法：uv run python packaging/smoke_build.py
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ def main() -> int:
             "--workpath", str(WORK),
             "--specpath", str(WORK),
             "--paths", str(ROOT / "src"),
-            str(ROOT / "scripts" / "pyinstaller_entry.py"),
+            str(ROOT / "packaging" / "pyinstaller_entry.py"),
         ],
         check=True,
     )  # fmt: skip

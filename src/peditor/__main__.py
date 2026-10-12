@@ -37,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(_versions(), ensure_ascii=False))
         return 0
 
-    from peditor.app import run
+    from peditor.ui.app import run
 
     return run(smoke=args.smoke, versions=_versions() if args.smoke else None)
 

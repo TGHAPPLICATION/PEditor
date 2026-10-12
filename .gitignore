@@ -10,10 +10,12 @@ __pycache__/
 build/
 dist/
 
-# 產生的 fixture（CI 現場產生）與不得入庫的樣本
-tests/fixtures/generated/
+# 不得入庫的樣本與下載的字型（以 scripts/fetch_fonts.py 取得）
 tests/fixtures/offline/
 *.blind.pdf
+tests/fixtures/fonts/*.otf
+tests/fixtures/fonts/*.ttf
+tests/fixtures/fonts/*.part
 
 # 本機與 IDE
 .DS_Store

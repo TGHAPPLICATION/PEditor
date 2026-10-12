@@ -1,8 +1,9 @@
 """離線原則的靜態護欄：產品原始碼不得匯入網路模組（P7 再以實機監測驗證）。"""
 
 import ast
+from pathlib import Path
 
-from conftest import ROOT
+ROOT = Path(__file__).resolve().parents[2]
 
 FORBIDDEN = {
     "socket",

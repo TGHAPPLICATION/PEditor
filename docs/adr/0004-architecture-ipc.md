@@ -17,12 +17,23 @@ PDF 為不可信輸入；MuPDF、qpdf 為 C/C++ 程式庫，歷年有記憶體�
 
 ## 決策
 
-採選項 2：
+採選項 2，依 spec §2 分層：Qt UI → DocumentService → EditPlanner → 隔離的 PDF worker → Validator → ExportService。
+
+| 層 | 位置 | 說明 |
+| --- | --- | --- |
+| UI | `src/peditor/ui/` | 只呼叫 typed API，不拼接 PDF 指令 |
+| DocumentService、EditPlanner、Validator | `src/peditor/core/` | spec §7 API；每份文件串行修改 |
+| worker | `src/peditor/worker/` | 唯一開啟使用者 PDF 的程序 |
+| ExportService | `src/peditor/export/` | 完整另存、原子 rename（P3） |
+
 
 - **主行程**（PySide6 UI）不 import PyMuPDF／pikepdf 處理使用者檔案；只顯示 worker 回傳的資料
   （頁面點陣圖、文字框、capability report）。
 - **worker**：`python -m peditor.worker`（打包後為同一執行檔的子命令），以 `subprocess` 啟動，
   stdin/stdout 傳 JSON Lines，每則訊息有長度上限與逾時；stderr 只寫不含原文的診斷碼。
+- 每個請求含 `request_id`、`protocol_version`、`document_id`、`expected_revision`、`operation`（spec §7）；
+  不傳任意 shell 指令或任意系統路徑（輸出用 `destination_token`）。
+- worker 隔離故障不等於 OS 沙箱；OS 權限限制於 P7 評估（spec §2、P7）。
 - worker 崩潰或逾時 → 主行程終止並重啟 worker，回報「檔案無法處理」，不影響其他已開啟檔案。
 - 資源限制（記憶體、CPU 時間、頁數、物件數）於 P7 加上；P1 先預留設定點。
 - 儲存：worker 寫入暫存檔 → 主行程驗證 → 原子取代（P3 儲存交易）。

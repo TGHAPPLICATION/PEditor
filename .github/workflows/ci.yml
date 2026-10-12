@@ -1,5 +1,5 @@
 # G0 證據：Windows x64 與 macOS arm64 的測試與 smoke build（ADR-0003）。
-# 公開 repo 的標準 runner 免費；repo 若維持 internal/private 則消耗組織 Actions 分鐘數（reports/P0.md U2）。
+# repo 已公開，GitHub 標準 runner 免費。
 # 第三方 action 一律以 commit SHA 鎖定。
 name: ci
 
@@ -39,6 +39,15 @@ jobs:
           enable-cache: true
       - name: Install (locked)
         run: uv sync --locked --all-groups
+      - name: Fonts cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            tests/fixtures/fonts/*.otf
+            tests/fixtures/fonts/*.ttf
+          key: fonts-${{ hashFiles('tests/fixtures/fonts/fonts.json') }}
+      - name: Fetch fixture fonts (pinned commit + SHA-256)
+        run: uv run python scripts/fetch_fonts.py
       - name: Platform info
         run: uv run python -c "import platform, sys; print(platform.platform(), platform.machine(), sys.version)"
       - name: Lint
@@ -48,4 +57,4 @@ jobs:
       - name: Tests
         run: uv run pytest
       - name: Smoke build (PyInstaller onedir)
-        run: uv run python scripts/smoke_build.py
+        run: uv run python packaging/smoke_build.py

@@ -6,7 +6,7 @@
 
 ## 背景
 
-目前沒有 macOS 實機。原規格 G0 停止條件為「沒有 macOS 實機可驗證」，照字面 P0 即須停止。
+目前沒有 macOS 實機。spec §6 P0 停止條件為「沒有 macOS 實機可驗證」，G0 要求「Windows 11 x64 與 macOS Apple Silicon 均啟動」，照字面 P0 即須停止。
 
 ## 選項
 

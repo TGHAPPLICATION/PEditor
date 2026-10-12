@@ -4,7 +4,7 @@
 
 PEditor 是在 Windows x64 與 macOS arm64 上執行的離線桌面 PDF 文字編輯器，供機關承辦人修改既有 PDF 內文字（含繁體中文子集字型）並保留排版。以 Python 3.13 + PySide6（Qt 6）實作 UI，PDF 解析與改寫使用 PyMuPDF（MuPDF，C）與 pikepdf（qpdf，C++）。產品不需也不應有任何網路連線。
 
-使用者開啟的 PDF 來源不受控（公文附件、外部來函、下載檔），因此 PDF 一律視為不可信輸入。依 ADR-0004，解析在獨立 worker 子行程進行，主行程只處理 worker 回傳的結構化資料；儲存以暫存檔 + 原子取代完成。產品規劃以 AGPL-3.0 開源；GitHub repo 目前為 internal，公開與否待機關確認（reports/P0.md U2），本模型以「原始碼與 CI 日誌可能公開」為前提。
+使用者開啟的 PDF 來源不受控（公文附件、外部來函、下載檔），因此 PDF 一律視為不可信輸入。依 ADR-0004，解析在獨立 worker 子行程進行，主行程只處理 worker 回傳的結構化資料；儲存以暫存檔 + 原子取代完成。產品以 AGPL-3.0 開源，GitHub repo 與 CI 日誌公開。
 
 P0 時點只有空白 UI、fixture 產生器與 CI；worker、IPC、編輯核心與儲存交易尚未實作，本模型描述的是目標架構，並於 P1、P3、P7 依實作更新。
 
@@ -70,7 +70,7 @@ P0 時點只有空白 UI、fixture 產生器與 CI；worker、IPC、編輯核心
 - mode: bootstrap
 - date: 2026-10-12
 - target: TGHAPPLICATION/PEditor @ P0（branch claude/compassionate-mayer-4gov5x）
-- inputs: 離線 PDF 編輯器執行計畫書 v1.1；docs/adr/0001–0005；skill 參考 anthropics/defending-code-reference-harness@d3bea6b
+- inputs: 規格 v1.1（docs/spec.md）；離線 PDF 編輯器執行計畫書 v1.1；docs/adr/0001–0008；skill 參考 anthropics/defending-code-reference-harness@d3bea6b
 - owner: unset
 
 ## 8. Recommended mitigations

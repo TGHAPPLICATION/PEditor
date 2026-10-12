@@ -3,7 +3,7 @@
 import subprocess
 import sys
 
-from peditor.app import SMOKE_MARKER, MainWindow
+from peditor.ui.app import SMOKE_MARKER, MainWindow
 
 
 def test_main_window_shows(qtbot):

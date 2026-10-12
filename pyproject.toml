@@ -22,6 +22,9 @@ dev = [
     "pytest-qt>=4.4",
     "ruff>=0.6",
     "jsonschema>=4.23",
+    "reportlab>=4.2",
+    "pypdfium2>=4.30",
+    "fonttools>=4.50",
 ]
 build = [
     "pyinstaller>=6.10",
@@ -52,3 +55,4 @@ ignore = ["S101"]  # 測試中允許 assert
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S603", "S607"]
 "scripts/**" = ["S603", "S607"]
+"packaging/**" = ["S603", "S607"]

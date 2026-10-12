@@ -20,8 +20,11 @@
 | 字型 | 授權 | 用途 |
 | --- | --- | --- |
 | Droid Sans Fallback（PyMuPDF 內建 `china-t`） | Apache-2.0 | 僅合成 fixture |
-| Noto Sans TC／Noto Serif TC | OFL-1.1 | 人工 fixture；模式 B 重繪候選（P2 決定） |
+| Noto Sans TC（noto-cjk@f8d1575）／Noto Serif TC（google/fonts@bd8f81d） | OFL-1.1 | fixture；模式 B 重建候選（ADR-0008） |
 
 ## 建置與開發工具（不隨產品散布）
 
-PyInstaller（GPL-2.0-or-later，含 bootloader 例外）、pytest、pytest-qt、ruff、jsonschema（MIT）。
+PyInstaller（GPL-2.0-or-later，含 bootloader 例外）、pytest、pytest-qt、ruff、jsonschema、fontTools（MIT）、
+ReportLab（BSD）、pypdfium2（Apache-2.0／BSD-3-Clause，含 PDFium）。
+
+SBOM 草案（僅執行期相依）：`packaging/sbom/sbom-runtime.cdx.json`。
