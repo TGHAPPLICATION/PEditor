@@ -50,6 +50,32 @@ def test_generated_fixtures_open_as_expected(gen_fixtures, generated_dir):
                 assert doc.page_count >= 1
 
 
+def _reject_property_holds(reason, doc):
+    page = doc[0]
+    if reason == "font_not_embedded":
+        return page.get_text().strip() and all(f[1] == "n/a" for f in doc.get_page_fonts(0))
+    if reason == "no_text_layer":
+        return not page.get_text().strip()
+    if reason == "encrypted":
+        return doc.needs_pass or doc.metadata.get("encryption")
+    if reason == "form_fields":
+        return doc.is_form_pdf
+    if reason == "invisible_text":
+        return page.get_text().strip() and b"3 Tr" in page.read_contents()
+    raise AssertionError(f"未處理的 reason：{reason}")
+
+
+def test_reject_fixtures_have_stated_property(gen_fixtures, generated_dir):
+    for row in gen_fixtures.synthetic_rows():
+        if row["expected"] != "reject" or row["reason"] in {"malformed", "not_pdf"}:
+            continue
+        with pymupdf.open(generated_dir / f"{row['id']}.pdf") as doc:
+            if doc.needs_pass:
+                assert row["reason"] == "encrypted", row["id"]
+                continue
+            assert _reject_property_holds(row["reason"], doc), row["id"]
+
+
 def test_generator_is_deterministic(gen_fixtures, generated_dir, tmp_path):
     gen_fixtures.generate(tmp_path)
     for row in gen_fixtures.synthetic_rows():

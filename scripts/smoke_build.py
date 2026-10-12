@@ -41,7 +41,8 @@ def main() -> int:
     if result.returncode != 0 or MARKER not in result.stdout:
         print(f"smoke build FAILED (exit {result.returncode})", file=sys.stderr)
         return 1
-    size = sum(f.stat().st_size for f in (DIST / "peditor").rglob("*") if f.is_file())
+    files = (DIST / "peditor").rglob("*")
+    size = sum(f.stat().st_size for f in files if f.is_file() and not f.is_symlink())
     print(f"smoke build OK, onedir size = {size / 1_048_576:.1f} MiB")
     return 0
 

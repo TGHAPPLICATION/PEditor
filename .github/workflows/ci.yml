@@ -1,5 +1,6 @@
 # G0 證據：Windows x64 與 macOS arm64 的測試與 smoke build（ADR-0003）。
-# 公開 repo 的標準 runner 免費。第三方 action 一律以 commit SHA 鎖定。
+# 公開 repo 的標準 runner 免費；repo 若維持 internal/private 則消耗組織 Actions 分鐘數（reports/P0.md U2）。
+# 第三方 action 一律以 commit SHA 鎖定。
 name: ci
 
 on:

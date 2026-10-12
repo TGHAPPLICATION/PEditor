@@ -4,7 +4,7 @@
 
 PEditor 是在 Windows x64 與 macOS arm64 上執行的離線桌面 PDF 文字編輯器，供機關承辦人修改既有 PDF 內文字（含繁體中文子集字型）並保留排版。以 Python 3.13 + PySide6（Qt 6）實作 UI，PDF 解析與改寫使用 PyMuPDF（MuPDF，C）與 pikepdf（qpdf，C++）。產品不需也不應有任何網路連線。
 
-使用者開啟的 PDF 來源不受控（公文附件、外部來函、下載檔），因此 PDF 一律視為不可信輸入。依 ADR-0004，解析在獨立 worker 子行程進行，主行程只處理 worker 回傳的結構化資料；儲存以暫存檔 + 原子取代完成。產品以 AGPL-3.0 開源，原始碼與 CI 日誌公開。
+使用者開啟的 PDF 來源不受控（公文附件、外部來函、下載檔），因此 PDF 一律視為不可信輸入。依 ADR-0004，解析在獨立 worker 子行程進行，主行程只處理 worker 回傳的結構化資料；儲存以暫存檔 + 原子取代完成。產品規劃以 AGPL-3.0 開源；GitHub repo 目前為 internal，公開與否待機關確認（reports/P0.md U2），本模型以「原始碼與 CI 日誌可能公開」為前提。
 
 P0 時點只有空白 UI、fixture 產生器與 CI；worker、IPC、編輯核心與儲存交易尚未實作，本模型描述的是目標架構，並於 P1、P3、P7 依實作更新。
 
@@ -38,13 +38,13 @@ P0 時點只有空白 UI、fixture 產生器與 CI；worker、IPC、編輯核心
 |---|---|---|---|---|---|---|---|---|---|
 | T1 | 惡意 PDF 經 MuPDF／qpdf 解析造成記憶體破壞並在使用者權限下執行程式碼 | remote_unauth | 開啟 PDF 檔 | 使用者主機, 使用者文件內容 | critical | likely | unmitigated | P0 僅有架構決策（ADR-0004 worker 隔離），尚未實作 | MuPDF 與 qpdf 歷年記憶體安全 CVE（P1 vuln-scan 時補 CVE 編號） |
 | T2 | 已被攻陷或異常的 worker 透過 IPC 送出畸形訊息，攻陷或癱瘓 UI 主行程 | remote_unauth | worker → 主行程 IPC | 使用者主機, 使用者文件內容 | critical | possible | unmitigated | ADR-0004：JSON Lines、長度上限、逾時（P1 實作） | |
-| T3 | 儲存中斷、崩潰或磁碟滿導致原 PDF 毀損或遺失 | local_user | 儲存 | 原始檔完整性 | high | likely | unmitigated | 規劃暫存檔 + 原子取代 + crash injection 測試（P3） | |
-| T4 | 模式 B 只覆蓋未移除，舊文字仍可被擷取，造成資訊外洩 | insider | 儲存 | 編輯正確性, 使用者文件內容 | high | possible | partially_mitigated | ADR-0001 要求證明舊內容已移除（G2 第 5 點） | |
-| T5 | 惡意 PDF 以資源耗盡（巨大頁數、壓縮炸彈、深層巢狀物件）癱瘓應用程式 | remote_unauth | 開啟 PDF 檔 | 使用者主機 | medium | likely | unmitigated | 規劃 worker 資源限制（P7） | |
 | T6 | 相依套件或 CI action 遭供應鏈攻擊，於建置或執行時植入惡意程式 | supply_chain | 相依套件與建置 | 發佈產物, 使用者主機 | critical | rare | partially_mitigated | uv.lock 雜湊鎖定、exclude-newer 冷卻期、Actions commit SHA 鎖定、contents: read 權限 | |
-| T7 | 產品或相依於執行時產生出站連線，破壞離線保證或外洩內容 | supply_chain | 相依套件與建置 | 離線保證, 使用者文件內容 | high | rare | partially_mitigated | test_offline_guard 禁止產品碼匯入網路模組；P7 實機零出站監測 | |
 | T8 | 竄改的安裝包或離線升級包被安裝至使用者主機 | supply_chain | 離線升級包 | 發佈產物, 使用者主機 | critical | rare | unmitigated | 規劃附 hash 發佈；簽章延至正式散布（P8） | |
+| T3 | 儲存中斷、崩潰或磁碟滿導致原 PDF 毀損或遺失 | local_user | 儲存 | 原始檔完整性 | high | likely | unmitigated | 規劃暫存檔 + 原子取代 + crash injection 測試（P3） | |
+| T4 | 模式 B 只覆蓋未移除，舊文字仍可被擷取，造成資訊外洩 | insider | 儲存 | 編輯正確性, 使用者文件內容 | high | possible | unmitigated | ADR-0001 要求證明舊內容已移除（G2 第 5 點，P2 實作） | |
 | T9 | 真實公文、個資或文件原文經 fixture、日誌、錯誤回報進入公開 repo 或 CI 日誌 | insider | 公開 repo 與 CI 日誌 | 使用者文件內容 | high | possible | partially_mitigated | 只放合成 fixture、盲測樣本離線保管、日誌不含原文與路徑（CLAUDE.md） | |
+| T7 | 產品或相依於執行時產生出站連線，破壞離線保證或外洩內容 | supply_chain | 相依套件與建置 | 離線保證, 使用者文件內容 | high | rare | partially_mitigated | test_offline_guard 禁止產品碼匯入網路模組；P7 實機零出站監測 | |
+| T5 | 惡意 PDF 以資源耗盡（巨大頁數、壓縮炸彈、深層巢狀物件）癱瘓應用程式 | remote_unauth | 開啟 PDF 檔 | 使用者主機 | medium | likely | unmitigated | 規劃 worker 資源限制（P7） | |
 | T10 | 特製路徑或檔名（路徑穿越、符號連結）使儲存覆寫非預期檔案 | local_user | 檔名與路徑 | 原始檔完整性 | medium | rare | unmitigated | 規劃儲存時解析實際路徑並驗證（P3） | |
 
 ## 5. Deprioritized
