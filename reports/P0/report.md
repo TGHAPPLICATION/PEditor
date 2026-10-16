@@ -12,7 +12,7 @@
 
 | 環境 | OS／架構 | 硬體 | Python／套件／字型版本 |
 | --- | --- | --- | --- |
-| Windows 實機 | NOT RUN（待人工，manual-steps §3） | — | — |
+| Windows 實機 | Windows 11 Pro 10.0.26200（build 26200）x64 | 11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz；RAM 15.8 GB | Python 3.13.16；uv 0.13.1；PySide6-Essentials 6.11.2；PyMuPDF 1.28.2；pikepdf 10.14.0；PyInstaller 6.22.3；字型 SHA-256 相符 |
 | macOS 實機 | NOT RUN（無實機，ADR-0003） | — | — |
 | CI windows | windows-latest（windows-2025）x64 | GitHub 標準 runner | Python 3.13.15；套件同下 |
 | CI macos | macos-15 arm64（macOS 15.7） | GitHub 標準 runner（M1） | Python 3.13.15；套件同下 |
@@ -32,7 +32,7 @@
 | G0-02 | 最小測試流程 | ci.yml job `test` | CI windows、CI macos | PASS（CI 證據） |
 | G0-03 | 空白 app 啟動 | `tests/gui/test_app_smoke.py`（2 項） | 容器 offscreen、CI 雙平台 offscreen | PASS |
 | G0-04 | 兩平台打包最小 Qt app | `packaging/smoke_build.py` | 容器、CI 雙平台 | PASS（CI 證據） |
-| G0-05 | Windows 11 x64 實機啟動 | manual-steps §3 | Windows 實機 | NOT RUN（待人工） |
+| G0-05 | Windows 11 x64 實機啟動 | manual-steps §3；`build/p0-check/summary.md`（2026-10-16，commit `7ca2eb3`） | Windows 實機 | PASS（操作者透過本機 Claude Code 執行 `scripts/p0_windows_check.ps1`，並以人工即時觀看確認 `uv run peditor` 與封裝後 `peditor.exe` 兩次視窗皆出現） |
 | G0-06 | macOS Apple Silicon 實機啟動 | ADR-0003：P0–P3 以 CI macos-15 arm64 替代 | macOS 實機 | NOT RUN（無實機）；依 ADR-0003（已接受）以 CI macos-15 arm64 證據替代至 P3 |
 | G0-07 | 60 份 manifest、群組 T12／F10／L8／I8／B8／U6／S8 | `tests/unit/test_manifest.py` | 容器、CI | PASS |
 | G0-08 | ≥12 盲測、不進 repo | 同上 `::test_at_least_12_blind_fixtures_kept_offline` | 容器、CI | PASS（結構）；製作 NOT RUN |
@@ -81,6 +81,23 @@ CI run [38228037824](https://github.com/TGHAPPLICATION/PEditor/actions/runs/3822
 
 合成 fixture 在 Windows、macOS 與 Linux 重產的位元組皆與提交檔相同（`test_generator_reproduces_committed_bytes`）。
 
+Windows 11 實機（G0-05，2026-10-16，commit `7ca2eb3`，`build/p0-check/summary.md`）：
+
+```
+uv sync --locked --all-groups            → exit 0（第1次因快取暫時性寫入衝突 os error 5 失敗，重試後成功）
+uv run python scripts/fetch_fonts.py     → exit 0（2 字型 SHA-256 相符）
+uv run ruff check .                      → exit 0
+uv run ruff format --check .             → exit 0
+uv run pytest                            → exit 0，21 passed
+uv run python packaging/smoke_build.py   → exit 0，PEDITOR_SMOKE_OK，onedir 161.0 MiB
+                                            （第1次因上次 sync 失敗漏裝 PyInstaller 而失敗，重跑 sync 後成功）
+視窗檢查                                  → uv run peditor：操作者確認視窗出現；
+                                            封裝後 peditor.exe：操作者確認視窗出現
+```
+
+第1次 `uv sync` 失敗為本機快取鎖定的暫時性問題（非程式問題），重跑後乾淨完成；因果與重試過程詳見
+`build/p0-check/summary.md` 附註。依 CLAUDE.md 規則，此處如實記錄首次失敗與重試，未以 CI 證據冒充實機證據。
+
 ## 5. 真修改證據
 
 不適用（P0 不實作編輯核心）。
@@ -122,7 +139,7 @@ CI run [38228037824](https://github.com/TGHAPPLICATION/PEditor/actions/runs/3822
 - [ ] GitHub：預設分支改 `main`、分支保護、secret scanning、Dependabot alerts、Actions 權限
 - [x] 確認 ADR-0003、0004、0006、0007、0008（2026-10-12 負責人接受）
 - [ ] 確認人工 fixture 預期值（I04、I07），P2 前鎖定
-- [ ] Windows 11 實機驗證（G0-05）
+- [x] Windows 11 實機驗證（G0-05，2026-10-16 PASS）
 - [ ] 製作 23 份人工 fixture 並登記
 - [ ] 盲測 12 份（由不參與實作者製作、離線保管）
 - [ ] Claude 用量一週紀錄
@@ -131,8 +148,8 @@ CI run [38228037824](https://github.com/TGHAPPLICATION/PEditor/actions/runs/3822
 ## 10. 關卡結果
 
 - CI：run 38228037824 雙平台通過
-- **關卡結果：BLOCKED**（Claude Code 負責項目已完成；ADR-0001～0008 已接受；尚缺 G0-05 Windows 實機、G0-11／G0-12 人工審查。G0-06 依 ADR-0003 以 CI 證據替代，實機延至 P4）
-- **下一段可開始：否**。條件：G0-05 Windows 實機 PASS、人工審查 G0-11／G0-12（可於本 PR 審查時完成）。人工 fixture 可與 P1 並行，但須在 P1 驗收前完成。
+- **關卡結果：BLOCKED**（Claude Code 負責項目已完成；ADR-0001～0008 已接受；G0-05 Windows 實機已於 2026-10-16 PASS；尚缺 G0-11／G0-12 人工審查。G0-06 依 ADR-0003 以 CI 證據替代，實機延至 P4）
+- **下一段可開始：否**。條件：人工審查 G0-11／G0-12（可於本 PR 審查時完成）。人工 fixture 可與 P1 並行，但須在 P1 驗收前完成。
 
 ## 11. 獨立核對紀錄
 
