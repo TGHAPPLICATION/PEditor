@@ -20,8 +20,8 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | G0-08 | §5 | 至少 12 份盲測，未用於實作調整、不進 repo | `tests/unit/test_manifest.py::test_at_least_12_blind_fixtures_kept_offline` | T10–T12、F09–F10、L08、I08、B07–B08、U06、S07–S08 | PASS（結構）；製作 NOT RUN |
 | G0-09 | §6 P0 | 至少 20 份可重現首批樣本，非單一產生器 | `tests/unit/test_manifest.py::test_first_batch_has_20_reproducible_fixtures_from_two_generators`、`tests/integration/test_fixtures.py::test_generator_reproduces_committed_bytes` | 21 份合成 | PASS |
 | G0-10 | §6 G0 | fixture hash 可驗證 | `tests/unit/test_manifest.py::test_committed_fixture_hashes_match_manifest`、`::test_no_unlisted_files_in_fixture_dir` | 全部 available | PASS |
-| G0-11 | §6 G0 | 沒有正式 PDF（只有合成資料） | `scripts/gen_fixtures.py` 合成內容；人工 fixture 依 manual-steps §3 規則；人工審查 | 全部 | MANUAL |
-| G0-12 | §6 G0 | 每個需求指定 test ID | 本表 | — | MANUAL |
+| G0-11 | §6 G0 | 沒有正式 PDF（只有合成資料） | `scripts/gen_fixtures.py` 合成內容；人工 fixture 依 manual-steps §4 規則；PR #1 審查（2026-10-16） | 全部 | PASS |
+| G0-12 | §6 G0 | 每個需求指定 test ID | 本表；PR #1 審查（2026-10-16） | — | PASS |
 | G0-13 | §3、§6 G0 | 嚴格 A 或允許 A/B 已記錄 | `docs/adr/0001-edit-semantics.md` | — | PASS（已確認：允許 A/B） |
 | G0-14 | §2 | LICENSE、THIRD_PARTY_NOTICES、SBOM 草案 | `LICENSE`、`THIRD_PARTY_NOTICES.md`、`packaging/sbom/sbom-runtime.cdx.json` | — | PASS（草案） |
 | G0-15 | §5 | fixture 預期性質正確（雙引擎擷取、qpdf、理由碼性質） | `tests/integration/test_fixtures.py::test_support_text_targets_found_by_both_engines`、`::test_support_and_readonly_fixtures_pass_qpdf_check`、`::test_reject_fixtures_have_stated_property`、`::test_mode_a_targets_have_new_glyphs_in_original_subset`、`::test_shared_image_fixtures` | 21 份合成 | PASS |
