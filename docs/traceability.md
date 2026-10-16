@@ -16,7 +16,7 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | G0-04 | §6 P0 | 兩平台打包最小 Qt app（smoke build） | `packaging/smoke_build.py`（CI 步驟 Smoke build） | — | PASS（本機）、CI |
 | G0-05 | §6 G0 | Windows 11 x64 實機啟動 | `scripts/p0_windows_check.ps1`（人工實機執行，manual-steps §3）；`build/p0-check/summary.md`（2026-10-16，commit `7ca2eb3`） | — | PASS |
 | G0-06 | §6 G0 | macOS Apple Silicon 實機啟動 | ADR-0003：P0–P3 以 CI macos-15 arm64 證據替代；實機用 `scripts/p0_macos_check.sh`（manual-steps §8） | — | NOT RUN（無實機） |
-| G0-07 | §5 | 60 份 fixture manifest，群組數 T12／F10／L8／I8／B8／U6／S8 | `tests/unit/test_manifest.py::test_manifest_has_60_fixtures_in_spec_groups`、`::test_manifest_rows_match_schema` | 全部 | PASS |
+| G0-07 | §5 | 61 份 fixture manifest，群組數 T12／F10／L8／I9／B8／U6／S8 | `tests/unit/test_manifest.py::test_manifest_has_61_fixtures_in_spec_groups`、`::test_manifest_rows_match_schema` | 全部 | PASS |
 | G0-08 | §5 | 至少 12 份盲測，未用於實作調整、不進 repo | `tests/unit/test_manifest.py::test_at_least_12_blind_fixtures_kept_offline` | T10–T12、F09–F10、L08、I08、B07–B08、U06、S07–S08 | PASS（結構）；製作 NOT RUN |
 | G0-09 | §6 P0 | 至少 20 份可重現首批樣本，非單一產生器 | `tests/unit/test_manifest.py::test_first_batch_has_20_reproducible_fixtures_from_two_generators`、`tests/integration/test_fixtures.py::test_generator_reproduces_committed_bytes` | 21 份合成 | PASS |
 | G0-10 | §6 G0 | fixture hash 可驗證 | `tests/unit/test_manifest.py::test_committed_fixture_hashes_match_manifest`、`::test_no_unlisted_files_in_fixture_dir` | 全部 available | PASS |
@@ -33,7 +33,7 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | 需求 ID | spec | 需求 | 預定 test ID | fixture | 狀態 |
 | --- | --- | --- | --- | --- | --- |
 | G1-01 | P1 | parser 在 worker 執行，主行程不開 PDF | `tests/security/test_worker_isolation.py::test_main_process_never_imports_pdf_libs_for_user_files` | 全部 | PLANNED |
-| G1-02 | G1 | 60 份全部分析或受控拒絕，不崩潰 | `tests/integration/test_analyzer.py::test_all_fixtures_analyzed_or_rejected` | 全部 | PLANNED |
+| G1-02 | G1 | 61 份全部分析或受控拒絕，不崩潰 | `tests/integration/test_analyzer.py::test_all_fixtures_analyzed_or_rejected` | 全部 | PLANNED |
 | G1-03 | G1 | 可編輯／不可編輯符合 manifest | `tests/integration/test_analyzer.py::test_capability_matches_manifest` | 全部 | PLANNED |
 | G1-04 | G1 | 座標 round-trip 誤差 ≤0.5 pt | `tests/unit/test_geometry.py::test_coordinate_round_trip_within_half_point` | L01、L02 | PLANNED |
 | G1-05 | G1 | 100／200% 縮放與 0／90／180／270° 旋轉命中正確 | `tests/unit/test_geometry.py::test_hit_test_zoom_and_rotation` | L02 | PLANNED |
@@ -91,10 +91,10 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 
 | 需求 ID | spec | 需求 | 預定 test ID | fixture | 狀態 |
 | --- | --- | --- | --- | --- | --- |
-| G5-01 | G5 | 宣告支援 I 案例全部通過 | `tests/integration/test_edit_image.py::test_all_supported_image_cases` | I01–I06 | PLANNED |
+| G5-01 | G5 | 宣告支援 I 案例全部通過 | `tests/integration/test_edit_image.py::test_all_supported_image_cases` | I01–I07 | PLANNED |
 | G5-02 | G5 | 同 xref 同頁／跨頁重用時只改選定 occurrence（copy-on-write） | `tests/integration/test_edit_image.py::test_only_selected_occurrence_changed` | I02、I03 | PLANNED |
 | G5-03 | G5 | 其他頁視覺不變；外框誤差 ≤0.5 pt | `tests/integration/test_edit_image.py::test_other_pages_unchanged_and_bbox` | I02 | PLANNED |
-| G5-04 | G5 | 拒絕非支援遮罩／剪裁；像素上限 | `tests/integration/test_edit_image.py::test_reject_unsupported_mask_clip` | I04、I07 | PLANNED |
+| G5-04 | G5 | 拒絕非支援遮罩／剪裁；像素上限 | `tests/integration/test_edit_image.py::test_reject_unsupported_mask_clip` | I09 | PLANNED |
 
 ## G6：既有規則表格儲存格（P6）
 
@@ -123,7 +123,7 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | --- | --- | --- | --- | --- | --- |
 | G8-01 | G8 | 乾淨 VM／實機無 Python、無網路可安裝並完成核心流程 | 實機人工 | T01 | PLANNED |
 | G8-02 | G8 | 兩種 PDF 閱讀器正常開啟輸出 | 實機人工 | T01–T04 | PLANNED |
-| G8-03 | G8 | 完整支援矩陣 100%；60 fixture 與 12 盲測結果 | `tests/integration/test_release_matrix.py` + 盲測人工 | 全部 | PLANNED |
+| G8-03 | G8 | 完整支援矩陣 100%；61 fixture 與 12 盲測結果 | `tests/integration/test_release_matrix.py` + 盲測人工 | 全部 | PLANNED |
 | G8-04 | G8 | 已知缺陷清單、SBOM、LICENSE、相依來源與版本、卸載／草稿清理說明 | 文件審查 | — | PLANNED |
 | G8-05 | P8 | 標明 macOS 最低支援版本 | 文件審查 | — | PLANNED |
 

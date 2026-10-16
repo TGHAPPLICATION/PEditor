@@ -34,7 +34,7 @@
 | G0-04 | 兩平台打包最小 Qt app | `packaging/smoke_build.py` | 容器、CI 雙平台 | PASS（CI 證據） |
 | G0-05 | Windows 11 x64 實機啟動 | manual-steps §3；`scripts/p0_windows_check.ps1` 輸出（轉錄於 §4；原檔 `build/p0-check/summary.md` 只在操作者本機，不入 repo）；PR #1 review 5545939500 | Windows 實機 | PASS（操作者透過本機 Claude Code 執行 `scripts/p0_windows_check.ps1`，並以人工即時觀看確認 `uv run peditor` 與封裝後 `peditor.exe` 兩次視窗皆出現） |
 | G0-06 | macOS Apple Silicon 實機啟動 | ADR-0003：P0–P3 以 CI macos-15 arm64 替代 | macOS 實機 | NOT RUN（無實機）；依 ADR-0003（已接受）以 CI macos-15 arm64 證據替代至 P3 |
-| G0-07 | 60 份 manifest、群組 T12／F10／L8／I8／B8／U6／S8 | `tests/unit/test_manifest.py` | 容器、CI | PASS |
+| G0-07 | 61 份 manifest、群組 T12／F10／L8／I9／B8／U6／S8 | `tests/unit/test_manifest.py` | 容器、CI | PASS |
 | G0-08 | ≥12 盲測、不進 repo | 同上 `::test_at_least_12_blind_fixtures_kept_offline` | 容器、CI | PASS（結構）；製作 NOT RUN |
 | G0-09 | ≥20 份可重現首批樣本、非單一產生器 | 21 份（PyMuPDF 14、ReportLab 5、PyMuPDF+pikepdf 1、加密 1）；`::test_generator_reproduces_committed_bytes` | 容器、CI 雙平台 | PASS |
 | G0-10 | fixture hash 可驗證 | `::test_committed_fixture_hashes_match_manifest` | 容器、CI | PASS |
@@ -112,7 +112,7 @@ uv run python packaging/smoke_build.py   → exit 0，PEDITOR_SMOKE_OK，onedir 
 ## 7. 限制、阻擋、未測項目
 
 - macOS 實機啟動 NOT RUN（G0-06，依 ADR-0003 以 CI 證據替代）。
-- 人工 fixture 23 份、盲測 12 份尚未製作（manifest `status=pending`）；S03–S06 於 P7 以腳本產生。
+- 人工 fixture 24 份、盲測 12 份尚未製作（manifest `status=pending`）；S03–S06 於 P7 以腳本產生。
 - §8.2 視覺門檻「P0／P2 以基準實測後鎖定」：P0 無編輯引擎可量測，NOT RUN，於 P2 鎖定（X-05）。
 - MuPDF 1.28 `subset_fonts()` 無法子集化 CFF 字型（Noto Sans TC），fixture 改以 fontTools 預先子集化；P2 模式 B 須沿用（ADR-0008）。
 - Noto Serif TC 為 variable font，ReportLab 嵌入預設 instance（ExtraLight），字形偏細但不影響測試。
@@ -134,15 +134,16 @@ uv run python packaging/smoke_build.py   → exit 0，PEDITOR_SMOKE_OK，onedir 
 | U2 | ADR-0006：第二解譯器用 PDFium 非 Poppler | §8.1 證據工具 | 已接受（2026-10-12） |
 | U3 | ADR-0007：新增 4 個理由碼；JS／附件預設拒絕；可修復損毀檔預設拒絕 | P1 能力判定基準 | 已接受（2026-10-12） |
 | U4 | ADR-0008：Noto Sans TC／Noto Serif TC | P2 模式 B 字型 | 已接受（2026-10-12） |
-| U5 | 人工 fixture 預期值（I04、I07 等）於 P2 前鎖定（spec §5） | P1／P2 驗收 | 工程師 |
+| U5 | 人工 fixture 預期值（I04、I07 等）於 P2 前鎖定（spec §5） | P1／P2 驗收 | 已決定（2026-10-16，ADR-0009） |
+| U6 | ADR-0009：I04／I07 改為 support、新增 I09 補位拒絕樣本；fixture 總數 60→61 | P5 支援矩陣、G0-07 計數 | 已接受（2026-10-16，工程師） |
 
 人工待辦（詳細步驟見 `reports/P0/manual-steps.md`）：
 
-- [ ] GitHub：預設分支改 `main`、分支保護、secret scanning、Dependabot alerts、Actions 權限（2026-10-16 查核：尚未生效，建議合併前完成）
+- [x] GitHub：預設分支改 `main`、分支保護、secret scanning、Dependabot alerts、Actions 權限（2026-10-16 已執行並以 `gh api` 驗證生效）
 - [x] 確認 ADR-0003、0004、0006、0007、0008（2026-10-12 負責人接受）
-- [ ] 確認人工 fixture 預期值（I04、I07），P2 前鎖定
+- [x] 確認人工 fixture 預期值（I04、I07），P2 前鎖定（2026-10-16，ADR-0009）
 - [x] Windows 11 實機驗證（G0-05，2026-10-16 PASS）
-- [ ] 製作 23 份人工 fixture 並登記
+- [ ] 製作 24 份人工 fixture 並登記
 - [ ] 盲測 12 份（由不參與實作者製作、離線保管）
 - [ ] Claude 用量一週紀錄
 - [ ] macOS 實機方案（11/16 前）
@@ -151,7 +152,7 @@ uv run python packaging/smoke_build.py   → exit 0，PEDITOR_SMOKE_OK，onedir 
 
 - CI：run 38882924296（commit `00288a3`）雙平台通過
 - **關卡結果：PASS**（除 G0-06 外，G0-01～G0-17 均有證據且結果為 PASS；G0-08 盲測結構 PASS、樣本製作排在 P2 前；G0-05 Windows 實機 2026-10-16 PASS；G0-11／G0-12 於 PR #1 審查通過（2026-10-16）；G0-06 依 ADR-0003 以 CI macos-15 arm64 證據替代，實機須於 P3 結束前取得方案、P4 起實測）
-- **下一段可開始：是**（P0 PR 合併後）。延續條件：23 份人工 fixture 須在 P1 驗收前登記；I04、I07 預期值須在 P2 前鎖定；12 份盲測須在 P2 開工前完成並離線保管；macOS 實機方案最晚 2026-11-16，屆時仍無方案則依 ADR-0003 觸發停止條件、交負責人決定。合併條件：PR 最新 commit 的雙平台 CI 通過；GitHub 設定（§9 第一項）建議於合併前完成，最晚 P1 開工前。
+- **下一段可開始：是**（P0 PR 合併後）。延續條件：24 份人工 fixture（含 ADR-0009 新增 I09）須在 P1 驗收前登記；12 份盲測須在 P2 開工前完成並離線保管；macOS 實機方案最晚 2026-11-16，屆時仍無方案則依 ADR-0003 觸發停止條件、交負責人決定。合併條件：PR 最新 commit 的雙平台 CI 通過；GitHub 設定（§9 第一項）建議於合併前完成，最晚 P1 開工前。I04、I07 預期值已於 2026-10-16 依 ADR-0009 鎖定，不再是延續條件。
 
 ## 11. 獨立核對紀錄
 
