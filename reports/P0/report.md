@@ -4,8 +4,8 @@
 
 ## 1. 階段／commit／日期
 
-- 階段：P0　分支：`claude/compassionate-mayer-4gov5x`　commit：`06b8e0e`（CI 證據）；本報告修正見 git log　日期：2026-10-12
-- 撰寫：Claude Code；審查：<工程師>；獨立核對：未參與實作的 Claude 子代理人（§11）
+- 階段：P0　分支：`claude/compassionate-mayer-4gov5x`　commit：`00288a3`（最後一次程式／腳本變更後的 CI 證據，§4）；之後的 commit 只改文件　日期：2026-10-12 起，2026-10-16 完成 Windows 實機驗證與審查
+- 撰寫：Claude Code；審查：tghtaipei（PR #1 review 5545939500，2026-10-16）；獨立核對：未參與實作的 Claude 子代理人（§11）
 - 輸入：規格 v1.0（已匯入為 `docs/spec.md` v1.1）、執行計畫書 v1.1；repo 已公開
 
 ## 2. 環境
@@ -32,7 +32,7 @@
 | G0-02 | 最小測試流程 | ci.yml job `test` | CI windows、CI macos | PASS（CI 證據） |
 | G0-03 | 空白 app 啟動 | `tests/gui/test_app_smoke.py`（2 項） | 容器 offscreen、CI 雙平台 offscreen | PASS |
 | G0-04 | 兩平台打包最小 Qt app | `packaging/smoke_build.py` | 容器、CI 雙平台 | PASS（CI 證據） |
-| G0-05 | Windows 11 x64 實機啟動 | manual-steps §3；`build/p0-check/summary.md`（2026-10-16，commit `7ca2eb3`） | Windows 實機 | PASS（操作者透過本機 Claude Code 執行 `scripts/p0_windows_check.ps1`，並以人工即時觀看確認 `uv run peditor` 與封裝後 `peditor.exe` 兩次視窗皆出現） |
+| G0-05 | Windows 11 x64 實機啟動 | manual-steps §3；`scripts/p0_windows_check.ps1` 輸出（轉錄於 §4；原檔 `build/p0-check/summary.md` 只在操作者本機，不入 repo）；PR #1 review 5545939500 | Windows 實機 | PASS（操作者透過本機 Claude Code 執行 `scripts/p0_windows_check.ps1`，並以人工即時觀看確認 `uv run peditor` 與封裝後 `peditor.exe` 兩次視窗皆出現） |
 | G0-06 | macOS Apple Silicon 實機啟動 | ADR-0003：P0–P3 以 CI macos-15 arm64 替代 | macOS 實機 | NOT RUN（無實機）；依 ADR-0003（已接受）以 CI macos-15 arm64 證據替代至 P3 |
 | G0-07 | 60 份 manifest、群組 T12／F10／L8／I8／B8／U6／S8 | `tests/unit/test_manifest.py` | 容器、CI | PASS |
 | G0-08 | ≥12 盲測、不進 repo | 同上 `::test_at_least_12_blind_fixtures_kept_offline` | 容器、CI | PASS（結構）；製作 NOT RUN |
@@ -72,7 +72,9 @@ uv run pytest                            → exit 0，21 passed（Linux 容器�
 uv run python packaging/smoke_build.py   → exit 0，PEDITOR_SMOKE_OK
 ```
 
-CI run [38228037824](https://github.com/TGHAPPLICATION/PEditor/actions/runs/38228037824)（commit `06b8e0e`）：
+最新 CI：run [38882924296](https://github.com/TGHAPPLICATION/PEditor/actions/runs/38882924296)（commit `00288a3`）雙平台通過；自 `7ca2eb3` 起 CI 改為執行 `scripts/p0_windows_check.ps1 -SkipLaunch`／`scripts/p0_macos_check.sh --skip-launch`，run [38874360160](https://github.com/TGHAPPLICATION/PEditor/actions/runs/38874360160) 的 Windows 摘要為 result PASS、21 passed、smoke 171.1 MiB。
+
+較早的完整數據，CI run [38228037824](https://github.com/TGHAPPLICATION/PEditor/actions/runs/38228037824)（commit `06b8e0e`）：
 
 | job | 平台 | 字型下載 | lint | pytest | smoke build |
 | --- | --- | --- | --- | --- | --- |
@@ -81,7 +83,7 @@ CI run [38228037824](https://github.com/TGHAPPLICATION/PEditor/actions/runs/3822
 
 合成 fixture 在 Windows、macOS 與 Linux 重產的位元組皆與提交檔相同（`test_generator_reproduces_committed_bytes`）。
 
-Windows 11 實機（G0-05，2026-10-16，commit `7ca2eb3`，`build/p0-check/summary.md`）：
+Windows 11 實機（G0-05，2026-10-16，commit `7ca2eb3`）。以下轉錄自操作者本機的 `build/p0-check/summary.md`（該檔在 `.gitignore` 內，未入 repo）；視窗是否出現只有操作者的人工確認，佐證為 PR #1 review 5545939500：
 
 ```
 uv sync --locked --all-groups            → exit 0（第1次因快取暫時性寫入衝突 os error 5 失敗，重試後成功）
@@ -109,7 +111,7 @@ uv run python packaging/smoke_build.py   → exit 0，PEDITOR_SMOKE_OK，onedir 
 
 ## 7. 限制、阻擋、未測項目
 
-- Windows／macOS 實機啟動 NOT RUN（G0-05、G0-06）。
+- macOS 實機啟動 NOT RUN（G0-06，依 ADR-0003 以 CI 證據替代）。
 - 人工 fixture 23 份、盲測 12 份尚未製作（manifest `status=pending`）；S03–S06 於 P7 以腳本產生。
 - §8.2 視覺門檻「P0／P2 以基準實測後鎖定」：P0 無編輯引擎可量測，NOT RUN，於 P2 鎖定（X-05）。
 - MuPDF 1.28 `subset_fonts()` 無法子集化 CFF 字型（Noto Sans TC），fixture 改以 fontTools 預先子集化；P2 模式 B 須沿用（ADR-0008）。
@@ -147,13 +149,15 @@ uv run python packaging/smoke_build.py   → exit 0，PEDITOR_SMOKE_OK，onedir 
 
 ## 10. 關卡結果
 
-- CI：run 38228037824 雙平台通過
+- CI：run 38882924296（commit `00288a3`）雙平台通過
 - **關卡結果：PASS**（除 G0-06 外，G0-01～G0-17 均有證據且結果為 PASS；G0-08 盲測結構 PASS、樣本製作排在 P2 前；G0-05 Windows 實機 2026-10-16 PASS；G0-11／G0-12 於 PR #1 審查通過（2026-10-16）；G0-06 依 ADR-0003 以 CI macos-15 arm64 證據替代，實機須於 P3 結束前取得方案、P4 起實測）
-- **下一段可開始：是**（P0 PR 合併後）。延續條件：23 份人工 fixture 須在 P1 驗收前登記；I04、I07 預期值須在 P2 前鎖定；12 份盲測須在 P2 開工前完成並離線保管；macOS 實機方案最晚 2026-11-16。
+- **下一段可開始：是**（P0 PR 合併後）。延續條件：23 份人工 fixture 須在 P1 驗收前登記；I04、I07 預期值須在 P2 前鎖定；12 份盲測須在 P2 開工前完成並離線保管；macOS 實機方案最晚 2026-11-16，屆時仍無方案則依 ADR-0003 觸發停止條件、交負責人決定。合併條件：PR 最新 commit 的雙平台 CI 通過；GitHub 設定（§9 第一項）建議於合併前完成，最晚 P1 開工前。
 
 ## 11. 獨立核對紀錄
 
 第一輪（2026-10-12，計畫書版 P0）：子代理人核對發現 8 項不一致，已全部修正（CI run 取消、smoke 大小重複計算、威脅排序、T4 狀態、repo 可見度敘述、追溯表缺漏、理由碼性質測試、PySide6 三選一授權）。
+
+第三輪（2026-10-16，合併前最終核對）：所有 G0 驗收條件皆有證據，PASS 成立；發現 5 項敘述問題並已修正：§7 仍寫 G0-05 NOT RUN、§1 日期與審查者為舊值、CI 證據非最新 commit、G0-05 證據來源（本機檔、人工確認）未寫明、延續條件缺合併條件與停止條件。
 
 第二輪（2026-10-12，規格 v1.1 版 P0）：結論為 fixture hash、群組數、盲測、理由碼性質、bbox、manual-steps 皆一致；發現並已修正：
 
