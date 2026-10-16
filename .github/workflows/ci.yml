@@ -48,13 +48,10 @@ jobs:
           key: fonts-${{ hashFiles('tests/fixtures/fonts/fonts.json') }}
       - name: Fetch fixture fonts (pinned commit + SHA-256)
         run: uv run python scripts/fetch_fonts.py
-      - name: Platform info
-        run: uv run python -c "import platform, sys; print(platform.platform(), platform.machine(), sys.version)"
-      - name: Lint
-        run: |
-          uv run ruff check .
-          uv run ruff format --check .
-      - name: Tests
-        run: uv run pytest
-      - name: Smoke build (PyInstaller onedir)
-        run: uv run python packaging/smoke_build.py
+      # 與人工實機驗證同一支腳本（manual-steps §3、§8），差別只在不開視窗
+      - name: P0 check script (Windows)
+        if: runner.os == 'Windows'
+        run: powershell -ExecutionPolicy Bypass -File scripts\p0_windows_check.ps1 -SkipLaunch
+      - name: P0 check script (macOS)
+        if: runner.os == 'macOS'
+        run: bash scripts/p0_macos_check.sh --skip-launch

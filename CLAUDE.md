@@ -29,6 +29,8 @@ uv run python scripts/fetch_fonts.py   # 下載 fixture 字型（鎖定 commit +
 uv run pytest                          # 全部測試（自動 offscreen）
 uv run python scripts/gen_fixtures.py  # 重產合成 fixture 到 tests/fixtures/files/ 並更新 manifest hash
 uv run python packaging/smoke_build.py # PyInstaller smoke build + 執行 --smoke
+powershell -ExecutionPolicy Bypass -File scripts\p0_windows_check.ps1   # Windows 實機一鍵驗證
+bash scripts/p0_macos_check.sh         # macOS 實機一鍵驗證
 uv run peditor                         # 啟動 app
 ```
 

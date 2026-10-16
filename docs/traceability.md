@@ -14,8 +14,8 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | G0-02 | §6 P0 | 最小測試流程（lint + pytest）在 Windows／macOS CI 執行 | `.github/workflows/ci.yml` job `test` | — | CI |
 | G0-03 | §6 P0 | 空白桌面 app 可啟動 | `tests/gui/test_app_smoke.py::test_main_window_shows`、`::test_cli_smoke_exits_zero` | — | PASS（本機）、CI |
 | G0-04 | §6 P0 | 兩平台打包最小 Qt app（smoke build） | `packaging/smoke_build.py`（CI 步驟 Smoke build） | — | PASS（本機）、CI |
-| G0-05 | §6 G0 | Windows 11 x64 實機啟動 | 人工：reports/P0/manual-steps.md §2 | — | NOT RUN（待人工） |
-| G0-06 | §6 G0 | macOS Apple Silicon 實機啟動 | ADR-0003：P0–P3 以 CI macos-15 arm64 證據替代 | — | NOT RUN（無實機） |
+| G0-05 | §6 G0 | Windows 11 x64 實機啟動 | `scripts/p0_windows_check.ps1`（人工實機執行，manual-steps §3） | — | NOT RUN（待人工） |
+| G0-06 | §6 G0 | macOS Apple Silicon 實機啟動 | ADR-0003：P0–P3 以 CI macos-15 arm64 證據替代；實機用 `scripts/p0_macos_check.sh`（manual-steps §8） | — | NOT RUN（無實機） |
 | G0-07 | §5 | 60 份 fixture manifest，群組數 T12／F10／L8／I8／B8／U6／S8 | `tests/unit/test_manifest.py::test_manifest_has_60_fixtures_in_spec_groups`、`::test_manifest_rows_match_schema` | 全部 | PASS |
 | G0-08 | §5 | 至少 12 份盲測，未用於實作調整、不進 repo | `tests/unit/test_manifest.py::test_at_least_12_blind_fixtures_kept_offline` | T10–T12、F09–F10、L08、I08、B07–B08、U06、S07–S08 | PASS（結構）；製作 NOT RUN |
 | G0-09 | §6 P0 | 至少 20 份可重現首批樣本，非單一產生器 | `tests/unit/test_manifest.py::test_first_batch_has_20_reproducible_fixtures_from_two_generators`、`tests/integration/test_fixtures.py::test_generator_reproduces_committed_bytes` | 21 份合成 | PASS |
