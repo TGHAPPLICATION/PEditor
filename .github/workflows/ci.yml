@@ -1,0 +1,57 @@
+# G0 證據：Windows x64 與 macOS arm64 的測試與 smoke build（ADR-0003）。
+# repo 已公開，GitHub 標準 runner 免費。
+# 第三方 action 一律以 commit SHA 鎖定。
+name: ci
+
+on:
+  push:
+    branches: [main, "claude/**", "p[0-9]*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_QPA_PLATFORM: offscreen
+  PYTHONUTF8: "1"
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.11.32"
+          enable-cache: true
+      - name: Install (locked)
+        run: uv sync --locked --all-groups
+      - name: Fonts cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            tests/fixtures/fonts/*.otf
+            tests/fixtures/fonts/*.ttf
+          key: fonts-${{ hashFiles('tests/fixtures/fonts/fonts.json') }}
+      - name: Fetch fixture fonts (pinned commit + SHA-256)
+        run: uv run python scripts/fetch_fonts.py
+      # 與人工實機驗證同一支腳本（manual-steps §3、§8），差別只在不開視窗
+      - name: P0 check script (Windows)
+        if: runner.os == 'Windows'
+        run: powershell -ExecutionPolicy Bypass -File scripts\p0_windows_check.ps1 -SkipLaunch
+      - name: P0 check script (macOS)
+        if: runner.os == 'macOS'
+        run: bash scripts/p0_macos_check.sh --skip-launch
