@@ -37,7 +37,7 @@ I05,I 圖片,,libreoffice,,,support,,0,image#0,,,,,,false,repo,pending,JPEG 圖�
 I06,I 圖片,,word,,,support,,0,image#0,,,,,,false,repo,pending,圖片與背景文字重疊
 I07,I 圖片,,libreoffice,,,support,,0,image#0,,,,,,false,repo,pending,經剪裁的圖片（矩陣層級裁剪）；確認支援（ADR-0009）
 I08,I 圖片,,word,,,support,,0,,,,,,,true,offline,pending,盲測
-I09,I 圖片,,libreoffice,,,reject,UNSUPPORTED_LAYOUT,0,image#0,,,,,,false,repo,pending,裁剪為非矩形圖形（非純矩陣層級 clip path）；仍應拒絕（ADR-0009 補位樣本）
+I09,I 圖片,ddc12162a6d8864dd8c129cfef4046da3acc60930719653499e9f122ba242701,libreoffice,LibreOffice 26.8.1.1 (X86_64); Draw,,reject,UNSUPPORTED_LAYOUT,0,image#0,"168.58,359.89,384.21,483.39",,,"166.58,357.89,386.21,485.39",,false,repo,available,裁剪為非矩形圖形（非純矩陣層級 clip path）；仍應拒絕（ADR-0009 補位樣本）
 B01,B 表格,1a409bb195b5062c49630c3fb674862e9034f67369c894d103d3f39192bb4f4f,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Noto Sans TC,support,,0,"cell(1,1)","228.00,136.08,241.32,153.46",12,21,"222.00,130.00,372.00,160.00",格線與其他 8 格,false,repo,available,規則 3x3 表格
 B02,B 表格,7861dc6039a9f302553a34d6c36a9311372f10fb9573bb67f1d549eb464ac3ed,reportlab,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Noto Serif TC,support,,0,"cell(0,0)","122.00,126.32,166.00,137.32",市府大樓,市政大樓,"72.00,100.00,272.00,160.00",格線與右鄰格,false,repo,available,多行儲存格
 B03,B 表格,,word,,Noto Sans TC,support,,0,"cell(1,1)",,12,15,,,false,repo,pending,Word 規則表格
