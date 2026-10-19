@@ -16,7 +16,7 @@ ADR-0008 鎖定 fixture 字型為 `NotoSansTC-Regular.otf`（noto-cjk@f8d1575，
 | 檔案 | 來源 | 版本 | SHA-256 |
 | --- | --- | --- | --- |
 | `C:\Windows\Fonts\NotoSansTC-VF.ttf` | Windows 內建（擁有者 TrustedInstaller） | 2.04 | `c6481c5d93420aeac11087367dae56ae7492eb1989ce42f4ca5d5aa5e2db3116` |
-| `C:\Windows\Fonts\NotoSerifTC-VF.ttf` | Windows 內建（擁有者 TrustedInstaller） | — | `c8b7df78de02c2c35875de707d1d336762fd4db8864a66e249940879fb6859d8` |
+| `C:\Windows\Fonts\NotoSerifTC-VF.ttf` | Windows 內建（擁有者 TrustedInstaller） | 2.02 | `c8b7df78de02c2c35875de707d1d336762fd4db8864a66e249940879fb6859d8` |
 
 兩者 family 名稱與 ADR-0008 的字型相同（「Noto Sans TC」「Noto Serif TC」）。即使另以目前使用者安裝
 ADR-0008 鎖定版，Word 仍選用系統內建版：T05 匯出的 PDF 嵌入 `BCDEEE+Noto-Sans-TC`（FontFile2，
