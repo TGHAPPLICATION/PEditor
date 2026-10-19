@@ -5,7 +5,7 @@ T03,T 基礎文字,51ab60ba66509e7fddbbb9848f6fbc875c42928a09244f1be7c9edcc6dfb6
 T04,T 基礎文字,6c60ba41cf1be1e19b3863b86855f9371634ae2505c3212f6e38f17e65243e02,reportlab,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Noto Serif TC,support,,0,text,"132.00,89.44,156.00,101.44",三樓,三樓第二會議室,"72.00,84.00,400.00,106.00",頁面其餘內容,false,repo,available,較長替換，可容納於宣告區域
 T05,T 基礎文字,3704edfda119ed9c4a52fe6f67069363b61a3b45a1ad35e84eb09e592191465e,word,Microsoft® Word 2021; Microsoft® Word 2021,Noto Sans TC,support,,0,text,"144.02,119.30,216.02,132.74",資訊安全稽核,資訊安全檢查,"142.02,117.30,218.02,134.74",,false,repo,available,段落中同字數替換；字型為 Win11 內建 Noto Sans TC VF 2.04（ADR-0010）
 T06,T 基礎文字,d080361bf9ef79ebb9db637329350a7e2a46564b925cf1155d7428acc6e1e80c,word,Microsoft® Word 2021; Microsoft® Word 2021,Noto Serif TC,support,,0,text,"132.02,117.49,228.02,132.74",臺北市政府資訊局,本府資訊局,"130.02,115.49,230.02,134.74",,false,repo,available,較短替換；字型為 Win11 內建 Noto Serif TC VF 2.02（ADR-0010）
-T07,T 基礎文字,,libreoffice,,Noto Sans TC,support,,0,text,,地點：本府,地點：本府北區第一會議室,,,false,repo,pending,較長替換，可容納於宣告區域
+T07,T 基礎文字,eb85f8ac17b352df2911716ae019370c84e97eac830a242473d88fd6eac56763,libreoffice,LibreOffice 26.8.1.1 (X86_64); Writer,Noto Sans TC,support,,0,text,"72.10,88.80,132.10,103.20",地點：本府,地點：本府北區第一會議室,"70.10,86.80,523.30,105.20",,false,repo,available,較長替換，可容納於宣告區域；字型為 Win11 內建 Noto Sans TC VF 2.04，LibreOffice instancing 為 Regular（ADR-0010）
 T08,T 基礎文字,,libreoffice,,Noto Serif TC,support,,0,text,,（02）2720-8889,（02）2720-0000,,,false,repo,pending,中英數混排、全形標點
 T09,T 基礎文字,,word,,Noto Sans TC,support,,0,text,,10月12日,10月13日,,,false,repo,pending,以「Microsoft Print to PDF」輸出（第三種產生路徑）
 T10,T 基礎文字,,word,,Noto Serif TC,support,,0,,,,,,,true,offline,pending,盲測

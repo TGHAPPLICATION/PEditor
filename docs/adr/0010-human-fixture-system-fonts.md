@@ -1,6 +1,6 @@
-# ADR-0010：Word 人工 fixture 使用 Windows 11 內建 Noto TC 可變字型
+# ADR-0010：人工 fixture 使用 Windows 11 內建 Noto TC 可變字型
 
-- 狀態：已接受（2026-10-19，工程師確認）
+- 狀態：已接受（2026-10-19，工程師確認；同日擴大至 LibreOffice）
 - 日期：2026-10-19
 - 決策者：工程師
 - 需人工確認：否（已確認）
@@ -23,25 +23,27 @@ ADR-0008 鎖定版，Word 仍選用系統內建版：T05 匯出的 PDF 嵌入 `B
 含 `fvar`／`gvar`，版本 2.04），未經 instancing，PDF 檢視器以預設 instance（Thin）呈現。
 系統字型屬作業系統元件，不宜移除。
 
+製作 T07 時確認 LibreOffice Writer 26.8.1.1 同樣選用內建版，但先 instancing 成 Regular 再嵌入：
+T07 嵌入 `BAAAAA+NotoSansTC-Regular`（FontFile2，無 `fvar`／`gvar`，版本 2.04），呈現為 Regular。
+
 ## 選項
 
 1. **接受 Windows 內建字型**，記錄版本與 hash。
-2. 以 fontTools 將 ADR-0008 字型改 family 名稱後安裝，讓 Word 可選用；嵌入名稱與 hash 仍與 ADR-0008 不同。
-3. Word 系列 fixture 改在沒有內建 Noto 的電腦製作。
+2. 以 fontTools 將 ADR-0008 字型改 family 名稱後安裝，讓 Word／LibreOffice 可選用；嵌入名稱與 hash 仍與 ADR-0008 不同。
+3. 人工 fixture 改在沒有內建 Noto 的電腦製作。
 
 ## 決策
 
-採用選項 1：Word 製作的人工 fixture（T05、T06、T09、F06、L04、L07、B03、B05、I06）字型來源為
-Windows 11 內建 Noto Sans TC／Noto Serif TC 可變字型（OFL-1.1）。這是 Windows 11 使用者以 Word
-實際會產出的 PDF，並多涵蓋「嵌入未 instancing 的可變 TrueType」這種真實樣態。
+採用選項 1：以 Word 或 LibreOffice 製作、使用 Noto Sans TC／Noto Serif TC 的人工 fixture，字型來源為
+Windows 11 內建 Noto Sans TC／Noto Serif TC 可變字型（OFL-1.1）。這是 Windows 11 使用者實際會產出的 PDF，
+並涵蓋兩種真實嵌入樣態：Word 嵌入未 instancing 的可變 TrueType；LibreOffice 嵌入 instancing 後的靜態 TrueType。
 
 - 每份 fixture 的 `manifest.csv` notes 註明「Win11 內建 VF（ADR-0010）」。
 - ADR-0008 的鎖定字型仍用於程式產生的 fixture 與模式 B 重建字型，不受影響。
-- LibreOffice 系列製作時若同樣選到內建字型，另行確認後再擴大本 ADR 範圍。
 
 ## 後果
 
 - 嵌入字型的授權仍為 OFL-1.1，可隨 repo 散布；來源以本 ADR 的版本與 SHA-256 追溯（G0-17）。
 - P1 擷取與 P2 模式 B 須能處理嵌入的可變 TrueType（含 `gvar`），並以 PDF 實際呈現（預設 instance）
-  為準，不得依 Word 畫面上的字重判斷。
+  為準，不得依 Word 畫面上的字重判斷；同一 family 在 Word 與 LibreOffice 樣本中的字重可能不同。
 - Windows 更新可能替換內建字型；後續製作時若 hash 改變，須在 notes 記錄新版本。

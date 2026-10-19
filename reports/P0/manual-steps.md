@@ -192,7 +192,7 @@ Get-Content build\p0-check\log.txt -Tail 80
 
 **不要**使用標楷體、新細明體、微軟正黑體等系統字型：它們的授權不允許隨 repo 公開散布嵌入字型的 PDF（ADR-0008）。
 
-Windows 11 已內建同名的 Noto Sans TC／Noto Serif TC 可變字型，Word 會優先選用內建版；依 ADR-0010 接受，
+Windows 11 已內建同名的 Noto Sans TC／Noto Serif TC 可變字型，Word 與 LibreOffice 都會優先選用內建版；依 ADR-0010 接受，
 登記時在 manifest notes 註明。
 
 ### 4.2 共通版面
