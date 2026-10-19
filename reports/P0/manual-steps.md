@@ -192,6 +192,9 @@ Get-Content build\p0-check\log.txt -Tail 80
 
 **不要**使用標楷體、新細明體、微軟正黑體等系統字型：它們的授權不允許隨 repo 公開散布嵌入字型的 PDF（ADR-0008）。
 
+Windows 11 已內建同名的 Noto Sans TC／Noto Serif TC 可變字型，Word 會優先選用內建版；依 ADR-0010 接受，
+登記時在 manifest notes 註明。
+
 ### 4.2 共通版面
 
 - 紙張 A4、直向、邊界 2.54 cm；字級 12 pt（標題 14 pt）；每份只做 1 頁。
@@ -210,6 +213,9 @@ Get-Content build\p0-check\log.txt -Tail 80
 - **不要**勾「PDF/A」（U05 除外）、不要勾「混合 PDF（嵌入 ODF）」
 - 圖片：無失真壓縮；**不要**勾「降低影像解析度」
 - 其餘保持預設 → 匯出
+
+**個資**：Word 會把 Office 使用者名稱寫進 PDF 的 Author。匯出前到 檔案 → 資訊 → 內容，清空「作者」「上次修改者」；
+LibreOffice 則到 檔案 → 屬性 → 一般，取消勾選「套用使用者資料」。匯出後確認 PDF 內容中沒有姓名。
 
 檔名一律用 fixture 編號，例如 `T05.pdf`。
 

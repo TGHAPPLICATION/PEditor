@@ -3,7 +3,7 @@ T01,T 基礎文字,65a4ebca20fe12159257b4c86bfe707e6994b37440833428801d4f2761acc
 T02,T 基礎文字,0c25d0dcbb3f2f4c349752d4b10306f6f15b4911a1787b318f1a1e1396f1ca0d,reportlab,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Droid Sans Fallback,support,,0,text,"179.56,90.81,239.44,102.86",10 月 31 日,11 月 5 日,"177.56,88.81,241.44,104.86",頁面其餘內容,false,repo,available,中英數混排、較短替換
 T03,T 基礎文字,51ab60ba66509e7fddbbb9848f6fbc875c42928a09244f1be7c9edcc6dfb6a60,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Droid Sans Fallback,support,,0,text,"132.00,87.50,192.00,103.18",（一一五）,（一一六）,"130.00,85.50,194.00,105.18",頁面其餘內容,false,repo,available,全形標點與全形數字
 T04,T 基礎文字,6c60ba41cf1be1e19b3863b86855f9371634ae2505c3212f6e38f17e65243e02,reportlab,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Noto Serif TC,support,,0,text,"132.00,89.44,156.00,101.44",三樓,三樓第二會議室,"72.00,84.00,400.00,106.00",頁面其餘內容,false,repo,available,較長替換，可容納於宣告區域
-T05,T 基礎文字,,word,,Noto Sans TC,support,,0,text,,資訊安全稽核,資訊安全檢查,,,false,repo,pending,段落中同字數替換
+T05,T 基礎文字,3704edfda119ed9c4a52fe6f67069363b61a3b45a1ad35e84eb09e592191465e,word,Microsoft® Word 2021; Microsoft® Word 2021,Noto Sans TC,support,,0,text,"144.02,119.30,216.02,132.74",資訊安全稽核,資訊安全檢查,"142.02,117.30,218.02,134.74",,false,repo,available,段落中同字數替換；字型為 Win11 內建 Noto Sans TC VF 2.04（ADR-0010）
 T06,T 基礎文字,,word,,Noto Serif TC,support,,0,text,,臺北市政府資訊局,本府資訊局,,,false,repo,pending,較短替換
 T07,T 基礎文字,,libreoffice,,Noto Sans TC,support,,0,text,,地點：本府,地點：本府北區第一會議室,,,false,repo,pending,較長替換，可容納於宣告區域
 T08,T 基礎文字,,libreoffice,,Noto Serif TC,support,,0,text,,（02）2720-8889,（02）2720-0000,,,false,repo,pending,中英數混排、全形標點
