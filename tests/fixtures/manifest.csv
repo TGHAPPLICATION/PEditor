@@ -32,11 +32,12 @@ L08,L 幾何與背景,,libreoffice,,Noto Serif TC,support,,0,,,,,,,true,offline,
 I01,I 圖片,7a8001d4d803a6adeab18ae0c60526c54e29a3b829ae24f358233776cb2763c4,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,,support,,0,image#0,"72.00,72.00,272.00,172.00",,,"70.00,70.00,274.00,174.00",頁面其餘內容,false,repo,available,獨立 PNG Image XObject
 I02,I 圖片,3e241f7b6fef346c708fd785c9d7ea02c899140fb5f8a21e919ea4860e381fe2,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,,support,,0,image#0,"72.00,72.00,172.00,172.00",,,"70.00,70.00,174.00,174.00",第 2 頁同一 xref 圖片,false,repo,available,跨頁共享 xref，只改第 1 頁
 I03,I 圖片,7bd88c07864dae3809ffbaf915c67a3515dbed0c3f884e82386757fcfa5fa678,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,,support,,0,image#1,"300.00,72.00,400.00,172.00",,,"298.00,70.00,402.00,174.00",同頁第 1 次出現,false,repo,available,同頁同 xref 兩次出現，只改第 2 次
-I04,I 圖片,,word,,,support,,0,image#0,,,,,,false,repo,pending,含透明遮罩（SMask）的 PNG；是否支援待人工確認
+I04,I 圖片,,word,,,support,,0,image#0,,,,,,false,repo,pending,含透明遮罩（SMask）的 PNG；確認支援（ADR-0009）
 I05,I 圖片,,libreoffice,,,support,,0,image#0,,,,,,false,repo,pending,JPEG 圖片
 I06,I 圖片,,word,,,support,,0,image#0,,,,,,false,repo,pending,圖片與背景文字重疊
-I07,I 圖片,,libreoffice,,,reject,UNSUPPORTED_LAYOUT,0,image#0,,,,,,false,repo,pending,經剪裁的圖片；預期值待人工確認
+I07,I 圖片,,libreoffice,,,support,,0,image#0,,,,,,false,repo,pending,經剪裁的圖片（矩陣層級裁剪）；確認支援（ADR-0009）
 I08,I 圖片,,word,,,support,,0,,,,,,,true,offline,pending,盲測
+I09,I 圖片,,libreoffice,,,reject,UNSUPPORTED_LAYOUT,0,image#0,,,,,,false,repo,pending,裁剪為非矩形圖形（非純矩陣層級 clip path）；仍應拒絕（ADR-0009 補位樣本）
 B01,B 表格,1a409bb195b5062c49630c3fb674862e9034f67369c894d103d3f39192bb4f4f,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Noto Sans TC,support,,0,"cell(1,1)","228.00,136.08,241.32,153.46",12,21,"222.00,130.00,372.00,160.00",格線與其他 8 格,false,repo,available,規則 3x3 表格
 B02,B 表格,7861dc6039a9f302553a34d6c36a9311372f10fb9573bb67f1d549eb464ac3ed,reportlab,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Noto Serif TC,support,,0,"cell(0,0)","122.00,126.32,166.00,137.32",市府大樓,市政大樓,"72.00,100.00,272.00,160.00",格線與右鄰格,false,repo,available,多行儲存格
 B03,B 表格,,word,,Noto Sans TC,support,,0,"cell(1,1)",,12,15,,,false,repo,pending,Word 規則表格

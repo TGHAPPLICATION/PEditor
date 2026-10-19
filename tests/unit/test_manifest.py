@@ -13,7 +13,7 @@ GROUP_COUNTS = {
     "T 基礎文字": 12,
     "F 字型與編碼": 10,
     "L 幾何與背景": 8,
-    "I 圖片": 8,
+    "I 圖片": 9,
     "B 表格": 8,
     "U 特殊文件": 6,
     "S 損毀與惡意": 8,
@@ -26,9 +26,9 @@ def test_manifest_rows_match_schema(manifest_rows):
         jsonschema.validate(row, schema)
 
 
-def test_manifest_has_60_fixtures_in_spec_groups(manifest_rows):
-    assert len(manifest_rows) == 60
-    assert len({r["fixture_id"] for r in manifest_rows}) == 60
+def test_manifest_has_61_fixtures_in_spec_groups(manifest_rows):
+    assert len(manifest_rows) == 61
+    assert len({r["fixture_id"] for r in manifest_rows}) == 61
     assert Counter(r["group"] for r in manifest_rows) == GROUP_COUNTS
     for row in manifest_rows:
         assert row["group"].startswith(row["fixture_id"][0]), row["fixture_id"]
