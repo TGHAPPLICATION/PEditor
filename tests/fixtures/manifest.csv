@@ -16,7 +16,7 @@ F02,F 字型與編碼,661ad257275807a1a88794d5637154d7fb0e3a100ee30c8943c51bc519
 F03,F 字型與編碼,d0e6918195a08e9a9174ab1b817a2ca96b9717b33dc74a0643add45d6a109b5e,reportlab,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Droid Sans Fallback,reject,GLYPH_MISSING,0,text,"128.00,89.28,156.00,103.34",吉田,𠮷田,"126.00,87.28,158.00,105.34",,false,repo,available,𠮷（U+20BB7）不在任何已包裝字型，須明確拒絕，不可顯示方框
 F04,F 字型與編碼,6dda72bbbb80c9fa076d001e64978afae65e2448285d81f94b57005908111ae1,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,"Helvetica (base14, WinAnsi)",support,,0,text,"108.06,84.84,144.41,104.08",World,Earth,"106.06,82.84,146.41,106.08",頁面其餘內容,false,repo,available,TJ 陣列含字距調整
 F05,F 字型與編碼,6ba509976fbffc336905ef5b2a5e050d8b6aefbc6865c251b7e1f1ca02599321,pymupdf+pikepdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Noto Sans TC (subset),reject,UNSUPPORTED_ENCODING,0,text,,臺灣醫衛龜,臺灣,,,false,repo,available,移除 /ToUnicode，無法可靠逆向映射
-F06,F 字型與編碼,,word,,Noto Sans TC,support,,0,text,,醫療,藥事,,,false,repo,pending,新字不在子集，預期模式 B
+F06,F 字型與編碼,5bece6ae67bcf904589531ce18b2dae00f6120847cc7882a2177f3c5a91311cb,word,Microsoft® Word 2021; Microsoft® Word 2021,Noto Sans TC,support,,0,text,"72.02,118.10,100.10,133.82",醫療,藥事,"70.02,116.10,102.10,135.82",,false,repo,available,新字不在子集（嵌入字型無「藥」「事」字形），預期模式 B；字型為 Win11 內建 Noto Sans TC VF 2.04（ADR-0010）
 F07,F 字型與編碼,,libreoffice,,Noto Serif TC,support,,0,text,,衛生,福利,,,false,repo,pending,CID Identity-H 編碼
 F08,F 字型與編碼,,libreoffice,,Noto Sans TC,reject,GLYPH_MISSING,0,text,,吉野,𠮷野,,,false,repo,pending,新文含 𠮷，已包裝字型皆無此字
 F09,F 字型與編碼,,word,,Noto Serif TC,support,,0,,,,,,,true,offline,pending,盲測
