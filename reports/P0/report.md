@@ -137,6 +137,7 @@ uv run python packaging/smoke_build.py   → exit 0，PEDITOR_SMOKE_OK，onedir 
 | U5 | 人工 fixture 預期值（I04、I07 等）於 P2 前鎖定（spec §5） | P1／P2 驗收 | 已決定（2026-10-16，ADR-0009） |
 | U6 | ADR-0009：I04／I07 改為 support、新增 I09 補位拒絕樣本；fixture 總數 60→61 | P5 支援矩陣、G0-07 計數 | 已接受（2026-10-16，工程師） |
 | U7 | ADR-0010：Word／LibreOffice 人工 fixture 使用 Windows 11 內建 Noto TC 可變字型（與 ADR-0008 鎖定版不同，嵌入未 instancing 的 VF） | G0-17 字型來源、P1 擷取、P2 模式 B | 已接受（2026-10-19，工程師） |
+| U8 | ADR-0011：T09（Microsoft Print to PDF）ToUnicode 缺 0–9，預期由 support 改為 reject UNSUPPORTED_ENCODING | P1 能力判定須偵測不完整 ToUnicode；T 組 support 樣本少一份 | 已接受（2026-10-20，工程師） |
 
 人工待辦（詳細步驟見 `reports/P0/manual-steps.md`）：
 

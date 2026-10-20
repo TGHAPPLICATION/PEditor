@@ -229,7 +229,7 @@ LibreOffice 則到 檔案 → 屬性 → 一般，取消勾選「套用使用者
 | T06 | Word | Noto Serif TC | 一行「發文單位：臺北市政府資訊局」 |
 | T07 | LibreOffice | Noto Sans TC | 一行「地點：本府」，同一行右側留白到右邊界 |
 | T08 | LibreOffice | Noto Serif TC | 一行「Email：test@example.gov.tw，電話（02）2720-8889」 |
-| T09 | Word → **列印** | Noto Sans TC | 「公告日期：中華民國115年10月12日」；用 檔案 → 列印 → 印表機選 **Microsoft Print to PDF** 輸出 |
+| T09 | Word → **列印** | Noto Sans TC | 「公告日期：中華民國115年10月12日」；用 檔案 → 列印 → 印表機選 **Microsoft Print to PDF** 輸出；ToUnicode 會缺數字，預期拒絕（ADR-0011） |
 | F06 | Word | Noto Sans TC | 標題「醫療院所名冊（合成）」，下方 3 行任意合成內容，**全文不要出現「藥」「事」兩字** |
 | F07 | LibreOffice | Noto Serif TC | 一行「衛生資料彙整（合成）」 |
 | F08 | LibreOffice | Noto Sans TC | 一行「承辦人：吉野」 |
