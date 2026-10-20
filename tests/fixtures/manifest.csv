@@ -49,7 +49,7 @@ B08,B 表格,,libreoffice,,Noto Sans TC,reject,UNSUPPORTED_LAYOUT,0,,,,,,,true,o
 U01,U 特殊文件,29d8728efbeeb6d80e0f5adb8d903824ed57d79994193fe9a550ecea43fc0d05,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,,readonly,NO_TEXT_LAYER,0,,,,,,,false,repo,available,僅影像，模擬掃描；唯讀並提示（ADR-0007）
 U02,U 特殊文件,a2c282a74c2cee76cbd33cddaa2177a6e43b9941b95d704afbc4b399dfe847c2,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Helvetica,reject,ENCRYPTED_DOCUMENT,0,,,,,,,false,repo,available,AES-256 開啟密碼
 U03,U 特殊文件,a89e214c40055ce5f88259ccc820c8f27b4236245d89bf465f0040bc86d69cc0,libreoffice,LibreOffice 26.8.1.1 (X86_64); Draw,Noto Sans TC,readonly,NO_TEXT_LAYER,0,,,,,,,false,repo,available,文字轉外框（向量輪廓）：LibreOffice Draw 以 UNO 全選後 .uno:ChangePolygon，標題「U03」與「外框文字」皆轉成群組多邊形；無字型、兩引擎皆擷取不到文字
-U04,U 特殊文件,,other,,Noto Sans TC,reject,SIGNED_DOCUMENT,0,text,,簽章測試,,,,false,repo,pending,合成憑證數位簽章
+U04,U 特殊文件,a8162310800dc34f65643f8d21c4593fbc34df0399b6ab2f4f033c31c99c6224,libreoffice,LibreOffice 26.8.1.1 (X86_64); Writer,Noto Sans TC,reject,SIGNED_DOCUMENT,0,text,"72.10,88.80,120.10,103.20",簽章測試,,"70.10,86.80,122.10,105.20",,false,repo,available,合成憑證數位簽章：New-SelfSignedCertificate 建立 CN=PEditor Test Signer（製作後已刪除），以 SignCertificateSubjectName 匯出簽署；/Sig 欄位 adbe.pkcs7.detached、ByteRange 涵蓋全檔
 U05,U 特殊文件,,libreoffice,,Noto Sans TC,reject,UNSUPPORTED_FEATURE,0,text,,PDF/A 測試,,,,false,repo,pending,PDF/A-2b 匯出
 U06,U 特殊文件,,other,,,reject,UNSUPPORTED_FEATURE,0,,,,,,,true,offline,pending,盲測；XFA 表單
 S01,S 損毀與惡意,211847644e7d3182ff014226a55f6b7d7bf2942852785a269a062ed7146f677e,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Droid Sans Fallback,reject,MALFORMED_DOCUMENT,0,,,,,,,false,repo,available,檔案截斷一半（ADR-0007）
