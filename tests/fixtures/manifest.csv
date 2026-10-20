@@ -33,7 +33,7 @@ I01,I 圖片,7a8001d4d803a6adeab18ae0c60526c54e29a3b829ae24f358233776cb2763c4,py
 I02,I 圖片,3e241f7b6fef346c708fd785c9d7ea02c899140fb5f8a21e919ea4860e381fe2,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,,support,,0,image#0,"72.00,72.00,172.00,172.00",,,"70.00,70.00,174.00,174.00",第 2 頁同一 xref 圖片,false,repo,available,跨頁共享 xref，只改第 1 頁
 I03,I 圖片,7bd88c07864dae3809ffbaf915c67a3515dbed0c3f884e82386757fcfa5fa678,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,,support,,0,image#1,"300.00,72.00,400.00,172.00",,,"298.00,70.00,402.00,174.00",同頁第 1 次出現,false,repo,available,同頁同 xref 兩次出現，只改第 2 次
 I04,I 圖片,04a408c4cee4c6c9a950fd42da24982276c72a27b71ddd9913b279f0e13748e0,word,Microsoft® Word 2021; Microsoft® Word 2021,,support,,0,image#0,"72.00,115.50,221.90,190.45",,,"70.00,113.50,223.90,192.45",,false,repo,available,含透明遮罩（SMask）的 PNG；確認支援（ADR-0009）；合成 200×100 綠色圓形、背景透明，Word 嵌入為 FlateDecode RGB + DeviceGray SMask（含 /Matte）
-I05,I 圖片,,libreoffice,,,support,,0,image#0,,,,,,false,repo,pending,JPEG 圖片
+I05,I 圖片,a4b27c478ce986052549978581a3772381914fa5fa4690cb8efde7f99e58bb69,libreoffice,LibreOffice 26.8.1.1 (X86_64); Writer,,support,,0,image#0,"72.00,92.05,298.75,262.10",,,"70.00,90.05,300.75,264.10",,false,repo,available,JPEG 圖片：程式產生的合成影像（640×480，漸層＋固定種子雜訊，非實拍照片，經工程師同意）；LibreOffice 以 DCTDecode 原樣嵌入（與來源 JPEG 位元組相同，未重新壓縮）
 I06,I 圖片,,word,,,support,,0,image#0,,,,,,false,repo,pending,圖片與背景文字重疊
 I07,I 圖片,,libreoffice,,,support,,0,image#0,,,,,,false,repo,pending,經剪裁的圖片（矩陣層級裁剪）；確認支援（ADR-0009）
 I08,I 圖片,,word,,,support,,0,,,,,,,true,offline,pending,盲測
