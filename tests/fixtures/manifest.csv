@@ -41,7 +41,7 @@ I09,I 圖片,ddc12162a6d8864dd8c129cfef4046da3acc60930719653499e9f122ba242701,li
 B01,B 表格,1a409bb195b5062c49630c3fb674862e9034f67369c894d103d3f39192bb4f4f,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Noto Sans TC,support,,0,"cell(1,1)","228.00,136.08,241.32,153.46",12,21,"222.00,130.00,372.00,160.00",格線與其他 8 格,false,repo,available,規則 3x3 表格
 B02,B 表格,7861dc6039a9f302553a34d6c36a9311372f10fb9573bb67f1d549eb464ac3ed,reportlab,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Noto Serif TC,support,,0,"cell(0,0)","122.00,126.32,166.00,137.32",市府大樓,市政大樓,"72.00,100.00,272.00,160.00",格線與右鄰格,false,repo,available,多行儲存格
 B03,B 表格,74bd86c71d2c7dde99fc3d60828f35876e75c017ecb34dfbf708245024cfdace,word,Microsoft® Word 2021; Microsoft® Word 2021,Noto Sans TC,support,,0,"cell(1,1)","227.93,156.26,241.31,169.70",12,15,"222.53,144.74,372.91,181.22",格線與其他 8 格,false,repo,available,Word 規則表格（3×3，全格線）；editable_region 為目標儲存格範圍；字型為 Win11 內建 Noto Sans TC VF 2.04（ADR-0010）
-B04,B 表格,,libreoffice,,Noto Serif TC,support,,0,"cell(2,1)",,300,250,,,false,repo,pending,LibreOffice 規則表格
+B04,B 表格,db65ca0699c0f4a5560aba3b9d07c5203350dbfd1ddc0a39fffda7153eb025cd,libreoffice,LibreOffice 26.8.1.1 (X86_64); Writer,Noto Serif TC,support,,0,"cell(2,1)","188.30,142.34,208.32,159.58",300,250,"185.40,139.25,298.70,162.75",格線與其他 8 格,false,repo,available,LibreOffice 規則表格（3×3，全格線）；editable_region 為目標儲存格範圍；字型為 Win11 內建 Noto Serif TC VF 2.02，LibreOffice instancing 為 Regular（ADR-0010）
 B05,B 表格,,word,,Noto Sans TC,support,,0,"cell(1,2)",,第二行,第貳行,,,false,repo,pending,多行儲存格
 B06,B 表格,,libreoffice,,Noto Sans TC,reject,UNSUPPORTED_LAYOUT,0,"cell(1,0)",,合併格,,,,false,repo,pending,合併儲存格（應拒絕的複雜格）
 B07,B 表格,,word,,Noto Serif TC,support,,0,,,,,,,true,offline,pending,盲測
