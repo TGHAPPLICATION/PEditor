@@ -71,7 +71,7 @@ windows-latest 58 passed、macos-15 58 passed，P0 檢查腳本（含 smoke buil
 - **F03、F08（GLYPH_MISSING）**：缺字取決於新文字，屬 `plan_text_edit`（P2，G2-04）；P1 只驗證目標可定位、文字層可判定。
 - **B06（合併儲存格）**：表格結構偵測屬 P6；P1 判定格內文字為 support（文字層本身可對應），P6 須改判 UNSUPPORTED_LAYOUT；P2–P5 不得把 B06 當支援案例（ADR-0013）。
 - **打包後的 worker 子命令**（`peditor --worker`）：程式已就緒，PyInstaller 產物內啟動 worker 未驗證，P8 處理（ADR-0004 後果）。
-- **資源限制**：P1 只有檔案大小（讀檔前）、頁數（MuPDF／pikepdf 開檔後、解析頁面前）、逾時、Form 深度與循環、worker 回應單行長度（讀取時）；記憶體、解壓膨脹、物件數限制於 P7。
+- **資源限制**：檔案大小（讀檔前）、頁數（開檔後、解析頁面前）、逾時、Form 深度與循環、worker 回應單行長度（讀取時），以及安全掃描後加入的運算子數、Form 呼叫數、q 深度、clip 數、CMap 大小與展開數、欄位／書籤走訪節點數、渲染像素面積（`core/limits.py`）；記憶體與解壓膨脹的完整限制於 P7。
 - **qpdf 原有 warning 的 manifest 欄位**（P0 報告 §7「P1 加入欄位」）：P1 未加入。目前 available 中只有 S01 有 qpdf 問題（`test_support_and_readonly_fixtures_pass_qpdf_check`）；改於 P2 實作 G2-09「不得新增 warning」時加入欄位。
 - **不列為目標**：inline image（只計數 `inline_images`）、文字繪製模式的 clip（Tr 4–7）未特別處理。
 - **tagged PDF**：只在目標位於含 `/ActualText` 的標記內容時判 UNSUPPORTED_FEATURE；結構樹其他部分未檢查（spec §8.1：P2 起若修改 tagged PDF 須另驗）。
@@ -79,9 +79,34 @@ windows-latest 58 passed、macos-15 58 passed，P0 檢查腳本（含 smoke buil
 
 ## 8. 安全審查
 
-- `/vuln-scan`、`/triage`：**NOT RUN**。defending-code-reference-harness 技能未安裝於本機；依 CLAUDE.md，複製進 `.claude/` 前須核對 Apache-2.0 授權並鎖定 commit `d3bea6b…`，需工程師同意（§9 U7）。
+- **技能安裝**（工程師 2026-10-21 同意，U7）：`vuln-scan`、`triage`、`_lib/checkpoint.py` 逐字複製自
+  anthropics/defending-code-reference-harness@`d3bea6b`，授權核對為 Apache-2.0（GitHub 標 NOASSERTION，以 LICENSE 全文為準），
+  來源與未修改說明見 `.claude/skills/THIRD_PARTY.md`。
+- **`/vuln-scan`**（`reports/P1/security/VULN-FINDINGS.{json,md}`）：範圍 `src/` 18 檔、1,815 行，5 個焦點區域各一位審查子代理人；
+  23 項候選（MEDIUM 8／LOW 15）。以 `--no-score` 略過 Step 3b 信心度評分（驗證交由 triage）；輸出放在 `reports/P1/security/` 而非技能預設的目標目錄。
+- **`/triage`**（`reports/P1/security/TRIAGE.{json,md}`）：互動模式，工程師訪談答案為「離線桌面程式、PDF 與 worker 輸出不可信、
+  工作目錄內容不可信」，威脅模型 T1／T3／T9／T5，嚴重度依前提推導，分歧時 recall。每項由獨立驗證子代理人投票；
+  前兩票一致者不再投第三票（多數已定），分歧的 f002、f007、f016 投滿三票。結果：**8 項確認（MEDIUM 3／LOW 5）、15 項誤報、0 重複**。
+  本機 `python3` 是 Microsoft Store 替身程式，checkpoint 改以 `uv run python` 執行同一支腳本。
+- **確認項目與修正**（`/patch` 步驟；回歸測試 `tests/security/test_scan_regressions.py`，10 項）：
+
+  | id | 嚴重度 | 問題 | 修正 |
+  | --- | --- | --- | --- |
+  | f001 | MEDIUM | `/W` 範圍展開無上限（`fonts.py`） | CID 夾在 0–0xFFFF，展開總數上限 `MAX_CODE_EXPANSION` |
+  | f004 | MEDIUM | Form XObject 重複呼叫造成 k^8 工作量（`content.py`） | 每頁 Form 呼叫上限 `MAX_FORM_INVOCATIONS`、運算子上限 `MAX_CONTENT_OPERATORS`；超限即停止並跳過 MuPDF 擷取 |
+  | f005 | MEDIUM | ToUnicode bfrange 展開無上限（`fonts.py`） | 來源字碼限 ≤2 位元組、CMap 大小上限 `MAX_CMAP_BYTES`、展開總數上限 |
+  | f007 | LOW | 主動內容未走訪書籤與父欄位 `/AA`，只認 JavaScript／Launch（`analyzer.py`） | 走訪 `/Outlines` 與全部表單欄位；另認 SubmitForm、ImportData、GoToE、Rendition、RichMediaExecute 與多媒體註解（URI 超連結不拒絕） |
+  | f009 | LOW | 表單欄位樹無 visited set，共享 `/Kids` 指數走訪（`analyzer.py`） | visited set ＋ 節點上限 `MAX_OBJECT_WALK`（超限 RESOURCE_LIMIT） |
+  | f011 | LOW | 非打包環境以 `python -m` 啟動 worker，會載入工作目錄中的同名模組（`service.py`） | 改以 `python -P -m peditor.worker` 啟動 |
+  | f012 | LOW | q 堆疊與 clip 清單無上限，記憶體 O(N²)（`content.py`） | `MAX_GSTATE_DEPTH`、`MAX_CLIPS` |
+  | f016 | LOW | 渲染只限 DPI、不限像素面積（`analyzer.py`） | `MAX_RENDER_PIXELS`（50 MP，spec P7 初值）超限回 RESOURCE_LIMIT |
+
+- **判為誤報但列入後續**（安全上不可利用，但屬規格符合度或強化項目）：f003 只有 owner 密碼的加密檔未判 ENCRYPTED、
+  f008 繼承 `/FT` 的簽章欄位未判 SIGNED（兩者違反 spec §4，**須在 P2 引入編輯／儲存路徑前修正**）；f002 回應逾時未設整體期限、
+  f006／f020／f021 主行程未驗證 worker 回應結構與錯誤碼（P7 IPC schema）；f010 CMap 正則二次複雜度（已由 `MAX_CMAP_BYTES` 間接限制）。
+- 殘餘：f004 類放大內容在 MuPDF **渲染**時仍只受 30 秒逾時保護（P1 只在擷取前短路）；完整記憶體上限於 P7。
 - 本段自行檢查的攻擊面：worker 對任何未預期例外回 `WORKER_FAILED` 而不崩潰；主行程對 worker 回應做長度上限與 JSON 解碼檢查，畸形回應即重啟 worker；Form XObject 遞迴有深度上限與循環偵測；ToUnicode 解析失敗視為無對應（不猜測）。
-- `THREAT_MODEL.md` 已更新：T1、T2、T5 由 unmitigated 改為 partially_mitigated，並註明 P1 控制與剩餘缺口（非 OS 沙箱、回應尚無 schema 驗證、資源限制不完整）。
+- `THREAT_MODEL.md` 已更新：T1、T2、T5 由 unmitigated 改為 partially_mitigated，並註明 P1 控制、安全掃描修正與剩餘缺口（非 OS 沙箱、回應尚無 schema 驗證、記憶體上限待 P7）。
 
 ## 9. 不確定性與人工確認項目
 
@@ -93,13 +118,14 @@ windows-latest 58 passed、macos-15 58 passed，P0 檢查腳本（含 smoke buil
 | U4 | L07 直排以啟發式偵測：同一 BT 內連續單字 run、x 相同、y 遞減（Word 以每行一字排直書，無 Identity-V） | 罕見版面可能誤判；真正 Identity-V 另以字型編碼判定 | 工程師知悉 |
 | U5 | 無 fixture 覆蓋的理由碼對應：Type3 → UNSUPPORTED_LAYOUT（spec §4 同列）；非 Identity-H 的 CMap → UNSUPPORTED_ENCODING；Form XObject 內的文字／影像 → UNSUPPORTED_LAYOUT（保守，未區分是否共享）；DCT／Flate 以外的影像濾鏡或 ImageMask → UNSUPPORTED_FEATURE；`/ActualText` → UNSUPPORTED_FEATURE | 皆為「拒絕」方向，不放寬支援範圍 | 工程師知悉 |
 | U6 | ToUnicode 不可靠以**字型**為單位：頁上同一字型任一已用字碼無對應，該字型的所有目標都拒絕（依 ADR-0011 不只判目標區域） | T09 全頁 F1 字型文字皆不可編輯 | 已依 ADR-0011 |
-| U7 | `/vuln-scan`、`/triage` 未執行（§8） | ADR-0005 要求 P1 結束前執行；未執行即進 P2 須工程師明確同意 | 工程師：同意安裝 harness 技能後補跑，或同意延後 |
+| U7 | `/vuln-scan`、`/triage` 依 ADR-0005 須於 P1 結束前執行 | 工程師 2026-10-21 同意安裝技能並補跑；已完成，8 項確認問題已修正並有回歸測試（§8） | 已解決 |
+| U8 | 安全掃描判為誤報、但違反 spec §4 的分類缺口：f003（只有 owner 密碼的加密檔）、f008（繼承 `/FT` 的簽章欄位） | 目前無編輯／儲存路徑故不可利用；P2 引入編輯前須修正並補樣本 | 工程師知悉（P2 前） |
 
 ## 10. 關卡結果
 
 - CI：run 39544656448（commit `e65ad4c`）雙平台 58 passed
 - **關卡結果：PASS（附條件）**（範圍：repo 內 45 份 available；G1-01～G1-09 均有測試證據；G1-03 為 42 份相符＋3 份依 ADR-0013 延後；盲測、S03–S06 NOT RUN 並註明原因）
-- **下一段可開始：待工程師決定 U7**（安全掃描未依 ADR-0005 於 P1 結束前執行；工程師同意補跑或延後後，PR 合併即可開始）。延續條件：U3 須在 P2 視覺比對實作前決定；U1、U2 建議 P2 開工前確認；ADR-0013 的 F03／F08 於 P2、B06 於 P6 補判定。
+- **下一段可開始：是**（PR 合併後；U7 安全掃描已補跑並修正）。延續條件：U8 的 f003、f008 須在 P2 編輯／儲存路徑前修正；U3 須在 P2 視覺比對實作前決定；U1、U2 建議 P2 開工前確認；ADR-0013 的 F03／F08 於 P2、B06 於 P6 補判定。
 
 ## 11. 獨立核對紀錄
 

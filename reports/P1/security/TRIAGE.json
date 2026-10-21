@@ -1,0 +1,1014 @@
+{
+  "triage_completed": true,
+  "triage_context": {
+    "mode": "interactive",
+    "environment": "Offline single-user desktop app (no network services). PDF files are untrusted (external sources). The PDF worker subprocess may be compromised by a malicious PDF, so its output is untrusted to the main process. Operator CLI flags and environment variables are trusted, but the contents of the operator's working directory (e.g. extracted attachments) are untrusted.",
+    "threat_model": [
+      "Malicious PDF executes code on the user's host (THREAT_MODEL T1)",
+      "Original file corruption or leakage of document content/paths (T3, T9)",
+      "Resource exhaustion making the app or host unusable (T5; full limits planned for P7)"
+    ],
+    "scoring": "Derived HIGH/MEDIUM/LOW from preconditions",
+    "noise_tolerance": "recall",
+    "votes_per_finding": 3,
+    "repo": ".",
+    "findings_path": "reports/P1/security/VULN-FINDINGS.json",
+    "notes": [
+      "Third verifier vote skipped where the first two agreed (majority already fixed); 3 votes cast for f002, f007, f016.",
+      "vuln-scan ran with --no-score (no Step 3b confidence pass).",
+      "checkpoint.py invoked via `uv run python` because python3 is a Microsoft Store stub on this host."
+    ]
+  },
+  "summary": {
+    "input_count": 23,
+    "duplicates": 0,
+    "false_positives": 15,
+    "true_positives": 8,
+    "needs_manual_test": 0,
+    "by_severity": {
+      "HIGH": 0,
+      "MEDIUM": 3,
+      "LOW": 5
+    }
+  },
+  "findings": [
+    {
+      "id": "f001",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-007",
+      "file": "src/peditor/worker/fonts.py",
+      "line": 186,
+      "category": "unbounded-allocation",
+      "title": "CIDFont /W range form expands an attacker-chosen range into a dict with no bound",
+      "description": "_cid_widths: for `c_first c_last w`, `for cid in range(first, last + 1): widths[cid] = value` with no cap; reached on any Tf using the font.",
+      "exploit_scenario": "/W [0 4000000000 500] in a few-hundred-byte PDF makes the worker allocate tens of GB before the timeout.",
+      "recommendation": "Clamp CIDs to 0..65535 and cap entries, or store ranges lazily.",
+      "scanner_confidence": 0.8,
+      "scan_id": "F-007",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 0,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "true_positive",
+      "confidence": 8.0,
+      "exclusion_rule": null,
+      "refute_reasons": [],
+      "first_links": [
+        "src/peditor/worker/content.py:155"
+      ],
+      "rationale": "_cid_widths (fonts.py:186-187) expands attacker /W ranges unbounded, reached from any Tf (content.py:155->206->fonts.py:162); only the 30 s timeout limits it, so a tiny PDF can allocate many GB.\n\nOne user action (opening a few-hundred-byte PDF) drives a dict of billions of entries; availability-only impact bounded by the 30 s kill, but enough RAM to push the host into swap.",
+      "claimed_severity": "MEDIUM",
+      "preconditions": [
+        "Victim opens an attacker-supplied PDF",
+        "A page uses Tf on a Type0 font",
+        "Descendant /W holds a huge c_first c_last w range",
+        "No OS memory cap on the worker (only the 30 s timeout)"
+      ],
+      "access_level": "local",
+      "severity": "MEDIUM",
+      "threat_match": "T5",
+      "severity_alignment": 0,
+      "verify_verdict": "exploitable",
+      "severity_label": "MEDIUM",
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; single-maintainer repo (git log: tghtaipei 2, Claude 1)"
+    },
+    {
+      "id": "f005",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-008",
+      "file": "src/peditor/worker/fonts.py",
+      "line": 220,
+      "category": "unbounded-allocation",
+      "title": "ToUnicode bfrange expansion unbounded per range and in total",
+      "description": "parse_cmap: lo/hi hex has no length limit; each range expands up to ~1.1M entries before chr() overflows; thousands of ranges in a small compressed stream build billions of entries. No decompressed-size cap.",
+      "exploit_scenario": "5,000 bfrange lines of ~1M entries each in a few-KB Flate stream exhaust memory.",
+      "recommendation": "Reject ranges with hi-lo > 255 or source > 4 hex digits; cap total entries and the ToUnicode stream size.",
+      "scanner_confidence": 0.7,
+      "scan_id": "F-008",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 0,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "true_positive",
+      "confidence": 6.5,
+      "exclusion_rule": null,
+      "refute_reasons": [],
+      "first_links": [
+        "src/peditor/worker/content.py:206"
+      ],
+      "rationale": "parse_cmap bfrange (fonts.py:209-221) unbounded per range and in total, no stream size cap (230); tiny Flate stream can exhaust memory before the 30 s kill.\n\nA few-KB Flate stream expands to millions of dict entries within the timeout; base LOW raised one step for the direct T5 match.",
+      "claimed_severity": "MEDIUM",
+      "preconditions": [
+        "Victim opens an attacker-supplied PDF",
+        "A font with /ToUnicode is used on an analysed page",
+        "CMap holds many wide bfranges with distinct lo",
+        "No OS memory cap on the worker"
+      ],
+      "access_level": "local",
+      "severity": "MEDIUM",
+      "threat_match": "T5",
+      "severity_alignment": 1,
+      "verify_verdict": "exploitable",
+      "severity_label": "MEDIUM",
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; single-maintainer repo (git log: tghtaipei 2, Claude 1)"
+    },
+    {
+      "id": "f004",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-006",
+      "file": "src/peditor/worker/content.py",
+      "line": 274,
+      "category": "algorithmic-complexity / unbounded-allocation",
+      "title": "Form XObject fan-out is unbounded: N^8 work and memory",
+      "description": "_do caps depth (MAX_FORM_DEPTH=8) and direct cycles, but a Form may Do the same child any number of times; each visit re-parses the stream (no cache) and appends runs/images to self.result.",
+      "exploit_scenario": "8-level chain where each level contains ~100 '/Next Do'; a few KB file triggers ~100^8 executions, gigabytes of RAM before the 30 s timeout.",
+      "recommendation": "Add a per-interpret budget (operators, Form invocations, runs/images) and cache parsed instructions per objgen.",
+      "scanner_confidence": 0.7,
+      "scan_id": "F-006",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 0,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "true_positive",
+      "confidence": 6.5,
+      "exclusion_rule": null,
+      "refute_reasons": [],
+      "first_links": [
+        "src/peditor/cli.py:37",
+        "src/peditor/worker/analyzer.py:325"
+      ],
+      "rationale": "_do (content.py:274-276) bounds only depth and ancestor cycles; k Do per level across 8 forms gives k^8 _execute calls, each re-parsing (117) and appending (239,270); only 30 s kill bounds it, no memory cap.\n\nk^8 fan-out from a small file; only the request timeout bounds CPU and nothing bounds memory before the kill; T5 match with single-step delivery.",
+      "claimed_severity": "MEDIUM",
+      "preconditions": [
+        "Victim opens an attacker-crafted PDF (analysis runs on open)",
+        "Nested Form XObjects up to depth 8, each calling the same child many times",
+        "Leaf forms contain text/image operators so results accumulate"
+      ],
+      "access_level": "local",
+      "severity": "MEDIUM",
+      "threat_match": "T5",
+      "severity_alignment": 0,
+      "verify_verdict": "exploitable",
+      "severity_label": "MEDIUM",
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; single-maintainer repo (git log: tghtaipei 2, Claude 1)"
+    },
+    {
+      "id": "f009",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-015",
+      "file": "src/peditor/worker/analyzer.py",
+      "line": 141,
+      "category": "algorithmic-complexity",
+      "title": "Exponential traversal in _fields with shared or self-referencing /Kids (depth-bounded only)",
+      "description": "_fields has no visited set; A /Kids [A A] yields ~2^33 items within the depth bound of 32.",
+      "exploit_scenario": "Small crafted PDF pins the worker CPU until the 30 s timeout on every open.",
+      "recommendation": "Track visited objgen; budget total nodes; treat cycles as MALFORMED_DOCUMENT.",
+      "scanner_confidence": 0.6,
+      "scan_id": "F-015",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 0,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "true_positive",
+      "confidence": 7.0,
+      "exclusion_rule": null,
+      "refute_reasons": [],
+      "first_links": [
+        "src/peditor/worker/analyzer.py:121",
+        "src/peditor/worker/server.py:33"
+      ],
+      "rationale": "_fields (analyzer.py:141-146) has no visited set unlike _action_kinds; /Kids [A A] yields ~2^33 items on every open; only the 30 s timeout stops it.\n\nOne worker pinned at 100% CPU until the 30 s kill; that PDF fails to open, host stays usable.",
+      "claimed_severity": "LOW",
+      "preconditions": [
+        "Victim opens an attacker-supplied PDF",
+        "pikepdf opens it within page limits",
+        "AcroForm /Fields contains a self-referencing or shared /Kids fan-out",
+        "No signed field that would short-circuit any()"
+      ],
+      "access_level": "local",
+      "severity": "LOW",
+      "threat_match": "T5",
+      "severity_alignment": 0,
+      "verify_verdict": "exploitable",
+      "severity_label": "LOW",
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; single-maintainer repo (git log: tghtaipei 2, Claude 1)"
+    },
+    {
+      "id": "f011",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-001",
+      "file": "src/peditor/core/service.py",
+      "line": 39,
+      "category": "code-injection (module search path hijack)",
+      "title": "Non-frozen worker launched with `python -m peditor.worker` puts cwd first on sys.path",
+      "description": "worker_command() returns [sys.executable, '-m', 'peditor.worker']; _WorkerProcess.__init__ (service.py:52-59) starts it with no cwd= and no -I/-P. With -m, Python prepends the current directory to sys.path, so peditor/ or pymupdf.py/pikepdf.py in the operator's cwd are imported by the worker before site-packages. The CLI entry (console script) has no cwd entry, so only the worker is exposed.",
+      "exploit_scenario": "Victim extracts an attacker ZIP containing case.pdf plus pymupdf.py, cd's into it and runs `peditor analyze case.pdf --out out`; the worker imports the planted module and executes code as the user.",
+      "recommendation": "Launch the worker with `-I` (or `-P`/PYTHONSAFEPATH=1) and an explicit safe cwd.",
+      "scanner_confidence": 0.55,
+      "scan_id": "F-001",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 0,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "true_positive",
+      "confidence": 7.0,
+      "exclusion_rule": null,
+      "refute_reasons": [],
+      "first_links": [
+        "src/peditor/cli.py:29"
+      ],
+      "rationale": "Non-frozen worker started as `python -m peditor.worker` (service.py:39,52-59) with no cwd/-I/-P, so cwd is first on sys.path; worker imports pymupdf/pikepdf (analyzer.py:18-19, fonts.py:15-16); planted modules in an untrusted folder execute as the user.\n\nReal code execution path, but needs three preconditions including a second delivery channel; same exposure as most `python -m` tools. Cheap fix: -P/-I or a trusted cwd.",
+      "claimed_severity": "MEDIUM",
+      "preconditions": [
+        "Non-frozen install (uv/pip); PyInstaller builds unaffected",
+        "Attacker plants pymupdf.py/pikepdf.py/peditor/ in a folder via a channel other than the PDF",
+        "Victim runs PEditor with that folder as the current directory"
+      ],
+      "access_level": "local",
+      "severity": "LOW",
+      "threat_match": "T1 (partial)",
+      "severity_alignment": -2,
+      "verify_verdict": "exploitable",
+      "severity_label": "LOW",
+      "owner_hint": "component: src/peditor/core/; no CODEOWNERS; single-maintainer repo (git log: tghtaipei 2, Claude 1)"
+    },
+    {
+      "id": "f012",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-018",
+      "file": "src/peditor/worker/content.py",
+      "line": 137,
+      "category": "algorithmic-complexity / quadratic-memory",
+      "title": "Unbounded q-stack depth with growing clip lists gives quadratic memory",
+      "description": "Each q copies gs (including the clip list); clips grow with each W n; no caps; ImageUse also copies clips.",
+      "exploit_scenario": "200k 're W n' then 200k 'q' in a compressible stream allocates ~4e10 list slots.",
+      "recommendation": "Cap q depth and clips per state; keep an intersected bbox instead of a list.",
+      "scanner_confidence": 0.55,
+      "scan_id": "F-018",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 0,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "true_positive",
+      "confidence": 6.5,
+      "exclusion_rule": null,
+      "refute_reasons": [],
+      "first_links": [
+        "src/peditor/worker/analyzer.py:325"
+      ],
+      "rationale": "Each q copies the whole clip list (content.py:88,137) which grows unbounded per W n (149); no caps; a small compressed stream forces O(N*M) allocation; timeout does not cap memory and no rlimit.\n\nO(N^2) memory in the isolated worker, cut off by the watchdog; bounded, recoverable DoS.",
+      "claimed_severity": "LOW",
+      "preconditions": [
+        "Victim opens an attacker-supplied PDF",
+        "Content stream has N `re W n` followed by N `q`",
+        "Blowup happens before the 30 s kill (no memory cap)"
+      ],
+      "access_level": "local",
+      "severity": "LOW",
+      "threat_match": "T5",
+      "severity_alignment": 1,
+      "verify_verdict": "exploitable",
+      "severity_label": "LOW",
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; single-maintainer repo (git log: tghtaipei 2, Claude 1)"
+    },
+    {
+      "id": "f007",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-005",
+      "file": "src/peditor/worker/analyzer.py",
+      "line": 171,
+      "category": "classification-bypass",
+      "title": "Active-content scan misses outlines, AcroForm field /AA, many action types and annotation kinds",
+      "description": "_active_content checks Root /OpenAction, Root/page /AA, /Names JavaScript/EmbeddedFiles keys, page annotation /A,/AA and FileAttachment. It does not walk /Outlines actions, field-level /AA on non-widget fields, action types other than JavaScript/Launch (SubmitForm, ImportData, GoToR, GoToE, Rendition, RichMediaExecute), RichMedia/Screen/Movie/Sound annotations, or action arrays.",
+      "exploit_scenario": "JavaScript placed in a bookmark action or in a field /AA /K keystroke action yields a 'support' classification.",
+      "recommendation": "Walk outlines and all fields/annotations with cycle detection; use an allowlist of permitted action types; handle action arrays.",
+      "scanner_confidence": 0.65,
+      "scan_id": "F-005",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 1,
+        "cannot_verify": 0
+      },
+      "votes_cast": 3,
+      "verdict": "true_positive",
+      "confidence": 6.5,
+      "exclusion_rule": "13",
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "first_links": [
+        "src/peditor/worker/analyzer.py:135",
+        "src/peditor/worker/server.py:33"
+      ],
+      "rationale": "_active_content never walks /Outlines or AcroForm field /AA; _action_kinds records only JavaScript/Launch; contradicts ADR-0007; impact is policy bypass, likely below MEDIUM.\n\nPolicy-classification gap (ADR-0007), not execution: no JS engine and no edit/save path yet. Must be fixed before an edit/save path ships.",
+      "claimed_severity": "MEDIUM",
+      "preconditions": [
+        "Victim opens a PDF whose JS/Launch sits only in /Outlines or parent-field /AA",
+        "No other reject reason is present",
+        "A future edit/save path keeps the action and a JS-capable viewer opens the output"
+      ],
+      "access_level": "local",
+      "severity": "LOW",
+      "threat_match": null,
+      "severity_alignment": -2,
+      "verify_verdict": "mitigated",
+      "severity_label": "LOW",
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; single-maintainer repo (git log: tghtaipei 2, Claude 1)"
+    },
+    {
+      "id": "f016",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-017",
+      "file": "src/peditor/worker/analyzer.py",
+      "line": 256,
+      "category": "unbounded-allocation",
+      "title": "render_page pixmap size bounded only by DPI, not by pixel area",
+      "description": "get_pixmap(dpi=dpi) with attacker-controlled page box/UserUnit; a 14400 pt page at 300 dpi requests ~10 GB.",
+      "exploit_scenario": "Huge MediaBox page rendered at default DPI drives worker memory to many GB.",
+      "recommendation": "Compute pixel count before rendering; reject or clamp above a cap (e.g. 50 MP).",
+      "scanner_confidence": 0.45,
+      "scan_id": "F-017",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 1,
+        "cannot_verify": 0
+      },
+      "votes_cast": 3,
+      "verdict": "true_positive",
+      "confidence": 6.0,
+      "exclusion_rule": "13",
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "first_links": [
+        "src/peditor/cli.py:39"
+      ],
+      "rationale": "render_page bounds only DPI (analyzer.py:254-256); attacker MediaBox drives get_pixmap to ~2.7 GB at default 150 dpi via cli.py:39; timeout/message caps act after allocation; memory limits deferred to P7.\n\nMulti-GB pixmap in the isolated worker; temporary memory pressure until the timeout; add a pixel-area cap.",
+      "claimed_severity": "LOW",
+      "preconditions": [
+        "Victim opens an attacker-supplied PDF and pages are rendered",
+        "Page box is huge (e.g. 14400 pt) within MuPDF limits",
+        "Host lacks free RAM for a multi-GB pixmap"
+      ],
+      "access_level": "local",
+      "severity": "LOW",
+      "threat_match": "T5",
+      "severity_alignment": 1,
+      "verify_verdict": "exploitable",
+      "severity_label": "LOW",
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; single-maintainer repo (git log: tghtaipei 2, Claude 1)"
+    },
+    {
+      "id": "f002",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-002",
+      "file": "src/peditor/core/service.py",
+      "line": 224,
+      "category": "timeout-bypass",
+      "title": "Per-request timeout resets on every line; a compromised worker can hang the main process indefinitely",
+      "description": "_exchange loops on worker.lines.get(timeout=self.timeout); the timeout is per line. Lines whose request_id is neither the current id nor None hit `continue` with no deadline, while _call holds self._lock, blocking all other calls. The reader thread fills an unbounded queue.",
+      "exploit_scenario": "Worker compromised via a MuPDF/qpdf bug emits {\"request_id\":\"x\",...} every second; UI/CLI freezes forever, timeout/restart never fires.",
+      "recommendation": "Use one absolute deadline per request; treat mismatched request_id as a protocol violation (restart + WORKER_FAILED); bound the queue.",
+      "scanner_confidence": 0.75,
+      "scan_id": "F-002",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 1,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "votes_cast": 3,
+      "verdict": "false_positive",
+      "confidence": 6.5,
+      "exclusion_rule": "13",
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "first_links": [
+        "src/peditor/cli.py:31"
+      ],
+      "rationale": "Per-line timeout reset real (service.py:226,241) but requires code execution in the worker; unsandboxed same-user worker can already do far more; user-interruptible hang; hardening only.",
+      "claimed_severity": "MEDIUM",
+      "severity": null,
+      "severity_label": null,
+      "verify_verdict": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "owner_hint": null
+    },
+    {
+      "id": "f003",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-003",
+      "file": "src/peditor/worker/analyzer.py",
+      "line": 74,
+      "category": "classification-bypass",
+      "title": "Owner-password-only encrypted PDF (empty user password) is not flagged and is classified support",
+      "description": "Encryption is detected only via mu.needs_pass and pikepdf.PasswordError. A PDF with an empty user password and owner restrictions opens in both without a password, so flags['encrypted'] stays False and status is support; mu.is_encrypted / pike.is_encrypted are never checked.",
+      "exploit_scenario": "A 'no modification' restricted PDF is marked editable; a later pikepdf save() drops encryption and permission restrictions.",
+      "recommendation": "Also reject when mu.is_encrypted or pike.is_encrypted (or /Encrypt in trailer).",
+      "scanner_confidence": 0.7,
+      "scan_id": "F-003",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "false_positive",
+      "confidence": 7.0,
+      "exclusion_rule": "13",
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "first_links": [
+        "src/peditor/worker/server.py:33"
+      ],
+      "rationale": "Owner-password-only PDF is classified support (analyzer.py:74,88), a policy gap vs spec §4, but no save path exists and owner permissions only protect the untrusted author; no capability against the local user.",
+      "claimed_severity": "MEDIUM",
+      "severity": null,
+      "severity_label": null,
+      "verify_verdict": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "owner_hint": null
+    },
+    {
+      "id": "f006",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-014",
+      "file": "src/peditor/core/service.py",
+      "line": 242,
+      "category": "improper-input-validation",
+      "title": "Worker responses not schema-checked: crafted shapes raise non-ServiceError exceptions and skip restart",
+      "description": "decode only checks dict; response['result'] KeyError, error.get AttributeError if error is not a dict; forged codes/messages pass through; worker not restarted on these paths.",
+      "exploit_scenario": "Compromised worker returns result [1] or error 'x'; main process raises TypeError/AttributeError, worker stays alive.",
+      "recommendation": "Validate per-operation schema; on violation restart and raise WORKER_FAILED; wrap unexpected exceptions.",
+      "scanner_confidence": 0.7,
+      "scan_id": "F-014",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "exclusion_rule": "13",
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "first_links": [
+        "src/peditor/cli.py:31"
+      ],
+      "rationale": "Missing shape checks at service.py:243-245 are real, but a compromised worker can already send well-formed forged results; effect is only a local exception; locks released in finally (213-216).",
+      "claimed_severity": "LOW",
+      "severity": null,
+      "severity_label": null,
+      "verify_verdict": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "owner_hint": null
+    },
+    {
+      "id": "f008",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-004",
+      "file": "src/peditor/worker/analyzer.py",
+      "line": 150,
+      "category": "classification-bypass",
+      "title": "Signature detection ignores inherited /FT, fields deeper than 32 levels, and widgets not in /AcroForm/Fields",
+      "description": "_is_signed requires /FT /Sig and /V on the same dict; /FT is inheritable. _fields stops at depth > 32 silently. Only /AcroForm/Fields and /Perms are scanned, not page /Annots widgets.",
+      "exploit_scenario": "A signed PDF whose /FT /Sig sits on a parent field is classified editable; editing invalidates the signature without SIGNED_DOCUMENT rejection.",
+      "recommendation": "Resolve inherited /FT; treat any /V with /Type /Sig or /ByteRange as signed; scan page widgets; treat depth overflow as reject.",
+      "scanner_confidence": 0.6,
+      "scan_id": "F-004",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "false_positive",
+      "confidence": 7.0,
+      "exclusion_rule": "13",
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "first_links": [
+        "src/peditor/cli.py:31",
+        "src/peditor/worker/analyzer.py:121"
+      ],
+      "rationale": "Detection gaps real (analyzer.py:143,149-150; /Annots not scanned) but no edit/save path exists (protocol.py:43 read-only ops); effect is a wrong label in a read-only report.",
+      "claimed_severity": "MEDIUM",
+      "severity": null,
+      "severity_label": null,
+      "verify_verdict": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "owner_hint": null
+    },
+    {
+      "id": "f010",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-022",
+      "file": "src/peditor/worker/fonts.py",
+      "line": 205,
+      "category": "redos",
+      "title": "Quadratic regex scanning in parse_cmap on crafted ToUnicode text",
+      "description": "Lazy `beginbfchar(.*?)endbfchar` with N unmatched begins is O(N*len); `\\[[^\\]]*\\]` alternative also quadratic on unclosed brackets; stream size uncapped.",
+      "exploit_scenario": "Few-MB ToUnicode of repeated 'beginbfrange <><>[' burns CPU until the timeout.",
+      "recommendation": "Cap stream length; linear tokenizer; bound array scans.",
+      "scanner_confidence": 0.6,
+      "scan_id": "F-022",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "false_positive",
+      "confidence": 6.5,
+      "exclusion_rule": "3",
+      "refute_reasons": [
+        "already_handled"
+      ],
+      "first_links": [
+        "src/peditor/worker/content.py:206"
+      ],
+      "rationale": "Lazy begin/end regex quadratic (fonts.py:205) but bracket alternative bounded (210); runs only in worker; 30 s timeout kills and restarts (service.py:226-229); designed containment.",
+      "claimed_severity": "LOW",
+      "severity": null,
+      "severity_label": null,
+      "verify_verdict": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "owner_hint": null
+    },
+    {
+      "id": "f013",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-023",
+      "file": "src/peditor/worker/fonts.py",
+      "line": 238,
+      "category": "improper-input-validation",
+      "title": "Lone surrogate code points from /Differences or bfrange increments make inspect_page fail with UnicodeEncodeError",
+      "description": "_glyph_name_unicode accepts uniD800-uniDFFF; bfrange increments can step into surrogates; _target_id encodes utf-8 -> UnicodeEncodeError -> WORKER_FAILED; if reaching protocol.encode it could escape serve().",
+      "exploit_scenario": "/Differences [65 /uniD800] with (A) Tj makes the page permanently un-analyzable.",
+      "recommendation": "Reject surrogates and > 0x10FFFF; defensive encoding in _target_id; catch encode errors in serve().",
+      "scanner_confidence": 0.55,
+      "scan_id": "F-023",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "exclusion_rule": "12",
+      "refute_reasons": [
+        "already_handled",
+        "not_actionable"
+      ],
+      "first_links": [
+        "src/peditor/worker/analyzer.py:374",
+        "src/peditor/worker/server.py:44"
+      ],
+      "rationale": "Surrogates reach _target_id encode (analyzer.py:476) but UnicodeEncodeError is caught at server.py:83 as WORKER_FAILED; escape from serve() unreachable.",
+      "claimed_severity": "LOW",
+      "severity": null,
+      "severity_label": null,
+      "verify_verdict": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "owner_hint": null
+    },
+    {
+      "id": "f014",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-021",
+      "file": "src/peditor/worker/fonts.py",
+      "line": 154,
+      "category": "improper-error-handling",
+      "title": "Malformed font dictionaries raise uncaught exception types; whole page fails",
+      "description": "DescendantFonts [/Foo] -> AttributeError; non-dict FontDescriptor -> AttributeError; escapes the Tf handler to server.py generic handler (WORKER_FAILED).",
+      "exploit_scenario": "One malformed font resource blocks analysis of all text on the page.",
+      "recommendation": "Type-check objects; mark font unsupported on any parse error.",
+      "scanner_confidence": 0.5,
+      "scan_id": "F-021",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "false_positive",
+      "confidence": 7.0,
+      "exclusion_rule": "12",
+      "refute_reasons": [
+        "already_handled",
+        "not_actionable"
+      ],
+      "first_links": [
+        "src/peditor/worker/content.py:155",
+        "src/peditor/worker/content.py:206"
+      ],
+      "rationale": "/DescendantFonts [5] raises AttributeError not caught at content.py:193, but server.py:83-86 returns controlled WORKER_FAILED; attacker's own page fails safely.",
+      "claimed_severity": "LOW",
+      "severity": null,
+      "severity_label": null,
+      "verify_verdict": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "owner_hint": null
+    },
+    {
+      "id": "f015",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-012",
+      "file": "src/peditor/core/service.py",
+      "line": 111,
+      "category": "logic-flaw",
+      "title": "Main process keys documents by worker-chosen document_id; a compromised worker can overwrite another document's handle",
+      "description": "open_document stores self._docs[result['document_id']] without collision check; reopen-by-path then uses the wrong path; worker also supplies the sha256 used for the external-modification check.",
+      "exploit_scenario": "Malicious doc B returns doc A's id; A's handle now refers to B's path/content.",
+      "recommendation": "Generate handles in the main process (uuid4); reject duplicate/ill-formed worker ids.",
+      "scanner_confidence": 0.45,
+      "scan_id": "F-012",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "exclusion_rule": "13",
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "first_links": [
+        "src/peditor/cli.py:31"
+      ],
+      "rationale": "Only caller opens one document per service; all docs share one worker which already serves all content, so overwriting the path/sha map entry (service.py:111, used only for reopen check 169-174) grants no extra capability.",
+      "claimed_severity": "LOW",
+      "severity": null,
+      "severity_label": null,
+      "verify_verdict": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "owner_hint": null
+    },
+    {
+      "id": "f017",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-013",
+      "file": "src/peditor/core/service.py",
+      "line": 169,
+      "category": "race-condition",
+      "title": "Unsynchronized _docs / worker_id state across _doc_call, _restart, _ensure_worker, open/close",
+      "description": "_doc_call reads/updates worker_id outside _lock; _restart/_ensure_worker iterate _docs while other threads mutate it; cancel() may kill a worker serving a later request.",
+      "exploit_scenario": "Concurrent UI open/close during a worker restart raises RuntimeError or sends stale ids.",
+      "recommendation": "Hold _lock across _doc_call and _docs mutations; iterate over a copy; check target request under lock in cancel().",
+      "scanner_confidence": 0.4,
+      "scan_id": "F-013",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "exclusion_rule": "16",
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "first_links": [
+        "src/peditor/cli.py:29"
+      ],
+      "rationale": "Unsynchronized access exists (service.py:169-174,184,193-194,111,128) but the only caller is the sequential single-threaded CLI (cli.py:29-39); no concurrent caller; a malicious PDF cannot control timing; theoretical race with no security impact.",
+      "claimed_severity": "LOW",
+      "severity": null,
+      "severity_label": null,
+      "verify_verdict": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "owner_hint": null
+    },
+    {
+      "id": "f018",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-019",
+      "file": "src/peditor/worker/content.py",
+      "line": 142,
+      "category": "input-validation / non-finite float across IPC",
+      "title": "Huge operands produce inf/NaN matrices that bypass layout checks and cross IPC",
+      "description": "_num is plain float(); multiply yields inf/NaN without exception; NaN CTM passes the analyzer's layout checks (comparisons with NaN are False); json.dumps allows NaN.",
+      "exploit_scenario": "cm with 300-digit reals drives CTM to NaN; image reported as supported with NaN bboxes sent to the UI.",
+      "recommendation": "Reject non-finite/huge operands in _num; check finiteness after multiply; json.dumps(allow_nan=False).",
+      "scanner_confidence": 0.4,
+      "scan_id": "F-019",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "false_positive",
+      "confidence": 7.0,
+      "exclusion_rule": "13",
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "first_links": [
+        "src/peditor/worker/analyzer.py:325",
+        "src/peditor/worker/analyzer.py:392"
+      ],
+      "rationale": "inf/NaN CTMs pass layout check (analyzer.py:399) but worker output already untrusted and no main-process code consumes bboxes; no edit op exists.",
+      "claimed_severity": "LOW",
+      "severity": null,
+      "severity_label": null,
+      "verify_verdict": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "owner_hint": null
+    },
+    {
+      "id": "f019",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-020",
+      "file": "src/peditor/worker/content.py",
+      "line": 193,
+      "category": "improper-exception-handling",
+      "title": "Non-dictionary /Resources raises AttributeError that escapes the per-operator handler and fails the whole request",
+      "description": "resources is only truthiness-checked; /Resources 5 makes resources.get raise AttributeError, not in the caught tuple; whole request returns WORKER_FAILED instead of a page-level MALFORMED_DOCUMENT.",
+      "exploit_scenario": "PDF with /Resources 1 makes analysis of the file fail.",
+      "recommendation": "Normalize resources to pikepdf.Dictionary; widen the handler.",
+      "scanner_confidence": 0.4,
+      "scan_id": "F-020",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "false_positive",
+      "confidence": 7.5,
+      "exclusion_rule": "12",
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "first_links": [
+        "src/peditor/worker/analyzer.py:325"
+      ],
+      "rationale": "AttributeError from non-dict /Resources (content.py:108,282) escapes the operator handler but server.py:83-86 returns controlled WORKER_FAILED; worker keeps serving; attacker's own PDF fails closed.",
+      "claimed_severity": "LOW",
+      "severity": null,
+      "severity_label": null,
+      "verify_verdict": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "owner_hint": null
+    },
+    {
+      "id": "f020",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-010",
+      "file": "src/peditor/cli.py",
+      "line": 43,
+      "category": "sensitive-data-in-logs / terminal-escape-injection",
+      "title": "CLI prints worker-supplied error code without allow-list validation",
+      "description": "ServiceError.code comes from the worker response (service.py:245) unchecked; cli.py prints it verbatim to stderr; can carry document text, paths or terminal escape sequences.",
+      "exploit_scenario": "Compromised worker returns an error code containing ESC sequences or document text; printed to terminal/CI logs.",
+      "recommendation": "Map codes not in ERROR_CODES|PROTOCOL_ERROR_CODES to WORKER_FAILED; use fixed local messages.",
+      "scanner_confidence": 0.35,
+      "scan_id": "F-010",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "false_positive",
+      "confidence": 7.5,
+      "exclusion_rule": "13",
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "first_links": [
+        "src/peditor/cli.py:31",
+        "src/peditor/core/service.py:245"
+      ],
+      "rationale": "Honest worker only emits ProtocolError-validated codes (protocol.py:51, server.py:82-90); only a code-executing worker could send arbitrary codes, and it can already write to the console and files as the user.",
+      "claimed_severity": "LOW",
+      "severity": null,
+      "severity_label": null,
+      "verify_verdict": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "owner_hint": null
+    },
+    {
+      "id": "f021",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-009",
+      "file": "src/peditor/cli.py",
+      "line": 35,
+      "category": "improper-input-validation",
+      "title": "analyze() trusts worker result shape/content; unvalidated bytes written as .png; uncaught exceptions print tracebacks",
+      "description": "Only ServiceError is caught; malformed results raise KeyError/TypeError/binascii.Error; OSError messages include full output path; png_base64 not checked for PNG signature; NaN accepted into report.json.",
+      "exploit_scenario": "Compromised worker returns non-PNG bytes or malformed structures; CLI writes arbitrary bytes as page PNG or dumps a traceback.",
+      "recommendation": "Validate results (page_index range, PNG signature, strict base64), catch Exception/OSError with fixed codes, allow_nan=False.",
+      "scanner_confidence": 0.3,
+      "scan_id": "F-009",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "exclusion_rule": "13",
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "first_links": [
+        "src/peditor/cli.py:39",
+        "src/peditor/core/service.py:243"
+      ],
+      "rationale": "Results unchecked (service.py:242-243) and only ServiceError caught (cli.py:42), but write location is operator --out and filename integer-only; worker already controls render content; traceback/NaN are local nuisance.",
+      "claimed_severity": "LOW",
+      "severity": null,
+      "severity_label": null,
+      "verify_verdict": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "owner_hint": null
+    },
+    {
+      "id": "f022",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-016",
+      "file": "src/peditor/worker/analyzer.py",
+      "line": 220,
+      "category": "classification-correctness",
+      "title": "page_geometry ignores inherited /CropBox and /UserUnit; may diverge from MuPDF geometry",
+      "description": "Reads /CropBox only from the page dict; ignores /UserUnit; int(/Rotate) truncates; crop outside media yields inverted box.",
+      "exploit_scenario": "Inherited CropBox causes mismatched coordinate frames for UI overlay (mostly fail-safe via glyph location check).",
+      "recommendation": "Use inherited attribute resolution or MuPDF's cropbox/rotation; reject UserUnit != 1; validate Rotate and non-empty crop.",
+      "scanner_confidence": 0.3,
+      "scan_id": "F-016",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "exclusion_rule": "12",
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "first_links": [
+        "src/peditor/worker/analyzer.py:323",
+        "src/peditor/worker/server.py:44"
+      ],
+      "rationale": "Inherited CropBox/UserUnit ignored (analyzer.py:218-225) but mismatch fails safe as UNSUPPORTED_LAYOUT (366); only image overlay bboxes shift on the attacker's own document.",
+      "claimed_severity": "LOW",
+      "severity": null,
+      "severity_label": null,
+      "verify_verdict": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "owner_hint": null
+    },
+    {
+      "id": "f023",
+      "source": "reports/P1/security/VULN-FINDINGS.json#F-011",
+      "file": "src/peditor/core/locate.py",
+      "line": 23,
+      "category": "algorithmic-complexity",
+      "title": "find_text collects unbounded overlapping matches over worker-supplied glyphs",
+      "description": "O(matches x len(wanted)) time/memory; glyph['c'] not type-checked so spans can misalign.",
+      "exploit_scenario": "1M identical glyphs and a 1,000-char repeated search hang the UI process.",
+      "recommendation": "Cap matches, non-overlapping search, require str for c, bound glyph count.",
+      "scanner_confidence": 0.15,
+      "scan_id": "F-011",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "votes_cast": 2,
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "exclusion_rule": "2",
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "first_links": [
+        "tests/integration/test_locator.py:32"
+      ],
+      "rationale": "find_text (locate.py:23-27) is only called from tests; nothing under src/ imports peditor.core.locate; search text is fixture-controlled.",
+      "claimed_severity": "LOW",
+      "severity": null,
+      "severity_label": null,
+      "verify_verdict": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "owner_hint": null
+    }
+  ]
+}
