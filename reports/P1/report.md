@@ -4,7 +4,7 @@
 
 ## 1. 階段／commit／日期
 
-- 階段：P1　分支：`p1-analyzer`　commit：`af39cdf`（程式）、`66c6a79`（文件）　日期：2026-10-21
+- 階段：P1　分支：`p1-analyzer`　commit：`af39cdf`（程式）、`e65ad4c`（獨立核對修正）　日期：2026-10-21
 - 撰寫：Claude Code；審查：待工程師；獨立核對：未參與實作的 Claude 子代理人（§11）
 - 輸入：spec v1.1 P1／G1／§7、ADR-0001～0012、manifest（45 份 available）、P0 報告 §10 延續條件
 - S2 決定（工程師 2026-10-21）：B 組在 P1 只判定格內文字，B06 合併格延至 P6（ADR-0013）；S03–S06 維持 P7 產生
@@ -49,8 +49,9 @@ uv run pytest -q                                        → exit 0，58 passed�
 uv run peditor analyze tests/fixtures/files/L02.pdf --out <tmp>   → exit 0，約 2.9 秒（含 worker 啟動）
 ```
 
-CI：run [39543474799](https://github.com/TGHAPPLICATION/PEditor/actions/runs/39543474799)（commit `66c6a79`）
-windows-latest 54 passed、macos-15 54 passed，P0 檢查腳本（含 smoke build）result PASS。
+CI：run [39544656448](https://github.com/TGHAPPLICATION/PEditor/actions/runs/39544656448)（commit `e65ad4c`，獨立核對修正後）
+windows-latest 58 passed、macos-15 58 passed，P0 檢查腳本（含 smoke build）result PASS。
+修正前：run 39543474799（commit `66c6a79`）雙平台 54 passed。
 
 ## 5. 真修改證據
 
@@ -96,7 +97,7 @@ windows-latest 54 passed、macos-15 54 passed，P0 檢查腳本（含 smoke buil
 
 ## 10. 關卡結果
 
-- CI：run 39543474799（commit `66c6a79`）雙平台通過
+- CI：run 39544656448（commit `e65ad4c`）雙平台 58 passed
 - **關卡結果：PASS（附條件）**（範圍：repo 內 45 份 available；G1-01～G1-09 均有測試證據；G1-03 為 42 份相符＋3 份依 ADR-0013 延後；盲測、S03–S06 NOT RUN 並註明原因）
 - **下一段可開始：待工程師決定 U7**（安全掃描未依 ADR-0005 於 P1 結束前執行；工程師同意補跑或延後後，PR 合併即可開始）。延續條件：U3 須在 P2 視覺比對實作前決定；U1、U2 建議 P2 開工前確認；ADR-0013 的 F03／F08 於 P2、B06 於 P6 補判定。
 
