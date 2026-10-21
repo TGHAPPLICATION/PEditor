@@ -19,7 +19,14 @@ import pikepdf
 import pymupdf
 
 from peditor.core.geometry import PageGeometry, apply, bbox_of
-from peditor.core.limits import MAX_FILE_BYTES, MAX_PAGES, MAX_RENDER_DPI
+from peditor.core.limits import (
+    MAX_FILE_BYTES,
+    MAX_OBJECT_WALK,
+    MAX_PAGES,
+    MAX_RENDER_DPI,
+    MAX_RENDER_PIXELS,
+    LimitExceeded,
+)
 from peditor.core.protocol import ProtocolError
 from peditor.worker import fonts as fontmod
 from peditor.worker.content import PageContent, TextRun, image_rect, interpret
@@ -99,7 +106,10 @@ def open_document(path: str) -> Document:
             pike.close()
         return _doc(digest, page_count, flags, ["RESOURCE_LIMIT"])
     if pike is not None:
-        _document_features(pike, flags, reasons)
+        try:
+            _document_features(pike, flags, reasons)
+        except LimitExceeded:  # 表單／書籤樹過大或有大量共享節點（P1 安全掃描 f009）
+            reasons.append("RESOURCE_LIMIT")
     document = _doc(digest, page_count, flags, reasons)
     document.pike, document.mu = pike, mu
     return document
@@ -118,7 +128,8 @@ def _document_features(pdf: pikepdf.Pdf, flags: dict, reasons: list[str]) -> Non
         if "/XFA" in acroform:
             flags["xfa"] = True
             reasons.append("UNSUPPORTED_FEATURE")
-        if any(_is_signed(f) for f in _fields(acroform.get("/Fields", []))):
+        fields = list(_fields(acroform.get("/Fields", [])))
+        if any(_is_signed(f) for f in fields):
             flags["signed"] = True
             reasons.append("SIGNED_DOCUMENT")
     if "/Perms" in root:
@@ -138,12 +149,29 @@ def _document_features(pdf: pikepdf.Pdf, flags: dict, reasons: list[str]) -> Non
         reasons.append("ACTIVE_CONTENT")
 
 
-def _fields(fields, depth: int = 0):
-    for field_ in fields:
-        if not isinstance(field_, pikepdf.Dictionary) or depth > 32:
+def _fields(fields):
+    """表單欄位樹；共享或自我參照的 /Kids 只走一次，節點數有上限（P1 安全掃描 f009）。"""
+    seen: set = set()
+    stack = [iter(fields)]
+    count = 0
+    while stack:
+        field_ = next(stack[-1], None)
+        if field_ is None:
+            stack.pop()
             continue
+        if not isinstance(field_, pikepdf.Dictionary):
+            continue
+        if field_.is_indirect:
+            if field_.objgen in seen:
+                continue
+            seen.add(field_.objgen)
+        count += 1
+        if count > MAX_OBJECT_WALK or len(stack) > 64:
+            raise LimitExceeded("fields")
         yield field_
-        yield from _fields(field_.get("/Kids", []), depth + 1)
+        kids = field_.get("/Kids")
+        if isinstance(kids, pikepdf.Array):
+            stack.append(iter(kids))
 
 
 def _is_signed(field_: pikepdf.Dictionary) -> bool:
@@ -160,7 +188,7 @@ def _action_kinds(action, seen: set, depth: int = 0) -> set[str]:
         seen.add(key)
     kinds = set()
     kind = str(action.get("/S", ""))
-    if kind in ("/JavaScript", "/Launch"):
+    if kind in _ACTIVE_ACTIONS:
         kinds.add(kind.lstrip("/"))
     nxt = action.get("/Next")
     for item in nxt if isinstance(nxt, pikepdf.Array) else [nxt]:
@@ -168,10 +196,59 @@ def _action_kinds(action, seen: set, depth: int = 0) -> set[str]:
     return kinds
 
 
+# ADR-0007 的主動內容：會執行程式、開啟外部程式／檔案、送出或匯入資料、播放多媒體的動作。
+# 文件內跳頁（GoTo）與超連結（URI，產品不自動開啟）不在此列。
+_ACTIVE_ACTIONS = frozenset({"/JavaScript", "/Launch", "/SubmitForm", "/ImportData", "/GoToE",
+                             "/Rendition", "/RichMediaExecute"})  # fmt: skip
+_ACTIVE_ANNOTS = {"/FileAttachment": "EmbeddedFile", "/RichMedia": "Multimedia",
+                  "/Screen": "Multimedia", "/Movie": "Multimedia", "/Sound": "Multimedia",
+                  "/3D": "Multimedia"}  # fmt: skip
+
+
+def _aa_kinds(holder, seen: set) -> set[str]:
+    kinds: set[str] = set()
+    kinds |= _action_kinds(holder.get("/A"), seen)
+    aa = holder.get("/AA")
+    if isinstance(aa, pikepdf.Dictionary):
+        for value in aa.values():
+            kinds |= _action_kinds(value, seen)
+    return kinds
+
+
+def _outline_items(root):
+    """書籤樹（/First、/Next）；走訪節點數有上限並略過循環。"""
+    outlines = root.get("/Outlines")
+    if not isinstance(outlines, pikepdf.Dictionary):
+        return
+    seen: set = set()
+    stack = [outlines.get("/First")]
+    count = 0
+    while stack:
+        item = stack.pop()
+        if not isinstance(item, pikepdf.Dictionary):
+            continue
+        if item.is_indirect:
+            if item.objgen in seen:
+                continue
+            seen.add(item.objgen)
+        count += 1
+        if count > MAX_OBJECT_WALK:
+            raise LimitExceeded("outlines")
+        yield item
+        stack.extend([item.get("/Next"), item.get("/First")])
+
+
 def _active_content(pdf: pikepdf.Pdf) -> list[str]:
+    """P1 安全掃描 f007：另走訪書籤、表單欄位（含非 widget 的父欄位）的 /A 與 /AA。"""
     root = pdf.Root
     seen: set = set()
     kinds = _action_kinds(root.get("/OpenAction"), seen)
+    for item in _outline_items(root):
+        kinds |= _action_kinds(item.get("/A"), seen)
+    acroform = root.get("/AcroForm")
+    if isinstance(acroform, pikepdf.Dictionary):
+        for field_ in _fields(acroform.get("/Fields", [])):
+            kinds |= _aa_kinds(field_, seen)
     for holder in [root, *[p.obj for p in pdf.pages]]:
         aa = holder.get("/AA")
         if isinstance(aa, pikepdf.Dictionary):
@@ -187,13 +264,10 @@ def _active_content(pdf: pikepdf.Pdf) -> list[str]:
         for annot in page.obj.get("/Annots", []):
             if not isinstance(annot, pikepdf.Dictionary):
                 continue
-            if str(annot.get("/Subtype", "")) == "/FileAttachment":
-                kinds.add("EmbeddedFile")
-            kinds |= _action_kinds(annot.get("/A"), seen)
-            aa = annot.get("/AA")
-            if isinstance(aa, pikepdf.Dictionary):
-                for value in aa.values():
-                    kinds |= _action_kinds(value, seen)
+            subtype = str(annot.get("/Subtype", ""))
+            if subtype in _ACTIVE_ANNOTS:
+                kinds.add(_ACTIVE_ANNOTS[subtype])
+            kinds |= _aa_kinds(annot, seen)
     return sorted(kinds)
 
 
@@ -203,7 +277,7 @@ def _active_content(pdf: pikepdf.Pdf) -> list[str]:
 def _require_pages(document: Document) -> None:
     if document.flags["encrypted"]:
         raise ProtocolError("ENCRYPTED_DOCUMENT", "文件已加密")
-    if "RESOURCE_LIMIT" in document.flags["reasons"]:
+    if document.page_count > MAX_PAGES:
         raise ProtocolError("RESOURCE_LIMIT", "頁數超過上限")
     if document.pike is None or document.mu is None:
         raise ProtocolError("MALFORMED_DOCUMENT", "文件結構無法解析")
@@ -253,6 +327,9 @@ def render_page(document: Document, page_index, dpi) -> dict:
     page_index = _check_index(document, page_index)
     if not isinstance(dpi, int) or not 18 <= dpi <= MAX_RENDER_DPI:
         raise ProtocolError("INVALID_REQUEST", "DPI 超出範圍")
+    rect = document.mu[page_index].rect
+    if rect.width * rect.height * (dpi / 72) ** 2 > MAX_RENDER_PIXELS:  # P1 安全掃描 f016
+        raise ProtocolError("RESOURCE_LIMIT", "頁面渲染尺寸超過上限")
     pix = document.mu[page_index].get_pixmap(dpi=dpi)
     return {"width": pix.width, "height": pix.height,
             "png_base64": base64.b64encode(pix.tobytes("png")).decode("ascii")}  # fmt: skip
@@ -323,8 +400,11 @@ def _analyze_page(document: Document, page_index: int) -> dict:
     geom = page_geometry(pike_page)
     to_page = geom.pdf_to_page()
     content: PageContent = interpret(pike_page)
-    grid = _chars(mu_page)
     doc_reasons = document.doc_reasons
+    if any(e.startswith("limit:") for e in content.errors):
+        # 超過工作量上限：不再交給 MuPDF 擷取（同一份內容會讓 MuPDF 做相同的放大工作）
+        return _page_result(page_index, geom, [], [], 0, [*doc_reasons, "RESOURCE_LIMIT"])
+    grid = _chars(mu_page)
     rev = document.revision
 
     # 每個字型在本頁用到的字碼都要有可靠 Unicode，否則整個字型不可信（ADR-0011）
@@ -421,17 +501,24 @@ def _analyze_page(document: Document, page_index: int) -> dict:
         })  # fmt: skip
 
     page_reasons = list(doc_reasons)
-    if content.errors:
-        page_reasons.append("MALFORMED_DOCUMENT")
+    error_reasons = []
+    if any(e.startswith("limit:") for e in content.errors):
+        error_reasons.append("RESOURCE_LIMIT")
+    if any(not e.startswith("limit:") for e in content.errors):
+        error_reasons.append("MALFORMED_DOCUMENT")
+    page_reasons += error_reasons
     if not text_targets and not page_reasons:
         # 頁面能力指文字編輯：沒有任何文字目標即唯讀（掃描、輪廓文字、純圖片頁）；影像目標各自判定
         page_reasons.append("NO_TEXT_LAYER")
-    if content.errors:
+    if error_reasons:
         for target in text_targets + image_targets:
-            target["capability"] = _capability(
-                [*target["capability"]["reasons"], "MALFORMED_DOCUMENT"]
-            )
+            target["capability"] = _capability([*target["capability"]["reasons"], *error_reasons])
 
+    return _page_result(page_index, geom, text_targets, image_targets, content.inline_images,
+                        page_reasons)  # fmt: skip
+
+
+def _page_result(page_index, geom, text_targets, image_targets, inline_images, reasons) -> dict:
     return {
         "page_index": page_index,
         "page_geometry": {
@@ -442,8 +529,8 @@ def _analyze_page(document: Document, page_index: int) -> dict:
         },
         "text_targets": text_targets,
         "image_targets": image_targets,
-        "inline_images": content.inline_images,
-        "capabilities": _capability(page_reasons),
+        "inline_images": inline_images,
+        "capabilities": _capability(reasons),
     }
 
 

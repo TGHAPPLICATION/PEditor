@@ -12,7 +12,14 @@ from dataclasses import dataclass, field
 import pikepdf
 
 from peditor.core.geometry import IDENTITY, Matrix, apply, bbox_of, multiply
-from peditor.core.limits import MAX_FORM_DEPTH
+from peditor.core.limits import (
+    MAX_CLIPS,
+    MAX_CONTENT_OPERATORS,
+    MAX_FORM_DEPTH,
+    MAX_FORM_INVOCATIONS,
+    MAX_GSTATE_DEPTH,
+    LimitExceeded,
+)
 from peditor.worker.fonts import FontInfo, load_font
 
 TEXT_SHOW = frozenset({"Tj", "TJ", "'", '"'})
@@ -99,6 +106,8 @@ class _Interpreter:
         self.result = PageContent()
         self.fonts: dict[tuple, FontInfo] = {}
         self.bt_count = 0
+        self.operators = 0
+        self.form_calls = 0
 
     # --- 進入點 -------------------------------------------------------
     def run(self) -> PageContent:
@@ -106,10 +115,13 @@ class _Interpreter:
         streams = list(contents) if isinstance(contents, pikepdf.Array) else [contents]
         gs = _GState()
         resources = self.page.obj.get("/Resources") or pikepdf.Dictionary()
-        for stream in streams:
-            if not isinstance(stream, pikepdf.Stream):
-                continue
-            gs = self._execute(stream, resources, gs, ())
+        try:
+            for stream in streams:
+                if not isinstance(stream, pikepdf.Stream):
+                    continue
+                gs = self._execute(stream, resources, gs, ())
+        except LimitExceeded as exc:  # 超過工作量上限：停止解析，由 analyzer 回報 RESOURCE_LIMIT
+            self.result.errors.append(f"limit:{exc}")
         return self.result
 
     def _execute(self, stream, resources, gs: _GState, form_path) -> _GState:
@@ -132,8 +144,13 @@ class _Interpreter:
                 continue
             op = str(inst.operator)
             ops = inst.operands
+            self.operators += 1
+            if self.operators > MAX_CONTENT_OPERATORS:
+                raise LimitExceeded("operators")
             try:
                 if op == "q":
+                    if len(stack) >= MAX_GSTATE_DEPTH:
+                        raise LimitExceeded("gstate_depth")
                     stack.append(gs.copy())
                 elif op == "Q":
                     if stack:
@@ -146,6 +163,8 @@ class _Interpreter:
                     pending_clip = True
                 elif op in _PAINT:
                     if pending_clip and path:
+                        if len(gs.clips) >= MAX_CLIPS:
+                            raise LimitExceeded("clips")
                         gs.clips.append(_make_clip(path))
                     path, pending_clip = [], False
                 elif op == "BT":
@@ -276,6 +295,9 @@ class _Interpreter:
             ):
                 self.result.errors.append("form_depth")
                 return
+            self.form_calls += 1
+            if self.form_calls > MAX_FORM_INVOCATIONS:
+                raise LimitExceeded("form_invocations")
             matrix = tuple(_num(v) for v in xobj.get("/Matrix", [1, 0, 0, 1, 0, 0]))
             inner = gs.copy()
             inner.ctm = multiply(matrix, gs.ctm)

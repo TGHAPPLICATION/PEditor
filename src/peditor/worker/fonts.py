@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 import pikepdf
 import pymupdf
 
+from peditor.core.limits import MAX_CMAP_BYTES, MAX_CODE_EXPANSION, LimitExceeded
+
 # 不支援原因（對應理由碼由 capability 決定）
 VERTICAL = "vertical"
 UNSUPPORTED_CMAP = "unsupported_cmap"
@@ -171,19 +173,29 @@ def _embedded(descriptor) -> bool:
 
 
 def _cid_widths(w) -> dict[int, float]:
+    """/W 陣列；CID 限於 2 位元組空間（Identity-H），展開總數有上限（P1 安全掃描 f001）。"""
     widths: dict[int, float] = {}
     items = list(w)
+    budget = MAX_CODE_EXPANSION
     i = 0
     while i < len(items):
         first = int(items[i])
         nxt = items[i + 1] if i + 1 < len(items) else None
         if isinstance(nxt, pikepdf.Array):
+            budget -= len(nxt)
+            if budget < 0:
+                raise LimitExceeded("cid_widths")
             for j, value in enumerate(nxt):
-                widths[first + j] = float(value)
+                if 0 <= first + j <= 0xFFFF:
+                    widths[first + j] = float(value)
             i += 2
         elif i + 2 < len(items):
             last, value = int(items[i + 1]), float(items[i + 2])
-            for cid in range(first, last + 1):
+            lo, hi = max(first, 0), min(last, 0xFFFF)
+            budget -= max(hi - lo + 1, 0)
+            if budget < 0:
+                raise LimitExceeded("cid_widths")
+            for cid in range(lo, hi + 1):
                 widths[cid] = value
             i += 3
         else:
@@ -200,16 +212,28 @@ def _utf16(hexstr: str) -> str:
 
 
 def parse_cmap(text: str) -> dict[int, str]:
-    """解析 /ToUnicode CMap 的 bfchar／bfrange。"""
+    """解析 /ToUnicode CMap 的 bfchar／bfrange。
+
+    來源字碼限 1–2 位元組（本專案支援的字型）；展開總數有上限（P1 安全掃描 f005）。
+    """
+    if len(text) > MAX_CMAP_BYTES:
+        raise LimitExceeded("cmap_size")
     mapping: dict[int, str] = {}
+    budget = MAX_CODE_EXPANSION
     for block in re.findall(r"beginbfchar(.*?)endbfchar", text, re.S):
         for src, dst in re.findall(_HEX + r"\s*" + _HEX, block):
-            mapping[int(src, 16)] = _utf16(dst)
+            if 0 < len(src) <= 4:
+                mapping[int(src, 16)] = _utf16(dst)
     for block in re.findall(r"beginbfrange(.*?)endbfrange", text, re.S):
         for lo, hi, rest in re.findall(
             _HEX + r"\s*" + _HEX + r"\s*(\[[^\]]*\]|<[0-9A-Fa-f]*>)", block
         ):
+            if not (0 < len(lo) <= 4 and 0 < len(hi) <= 4):
+                continue
             lo_i, hi_i = int(lo, 16), int(hi, 16)
+            budget -= max(hi_i - lo_i + 1, 0)
+            if budget < 0:
+                raise LimitExceeded("cmap_entries")
             if rest.startswith("["):
                 for i, dst in enumerate(re.findall(_HEX, rest)):
                     mapping[lo_i + i] = _utf16(dst)
@@ -218,7 +242,10 @@ def parse_cmap(text: str) -> dict[int, str]:
             if not base:
                 continue
             for i in range(hi_i - lo_i + 1):
-                mapping[lo_i + i] = base[:-1] + chr(ord(base[-1]) + i)
+                code = ord(base[-1]) + i
+                if code > 0x10FFFF:
+                    break
+                mapping[lo_i + i] = base[:-1] + chr(code)
     return mapping
 
 

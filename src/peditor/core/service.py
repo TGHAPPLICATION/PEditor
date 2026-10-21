@@ -36,7 +36,8 @@ class ServiceError(Exception):
 def worker_command() -> list[str]:
     if getattr(sys, "frozen", False):  # PyInstaller：同一執行檔的子命令（ADR-0004）
         return [sys.executable, "--worker"]
-    return [sys.executable, "-m", "peditor.worker"]
+    # -P：不把目前資料夾放進 sys.path，避免載入工作目錄中的同名模組（P1 安全掃描 f011）
+    return [sys.executable, "-P", "-m", "peditor.worker"]
 
 
 @dataclass
