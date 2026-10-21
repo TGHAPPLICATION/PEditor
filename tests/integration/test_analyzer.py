@@ -13,7 +13,7 @@ from peditor.core.service import ServiceError
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 
-# 能力判定不在 P1 範圍的預期，逐項說明；P1 只驗證目標可定位且未崩潰（P1 報告 §3、§9）
+# 能力判定不在 P1 範圍的預期（ADR-0013，只能包含該 ADR 列出的 fixture）；P1 只驗證目標可定位
 DEFERRED = {
     "F03": "GLYPH_MISSING 取決於新文字，於 plan_text_edit 判定（P2，G2-04）",
     "F08": "GLYPH_MISSING 取決於新文字，於 plan_text_edit 判定（P2，G2-04）",
@@ -86,9 +86,12 @@ def test_capability_matches_manifest(service, available_rows):
         targets = page["text_targets"]
         spans = find_text(targets, row["original_text"])
         if reason == "UNSUPPORTED_ENCODING":
-            # 原文無法可靠擷取：找不到，或找到但不可編輯；且頁上有字型被判 UNSUPPORTED_ENCODING
+            # 原文無法可靠擷取：找到時須不可編輯；含無對應字碼（c 為 None）的目標必須全被判
+            # UNSUPPORTED_ENCODING，且至少有一個（T09 缺數字、F05 無 ToUnicode）
             assert all(span_capability(targets, s)["status"] == "reject" for s in spans), fid
-            assert any("UNSUPPORTED_ENCODING" in t["capability"]["reasons"] for t in targets), fid
+            unmapped = [t for t in targets if any(g["c"] is None for g in t["glyphs"])]
+            assert unmapped, fid
+            assert all("UNSUPPORTED_ENCODING" in t["capability"]["reasons"] for t in unmapped), fid
             checked.append(fid)
             continue
         assert len(spans) == 1, fid

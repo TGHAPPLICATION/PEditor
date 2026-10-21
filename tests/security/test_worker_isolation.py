@@ -8,7 +8,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PDF_LIBS = {"pymupdf", "fitz", "pikepdf", "pypdfium2"}
-# 主行程端的模組：UI、core（DocumentService 等）、CLI
+# 主行程端的模組：UI、core（DocumentService 等）、CLI。
+# __main__.py 不列入：它只在 --version／--smoke 時匯入 pymupdf／pikepdf 讀版本字串，不開使用者 PDF；
+# 開檔路徑是否載入 PDF 程式庫由下方執行期測試涵蓋。
 MAIN_PROCESS_MODULES = [
     *(ROOT / "src" / "peditor" / "ui").rglob("*.py"),
     *(ROOT / "src" / "peditor" / "core").rglob("*.py"),

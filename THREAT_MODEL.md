@@ -37,14 +37,14 @@ P0 時點只有空白 UI、fixture 產生器與 CI。P1（2026-10-21）實作 wo
 | id | threat | actor | surface | asset | impact | likelihood | status | controls | evidence |
 |---|---|---|---|---|---|---|---|---|---|
 | T1 | 惡意 PDF 經 MuPDF／qpdf 解析造成記憶體破壞並在使用者權限下執行程式碼 | remote_unauth | 開啟 PDF 檔 | 使用者主機, 使用者文件內容 | critical | likely | partially_mitigated | P1：解析只在 worker 子行程（G1-01 測試主行程無 PDF 程式庫）；崩潰／逾時即終止並重啟。非 OS 沙箱，worker 仍有使用者權限（P7 評估） | MuPDF 與 qpdf 歷年記憶體安全 CVE（P1 vuln-scan 時補 CVE 編號） |
-| T2 | 已被攻陷或異常的 worker 透過 IPC 送出畸形訊息，攻陷或癱瘓 UI 主行程 | remote_unauth | worker → 主行程 IPC | 使用者主機, 使用者文件內容 | critical | possible | partially_mitigated | P1：JSON Lines、單則 64 MiB 上限、逾時、畸形回應即重啟；尚未以 schema 驗證回應內容（P7 加 fuzz 與 schema） | |
+| T2 | 已被攻陷或異常的 worker 透過 IPC 送出畸形訊息，攻陷或癱瘓 UI 主行程 | remote_unauth | worker → 主行程 IPC | 使用者主機, 使用者文件內容 | critical | possible | partially_mitigated | P1：JSON Lines、單則 64 MiB 上限（主行程讀取時即限制）、逾時、畸形回應即重啟；尚未以 schema 驗證回應內容（P7 加 fuzz 與 schema） | |
 | T6 | 相依套件或 CI action 遭供應鏈攻擊，於建置或執行時植入惡意程式 | supply_chain | 相依套件與建置 | 發佈產物, 使用者主機 | critical | rare | partially_mitigated | uv.lock 雜湊鎖定、exclude-newer 冷卻期、Actions commit SHA 鎖定、contents: read 權限 | |
 | T8 | 竄改的安裝包或離線升級包被安裝至使用者主機 | supply_chain | 離線升級包 | 發佈產物, 使用者主機 | critical | rare | unmitigated | 規劃附 hash 發佈；簽章延至正式散布（P8） | |
 | T3 | 儲存中斷、崩潰或磁碟滿導致原 PDF 毀損或遺失 | local_user | 儲存 | 原始檔完整性 | high | likely | unmitigated | 規劃暫存檔 + 原子取代 + crash injection 測試（P3） | |
 | T4 | 模式 B 只覆蓋未移除，舊文字仍可被擷取，造成資訊外洩 | insider | 儲存 | 編輯正確性, 使用者文件內容 | high | possible | unmitigated | ADR-0001 要求證明舊內容已移除（G2 第 5 點，P2 實作） | |
 | T9 | 真實公文、個資或文件原文經 fixture、日誌、錯誤回報進入公開 repo 或 CI 日誌 | insider | 公開 repo 與 CI 日誌 | 使用者文件內容 | high | possible | partially_mitigated | 只放合成 fixture、盲測樣本離線保管、日誌不含原文與路徑（CLAUDE.md） | |
 | T7 | 產品或相依於執行時產生出站連線，破壞離線保證或外洩內容 | supply_chain | 相依套件與建置 | 離線保證, 使用者文件內容 | high | rare | partially_mitigated | test_offline_guard 禁止產品碼匯入網路模組；P7 實機零出站監測 | |
-| T5 | 惡意 PDF 以資源耗盡（巨大頁數、壓縮炸彈、深層巢狀物件）癱瘓應用程式 | remote_unauth | 開啟 PDF 檔 | 使用者主機 | medium | likely | partially_mitigated | P1：開檔前檢查檔案大小（200 MB）與頁數（500）、每請求 30 秒逾時、Form 巢狀深度 8；記憶體與解壓限制於 P7 | |
+| T5 | 惡意 PDF 以資源耗盡（巨大頁數、壓縮炸彈、深層巢狀物件）癱瘓應用程式 | remote_unauth | 開啟 PDF 檔 | 使用者主機 | medium | likely | partially_mitigated | P1：讀檔前檢查檔案大小（200 MB）、開檔後解析頁面前檢查頁數（500）、每請求 30 秒逾時、Form 巢狀深度 8 與循環偵測；記憶體與解壓限制於 P7 | |
 | T10 | 特製路徑或檔名（路徑穿越、符號連結）使儲存覆寫非預期檔案 | local_user | 檔名與路徑 | 原始檔完整性 | medium | rare | unmitigated | 規劃儲存時解析實際路徑並驗證（P3） | |
 
 ## 5. Deprioritized

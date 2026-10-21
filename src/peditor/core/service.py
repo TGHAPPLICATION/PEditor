@@ -16,7 +16,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from peditor.core.limits import REQUEST_TIMEOUT_S
-from peditor.core.protocol import PROTOCOL_VERSION, ProtocolError, decode, encode
+from peditor.core.protocol import (
+    MAX_MESSAGE_BYTES,
+    PROTOCOL_VERSION,
+    ProtocolError,
+    decode,
+    encode,
+)
 
 
 class ServiceError(Exception):
@@ -56,7 +62,11 @@ class _WorkerProcess:
 
     def _read(self) -> None:
         assert self.proc.stdout is not None
-        for line in self.proc.stdout:
+        # 讀取時就限制單行長度，超長回應不整行載入記憶體（T2）
+        while line := self.proc.stdout.readline(MAX_MESSAGE_BYTES + 1):
+            if len(line) > MAX_MESSAGE_BYTES or not line.endswith(b"\n"):
+                self.lines.put(b"")  # 交由 _exchange 判為格式錯誤並重啟 worker
+                return
             self.lines.put(line)
         self.lines.put(None)
 
