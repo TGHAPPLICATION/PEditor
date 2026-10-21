@@ -32,15 +32,15 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 
 | 需求 ID | spec | 需求 | 預定 test ID | fixture | 狀態 |
 | --- | --- | --- | --- | --- | --- |
-| G1-01 | P1 | parser 在 worker 執行，主行程不開 PDF | `tests/security/test_worker_isolation.py::test_main_process_never_imports_pdf_libs_for_user_files` | 全部 | PLANNED |
-| G1-02 | G1 | 61 份全部分析或受控拒絕，不崩潰 | `tests/integration/test_analyzer.py::test_all_fixtures_analyzed_or_rejected` | 全部 | PLANNED |
-| G1-03 | G1 | 可編輯／不可編輯符合 manifest | `tests/integration/test_analyzer.py::test_capability_matches_manifest` | 全部 | PLANNED |
-| G1-04 | G1 | 座標 round-trip 誤差 ≤0.5 pt | `tests/unit/test_geometry.py::test_coordinate_round_trip_within_half_point` | L01、L02 | PLANNED |
-| G1-05 | G1 | 100／200% 縮放與 0／90／180／270° 旋轉命中正確 | `tests/unit/test_geometry.py::test_hit_test_zoom_and_rotation` | L02 | PLANNED |
-| G1-06 | P1 | API：open_document、inspect_page、assess_editability | `tests/integration/test_api_contract.py::test_open_inspect_assess` | T01 | PLANNED |
-| G1-07 | P1 | CLI JSON 分析報告與頁面 PNG | `tests/integration/test_cli_analyze.py::test_json_report_and_png` | T01 | PLANNED |
-| G1-08 | G1 停止 | 字形能對應到可修改 content stream（bbox 不算定位） | `tests/integration/test_locator.py::test_glyph_maps_to_content_stream_operator` | T01、F04、L03 | PLANNED |
-| G1-09 | P7 | P1 起即有基本隔離、取消、資料限制、不執行主動內容 | `tests/security/test_worker_limits.py::test_basic_timeout_and_cancel` | S02 | PLANNED |
+| G1-01 | P1 | parser 在 worker 執行，主行程不開 PDF | `tests/security/test_worker_isolation.py::test_main_process_never_imports_pdf_libs_for_user_files`、`::test_main_process_modules_do_not_import_pdf_libs_or_worker` | T05 | PASS |
+| G1-02 | G1 | 61 份全部分析或受控拒絕，不崩潰 | `tests/integration/test_analyzer.py::test_all_fixtures_analyzed_or_rejected` | repo 內 45 份 available | PASS（45 份）；盲測 11 份 NOT RUN（P8）、U06 無法製作（ADR-0012）、S03–S06 NOT RUN（P7 產生） |
+| G1-03 | G1 | 可編輯／不可編輯符合 manifest | `tests/integration/test_analyzer.py::test_capability_matches_manifest`、`::test_xfa_rejected` | repo 內 45 份 available | PASS（42 份）；F03、F08 GLYPH_MISSING 延至 P2（G2-04）、B06 合併格延至 P6 |
+| G1-04 | G1 | 座標 round-trip 誤差 ≤0.5 pt | `tests/unit/test_geometry.py::test_coordinate_round_trip_within_half_point`、`::test_pdf_to_page_matches_pymupdf` | T01、L01、L02 | PASS |
+| G1-05 | G1 | 100／200% 縮放與 0／90／180／270° 旋轉命中正確 | `tests/unit/test_geometry.py::test_hit_test_zoom_and_rotation` | L02 | PASS |
+| G1-06 | P1 | API：open_document、inspect_page、assess_editability | `tests/integration/test_api_contract.py::test_open_inspect_assess`、`::test_contract_errors` | T01、U02 | PASS |
+| G1-07 | P1 | CLI JSON 分析報告與頁面 PNG | `tests/integration/test_cli_analyze.py::test_json_report_and_png`、`::test_rejected_document_reports_reason_without_path` | T01、T07、U02 | PASS |
+| G1-08 | G1 停止 | 字形能對應到可修改 content stream（bbox 不算定位） | `tests/integration/test_locator.py::test_glyph_maps_to_content_stream_operator`、`tests/unit/test_content_parsing.py` | T01、F04、L03 | PASS |
+| G1-09 | P7 | P1 起即有基本隔離、取消、資料限制、不執行主動內容 | `tests/security/test_worker_limits.py::test_basic_timeout_and_cancel`、`::test_worker_crash_recovers`、`::test_reopen_detects_external_modification`、`::test_active_content_reported_not_executed` | T01、T05、S02 | PASS（基本版；完整資源限制於 P7） |
 
 ## G2：真正文字修改（P2）
 
