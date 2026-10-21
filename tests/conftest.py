@@ -32,3 +32,12 @@ def manifest_rows():
 @pytest.fixture(scope="session")
 def available_rows(manifest_rows):
     return [r for r in manifest_rows if r["status"] == "available"]
+
+
+@pytest.fixture(scope="session")
+def service():
+    """共用一個 worker 子行程的 DocumentService（G1：PDF 只在 worker 解析）。"""
+    from peditor.core.service import DocumentService
+
+    with DocumentService() as svc:
+        yield svc

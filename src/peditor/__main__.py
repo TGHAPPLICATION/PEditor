@@ -28,6 +28,16 @@ def _versions() -> dict[str, str]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["--worker"]:  # 打包後由 DocumentService 啟動的 worker 子命令（ADR-0004）
+        from peditor.worker.server import main as worker_main
+
+        return worker_main()
+    if argv[:1] == ["analyze"]:
+        from peditor.cli import analyze
+
+        return analyze(argv[1:])
+
     parser = argparse.ArgumentParser(prog="peditor")
     parser.add_argument("--smoke", action="store_true", help="啟動後立即結束（CI 用）")
     parser.add_argument("--version", action="store_true", help="輸出版本資訊")
