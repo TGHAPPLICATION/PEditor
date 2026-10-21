@@ -35,7 +35,7 @@
 | G0-05 | Windows 11 x64 實機啟動 | manual-steps §3；`scripts/p0_windows_check.ps1` 輸出（轉錄於 §4；原檔 `build/p0-check/summary.md` 只在操作者本機，不入 repo）；PR #1 review 5545939500 | Windows 實機 | PASS（操作者透過本機 Claude Code 執行 `scripts/p0_windows_check.ps1`，並以人工即時觀看確認 `uv run peditor` 與封裝後 `peditor.exe` 兩次視窗皆出現） |
 | G0-06 | macOS Apple Silicon 實機啟動 | ADR-0003：P0–P3 以 CI macos-15 arm64 替代 | macOS 實機 | NOT RUN（無實機）；依 ADR-0003（已接受）以 CI macos-15 arm64 證據替代至 P3 |
 | G0-07 | 61 份 manifest、群組 T12／F10／L8／I9／B8／U6／S8 | `tests/unit/test_manifest.py` | 容器、CI | PASS |
-| G0-08 | ≥12 盲測、不進 repo | 同上 `::test_at_least_12_blind_fixtures_kept_offline` | 容器、CI；保管人 hash 清冊 | PASS（結構）；製作 11／12（2026-10-21 收到 hash 清冊，見 §6）；U06 無法製作（保管人確認），實際盲測數 11 < 12，待決（§9 U9） |
+| G0-08 | ≥12 盲測、不進 repo | 同上 `::test_at_least_12_blind_fixtures_kept_offline` | 容器、CI；保管人 hash 清冊 | PASS（結構）；製作 11／12（2026-10-21 收到 hash 清冊，見 §6）；U06 無法製作（保管人確認），盲測數依 ADR-0012 接受 11 份 |
 | G0-09 | ≥20 份可重現首批樣本、非單一產生器 | 21 份（PyMuPDF 14、ReportLab 5、PyMuPDF+pikepdf 1、加密 1）；`::test_generator_reproduces_committed_bytes` | 容器、CI 雙平台 | PASS |
 | G0-10 | fixture hash 可驗證 | `::test_committed_fixture_hashes_match_manifest` | 容器、CI | PASS |
 | G0-11 | 沒有正式 PDF | 全為合成內容；人工 fixture 規則見 manual-steps §4；PR #1 審查（2026-10-16，review 5545939500） | 人工審查 | PASS |
@@ -134,7 +134,7 @@ uv run python packaging/smoke_build.py   → exit 0，PEDITOR_SMOKE_OK，onedir 
 ## 7. 限制、阻擋、未測項目
 
 - macOS 實機啟動 NOT RUN（G0-06，依 ADR-0003 以 CI 證據替代）。
-- 人工 fixture 24 份已登記（2026-10-20，PR #3）；盲測 11 份已製作並離線保管，U06 無法製作（§6），盲測數少於 spec 要求的 12 份（§9 U9）；S03–S06 於 P7 以腳本產生。
+- 人工 fixture 24 份已登記（2026-10-20，PR #3）；盲測 11 份已製作並離線保管，U06 無法製作（§6），盲測數依 ADR-0012 接受 11 份；S03–S06 於 P7 以腳本產生。
 - §8.2 視覺門檻「P0／P2 以基準實測後鎖定」：P0 無編輯引擎可量測，NOT RUN，於 P2 鎖定（X-05）。
 - MuPDF 1.28 `subset_fonts()` 無法子集化 CFF 字型（Noto Sans TC），fixture 改以 fontTools 預先子集化；P2 模式 B 須沿用（ADR-0008）。
 - Noto Serif TC 為 variable font，ReportLab 嵌入預設 instance（ExtraLight），字形偏細但不影響測試。
@@ -160,7 +160,7 @@ uv run python packaging/smoke_build.py   → exit 0，PEDITOR_SMOKE_OK，onedir 
 | U6 | ADR-0009：I04／I07 改為 support、新增 I09 補位拒絕樣本；fixture 總數 60→61 | P5 支援矩陣、G0-07 計數 | 已接受（2026-10-16，工程師） |
 | U7 | ADR-0010：Word／LibreOffice 人工 fixture 使用 Windows 11 內建 Noto TC 可變字型（與 ADR-0008 鎖定版不同，嵌入未 instancing 的 VF） | G0-17 字型來源、P1 擷取、P2 模式 B | 已接受（2026-10-19，工程師） |
 | U8 | ADR-0011：T09（Microsoft Print to PDF）ToUnicode 缺 0–9，預期由 support 改為 reject UNSUPPORTED_ENCODING | P1 能力判定須偵測不完整 ToUnicode；T 組 support 樣本少一份 | 已接受（2026-10-20，工程師） |
-| U9 | 盲測 U06（XFA）無法製作，實際盲測 11 份，少於 spec §5／G8 的 12 份；且 repo 內沒有任何 XFA 樣本 | G8 盲測數量；XFA 拒絕路徑無實際樣本 | 待工程師決定 |
+| U9 | 盲測 U06（XFA）無法製作，實際盲測 11 份，少於 spec §5／G8 的 12 份；且 repo 內沒有任何 XFA 樣本 | G8 盲測數量；XFA 拒絕路徑無實際樣本 | 已接受（2026-10-21，工程師）：ADR-0012 接受 11 份；XFA 拒絕以腳本合成檔測試，最晚 P7 |
 
 人工待辦（詳細步驟見 `reports/P0/manual-steps.md`）：
 
@@ -171,7 +171,7 @@ uv run python packaging/smoke_build.py   → exit 0，PEDITOR_SMOKE_OK，onedir 
 - [x] 製作 24 份人工 fixture 並登記（2026-10-20，PR #3；ADR-0010、ADR-0011）
 - [x] 盲測 11 份由保管人製作、離線保管，hash 清冊 2026-10-21 收到（§6）
 - [x] 盲測 U06（XFA）：2026-10-21 保管人確認無法製作
-- [ ] 盲測數 11 < 12 的處理（§9 U9）
+- [x] 盲測數 11 < 12 的處理：ADR-0012 接受 11 份（2026-10-21）
 - [ ] Claude 用量一週紀錄
 - [ ] macOS 實機方案（11/16 前）
 
@@ -179,7 +179,7 @@ uv run python packaging/smoke_build.py   → exit 0，PEDITOR_SMOKE_OK，onedir 
 
 - CI：run 38882924296（commit `00288a3`）雙平台通過
 - **關卡結果：PASS**（除 G0-06 外，G0-01～G0-17 均有證據且結果為 PASS；G0-08 盲測結構 PASS、樣本製作排在 P2 前；G0-05 Windows 實機 2026-10-16 PASS；G0-11／G0-12 於 PR #1 審查通過（2026-10-16）；G0-06 依 ADR-0003 以 CI macos-15 arm64 證據替代，實機須於 P3 結束前取得方案、P4 起實測）
-- **下一段可開始：是**（P0 PR 合併後）。延續條件：24 份人工 fixture（含 ADR-0009 新增 I09）須在 P1 驗收前登記；12 份盲測須在 P2 開工前完成並離線保管（2026-10-21 已完成 11 份，U06 無法製作；不足 12 份的處理見 §9 U9）；macOS 實機方案最晚 2026-11-16，屆時仍無方案則依 ADR-0003 觸發停止條件、交負責人決定。合併條件：PR 最新 commit 的雙平台 CI 通過；GitHub 設定（§9 第一項）建議於合併前完成，最晚 P1 開工前。I04、I07 預期值已於 2026-10-16 依 ADR-0009 鎖定，不再是延續條件。
+- **下一段可開始：是**（P0 PR 合併後）。延續條件：24 份人工 fixture（含 ADR-0009 新增 I09）須在 P1 驗收前登記；12 份盲測須在 P2 開工前完成並離線保管（2026-10-21 已完成 11 份，U06 無法製作；依 ADR-0012 接受 11 份）；macOS 實機方案最晚 2026-11-16，屆時仍無方案則依 ADR-0003 觸發停止條件、交負責人決定。合併條件：PR 最新 commit 的雙平台 CI 通過；GitHub 設定（§9 第一項）建議於合併前完成，最晚 P1 開工前。I04、I07 預期值已於 2026-10-16 依 ADR-0009 鎖定，不再是延續條件。
 
 ## 11. 獨立核對紀錄
 
