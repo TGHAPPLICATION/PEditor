@@ -45,12 +45,13 @@ G1 各驗收條件：
 
 ```
 uv run ruff check . && uv run ruff format --check .   → exit 0
-uv run pytest -q                                        → exit 0，58 passed（Windows 實機，獨立核對修正後；修正前 54 passed）
+uv run pytest -q                                        → exit 0，68 passed（Windows 實機，含安全掃描回歸測試 10 項；獨立核對修正後為 58、修正前 54）
 uv run peditor analyze tests/fixtures/files/L02.pdf --out <tmp>   → exit 0，約 2.9 秒（含 worker 啟動）
 ```
 
-CI：run [39544656448](https://github.com/TGHAPPLICATION/PEditor/actions/runs/39544656448)（commit `e65ad4c`，獨立核對修正後）
-windows-latest 58 passed、macos-15 58 passed，P0 檢查腳本（含 smoke build）result PASS。
+CI：run [39572336577](https://github.com/TGHAPPLICATION/PEditor/actions/runs/39572336577)（commit `41abec3`，安全掃描修正後）
+windows-latest 68 passed、macos-15 68 passed，P0 檢查腳本（含 smoke build）result PASS。
+獨立核對修正後：run 39544656448（commit `e65ad4c`）雙平台 58 passed。
 修正前：run 39543474799（commit `66c6a79`）雙平台 54 passed。
 
 ## 5. 真修改證據
@@ -123,7 +124,7 @@ windows-latest 58 passed、macos-15 58 passed，P0 檢查腳本（含 smoke buil
 
 ## 10. 關卡結果
 
-- CI：run 39544656448（commit `e65ad4c`）雙平台 58 passed
+- CI：run 39572336577（commit `41abec3`）雙平台 68 passed
 - **關卡結果：PASS（附條件）**（範圍：repo 內 45 份 available；G1-01～G1-09 均有測試證據；G1-03 為 42 份相符＋3 份依 ADR-0013 延後；盲測、S03–S06 NOT RUN 並註明原因）
 - **下一段可開始：是**（PR 合併後；U7 安全掃描已補跑並修正）。延續條件：U8 的 f003、f008 須在 P2 編輯／儲存路徑前修正；U3 須在 P2 視覺比對實作前決定；U1、U2 建議 P2 開工前確認；ADR-0013 的 F03／F08 於 P2、B06 於 P6 補判定。
 
