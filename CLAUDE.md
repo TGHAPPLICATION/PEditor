@@ -32,6 +32,7 @@ uv run python packaging/smoke_build.py # PyInstaller smoke build + 執行 --smok
 powershell -ExecutionPolicy Bypass -File scripts\p0_windows_check.ps1   # Windows 實機一鍵驗證
 bash scripts/p0_macos_check.sh         # macOS 實機一鍵驗證
 uv run peditor                         # 啟動 app
+uv run peditor analyze X.pdf --out D   # P1 只讀分析：D/report.json 與頁面 PNG
 ```
 
 ## 程式風格（karpathy-guidelines）

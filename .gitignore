@@ -22,3 +22,6 @@ tests/fixtures/fonts/*.part
 Thumbs.db
 .idea/
 .vscode/
+
+# 安全掃描技能的暫存狀態（.claude/skills/triage）
+.triage-state/
