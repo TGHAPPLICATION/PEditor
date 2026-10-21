@@ -4,6 +4,7 @@
 """
 
 import hashlib
+import re
 from pathlib import Path
 
 import pikepdf
@@ -43,6 +44,25 @@ def _embedded_font_has(doc, page_index, text):
         if all(font.has_glyph(ord(ch)) for ch in text if not ch.isspace()):
             return True
     return False
+
+
+def _tounicode_chars(doc, font_xref):
+    """字型 /ToUnicode 對應到的 Unicode 字元集合；沒有 /ToUnicode 時回 None。"""
+    kind, value = doc.xref_get_key(font_xref, "ToUnicode")
+    if kind != "xref":
+        return None
+    cmap = doc.xref_stream(int(value.split()[0])).decode("latin-1")
+    hexes = []
+    for block in re.findall(r"beginbfchar(.*?)endbfchar", cmap, re.S):
+        hexes += re.findall(r"<[0-9A-Fa-f]+>\s*<([0-9A-Fa-f]+)>", block)
+    chars = {bytes.fromhex(h).decode("utf-16-be") for h in hexes}
+    for block in re.findall(r"beginbfrange(.*?)endbfrange", cmap, re.S):
+        for lo, hi, dst in re.findall(r"<(\w+)>\s*<(\w+)>\s*<(\w+)>", block):
+            start = int(dst, 16)
+            chars.update(chr(start + i) for i in range(int(hi, 16) - int(lo, 16) + 1))
+        for arr in re.findall(r"<\w+>\s*<\w+>\s*\[(.*?)\]", block, re.S):
+            chars.update(bytes.fromhex(h).decode("utf-16-be") for h in re.findall(r"<(\w+)>", arr))
+    return chars
 
 
 def test_generator_reproduces_committed_bytes(gen_fixtures, tmp_path):
@@ -87,7 +107,7 @@ def test_mode_a_targets_have_new_glyphs_in_original_subset(available_rows):
 @pytest.mark.parametrize(
     "reason",
     ["GLYPH_MISSING", "UNSUPPORTED_ENCODING", "NO_TEXT_LAYER", "ENCRYPTED_DOCUMENT",
-     "MALFORMED_DOCUMENT", "ACTIVE_CONTENT"],
+     "MALFORMED_DOCUMENT", "ACTIVE_CONTENT", "SIGNED_DOCUMENT", "UNSUPPORTED_FEATURE"],
 )  # fmt: skip
 def test_reject_fixtures_have_stated_property(available_rows, reason):
     rows = _rows(available_rows, reason_code=reason)
@@ -97,6 +117,21 @@ def test_reject_fixtures_have_stated_property(available_rows, reason):
         if reason == "MALFORMED_DOCUMENT":
             with pikepdf.open(path) as pdf:
                 assert pdf.check_pdf_syntax(), row["fixture_id"]
+            continue
+        if reason in {"SIGNED_DOCUMENT", "UNSUPPORTED_FEATURE"}:
+            with pikepdf.open(path) as pdf:
+                fields = pdf.Root.AcroForm.Fields if "/AcroForm" in pdf.Root else []
+                if reason == "SIGNED_DOCUMENT":
+                    # 已簽署的 /Sig 欄位，且 ByteRange 涵蓋到檔尾
+                    sigs = [f.V for f in fields if f.get("/FT") == "/Sig" and "/V" in f]
+                    assert sigs, row["fixture_id"]
+                    start, len1, start2, len2 = (int(v) for v in sigs[0].ByteRange)
+                    assert start == 0 and start2 + len2 == path.stat().st_size, row["fixture_id"]
+                else:
+                    # PDF/A 宣告（U05）或 XFA（U06）
+                    is_pdfa = pdf.open_metadata().get("pdfaid:part") is not None
+                    has_xfa = "/AcroForm" in pdf.Root and "/XFA" in pdf.Root.AcroForm
+                    assert is_pdfa or has_xfa, row["fixture_id"]
             continue
         with pymupdf.open(path) as doc:
             if reason == "ENCRYPTED_DOCUMENT":
@@ -111,7 +146,11 @@ def test_reject_fixtures_have_stated_property(available_rows, reason):
                 assert not pymupdf.Font("china-t").has_glyph(ord(missing[0]))
             elif reason == "UNSUPPORTED_ENCODING":
                 assert row["original_text"] not in page.get_text(), row["fixture_id"]
-                assert all("/ToUnicode" not in doc.xref_object(f[0]) for f in doc.get_page_fonts(0))
+                # 沒有字型的 /ToUnicode 涵蓋原文：缺 /ToUnicode（F05）或缺數字（T09，ADR-0011）
+                needed = {ch for ch in row["original_text"] if not ch.isspace()}
+                fonts = doc.get_page_fonts(int(row["page_index"]))
+                maps = [_tounicode_chars(doc, xref) for xref, *_ in fonts]
+                assert not any(m is not None and needed <= m for m in maps), row["fixture_id"]
             elif reason == "NO_TEXT_LAYER":
                 assert not page.get_text().strip(), row["fixture_id"]
             elif reason == "ACTIVE_CONTENT":

@@ -17,7 +17,7 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | G0-05 | §6 G0 | Windows 11 x64 實機啟動 | `scripts/p0_windows_check.ps1`（人工實機執行，manual-steps §3）；`build/p0-check/summary.md`（2026-10-16，commit `7ca2eb3`） | — | PASS |
 | G0-06 | §6 G0 | macOS Apple Silicon 實機啟動 | ADR-0003：P0–P3 以 CI macos-15 arm64 證據替代；實機用 `scripts/p0_macos_check.sh`（manual-steps §8） | — | NOT RUN（無實機） |
 | G0-07 | §5 | 61 份 fixture manifest，群組數 T12／F10／L8／I9／B8／U6／S8 | `tests/unit/test_manifest.py::test_manifest_has_61_fixtures_in_spec_groups`、`::test_manifest_rows_match_schema` | 全部 | PASS |
-| G0-08 | §5 | 至少 12 份盲測，未用於實作調整、不進 repo | `tests/unit/test_manifest.py::test_at_least_12_blind_fixtures_kept_offline` | T10–T12、F09–F10、L08、I08、B07–B08、U06、S07–S08 | PASS（結構）；製作 NOT RUN |
+| G0-08 | §5 | 至少 12 份盲測，未用於實作調整、不進 repo | `tests/unit/test_manifest.py::test_at_least_12_blind_fixtures_kept_offline` | T10–T12、F09–F10、L08、I08、B07–B08、U06、S07–S08 | PASS（結構）；製作 11 份，U06 無法製作（ADR-0012） |
 | G0-09 | §6 P0 | 至少 20 份可重現首批樣本，非單一產生器 | `tests/unit/test_manifest.py::test_first_batch_has_20_reproducible_fixtures_from_two_generators`、`tests/integration/test_fixtures.py::test_generator_reproduces_committed_bytes` | 21 份合成 | PASS |
 | G0-10 | §6 G0 | fixture hash 可驗證 | `tests/unit/test_manifest.py::test_committed_fixture_hashes_match_manifest`、`::test_no_unlisted_files_in_fixture_dir` | 全部 available | PASS |
 | G0-11 | §6 G0 | 沒有正式 PDF（只有合成資料） | `scripts/gen_fixtures.py` 合成內容；人工 fixture 依 manual-steps §4 規則；PR #1 審查（2026-10-16） | 全部 | PASS |
@@ -123,7 +123,7 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | --- | --- | --- | --- | --- | --- |
 | G8-01 | G8 | 乾淨 VM／實機無 Python、無網路可安裝並完成核心流程 | 實機人工 | T01 | PLANNED |
 | G8-02 | G8 | 兩種 PDF 閱讀器正常開啟輸出 | 實機人工 | T01–T04 | PLANNED |
-| G8-03 | G8 | 完整支援矩陣 100%；61 fixture 與 12 盲測結果 | `tests/integration/test_release_matrix.py` + 盲測人工 | 全部 | PLANNED |
+| G8-03 | G8 | 完整支援矩陣 100%；61 fixture 與 12 盲測結果（依 ADR-0012 為 11 份，U06 無法製作） | `tests/integration/test_release_matrix.py` + 盲測人工 | 全部 | PLANNED |
 | G8-04 | G8 | 已知缺陷清單、SBOM、LICENSE、相依來源與版本、卸載／草稿清理說明 | 文件審查 | — | PLANNED |
 | G8-05 | P8 | 標明 macOS 最低支援版本 | 文件審查 | — | PLANNED |
 
