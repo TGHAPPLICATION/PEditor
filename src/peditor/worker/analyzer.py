@@ -78,7 +78,8 @@ def open_document(path: str) -> Document:
         mu = pymupdf.open(stream=data, filetype="pdf")
     except Exception:  # noqa: BLE001 — MuPDF 對畸形檔拋出多種例外
         reasons.append("MALFORMED_DOCUMENT")
-    if mu is not None and mu.needs_pass:
+    # 只有 owner 密碼（user 密碼為空）的檔案 needs_pass 為假，仍須判為加密（P1 安全掃描 f003）
+    if mu is not None and (mu.needs_pass or (mu.metadata or {}).get("encryption")):
         flags["encrypted"] = True
         mu.close()
         return _doc(digest, 0, flags, ["ENCRYPTED_DOCUMENT"])
@@ -89,6 +90,12 @@ def open_document(path: str) -> Document:
     pike = None
     try:
         pike = pikepdf.open(io.BytesIO(data))
+        if pike.is_encrypted:  # f003：MuPDF 無法開啟時仍由 pikepdf 判定
+            flags["encrypted"] = True
+            pike.close()
+            if mu is not None:
+                mu.close()
+            return _doc(digest, 0, flags, ["ENCRYPTED_DOCUMENT"])
         if pike.get_warnings():
             flags["repaired"] = True
             reasons.append("MALFORMED_DOCUMENT")
@@ -132,6 +139,13 @@ def _document_features(pdf: pikepdf.Pdf, flags: dict, reasons: list[str]) -> Non
         if any(_is_signed(f) for f in fields):
             flags["signed"] = True
             reasons.append("SIGNED_DOCUMENT")
+    # 未列在 /AcroForm/Fields 的簽章 widget 也要判定（P1 安全掃描 f008）
+    widgets = [annot for page in pdf.pages for annot in page.obj.get("/Annots", [])
+               if isinstance(annot, pikepdf.Dictionary)
+               and str(annot.get("/Subtype", "")) == "/Widget"]  # fmt: skip
+    if any(_is_signed(w) for w in widgets):
+        flags["signed"] = True
+        reasons.append("SIGNED_DOCUMENT")
     if "/Perms" in root:
         flags["signed"] = True
         reasons.append("SIGNED_DOCUMENT")
@@ -174,8 +188,26 @@ def _fields(fields):
             stack.append(iter(kids))
 
 
+def _inherited(node: pikepdf.Dictionary, key: str):
+    """可繼承的欄位屬性（/FT、/V）沿 /Parent 往上找；鏈長有上限並略過循環（P1 安全掃描 f008）。"""
+    seen: set = set()
+    for _ in range(64):
+        if not isinstance(node, pikepdf.Dictionary):
+            return None
+        if key in node:
+            return node.get(key)
+        if node.is_indirect:
+            if node.objgen in seen:
+                return None
+            seen.add(node.objgen)
+        node = node.get("/Parent")
+    raise LimitExceeded("field parent chain")
+
+
 def _is_signed(field_: pikepdf.Dictionary) -> bool:
-    return str(field_.get("/FT", "")) == "/Sig" and isinstance(field_.get("/V"), pikepdf.Dictionary)
+    return str(_inherited(field_, "/FT") or "") == "/Sig" and isinstance(
+        _inherited(field_, "/V"), pikepdf.Dictionary
+    )
 
 
 def _action_kinds(action, seen: set, depth: int = 0) -> set[str]:
