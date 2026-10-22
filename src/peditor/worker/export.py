@@ -52,7 +52,10 @@ def unreachable_objects(pdf: pikepdf.Pdf) -> int:
                 stack.extend(obj)
             else:
                 stack.extend(obj.values())
-    listed = {o.objgen for o in pdf.objects if o is not None and o.objgen != (0, 0)}
+    # 物件串流容器（/ObjStm）與交叉參照串流（/XRef）是檔案結構本身，依規範不會被參照
+    listed = {o.objgen for o in pdf.objects if o is not None and o.objgen != (0, 0)
+              and not (isinstance(o, pikepdf.Stream)
+                       and str(o.get("/Type", "")) in ("/ObjStm", "/XRef"))}  # fmt: skip
     return len(listed - reachable)
 
 

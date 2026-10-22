@@ -73,3 +73,12 @@ P2 的 18 個支援案例中，只有 T07、F01 的目標是整段文字運算�
 - 嵌入 CID-keyed CFF 的字碼解讀：依本字型 ToUnicode 已對應的字碼**一致**採用「charset 的 CID」或「字形索引」其中一種；
   兩者都不一致時不做模式 A。P0 以 PyMuPDF＋fontTools 產生的 Noto Sans TC fixture 屬後者（與 U3、ADR-0015 同源）。
 - 模式 A 實測可行案例：T01、T02、T08、F01、F04、L02、L03 與 E01–E04；其餘 support 案例（含 S2 估計為 A 的 T03、L01）需模式 B。
+- **模式 B 嵌入方式**（2026-10-22，P2 步驟 7 實測）：fontTools 子集化後，把 CID-keyed CFF 的 charset 重新編號為
+  「CID＝字形索引」，以裸 CFF（`/FontFile3 /CIDFontType0C`）＋ Identity-H 嵌入，附 ToUnicode。以 OpenType 包裝或
+  字碼≠CID 時 MuPDF 會渲染空白（U3）；本方式經實測 MuPDF、PDFium 都畫出正確字形。
+- **模式 B 字型位置**：字型檔不入庫（ADR-0008），worker 依序讀環境變數 `PEDITOR_MODE_B_FONT`、套件內
+  `resources/fonts/`（P8 打包），一律驗證 ADR-0008 的 SHA-256；找不到或不符時回 `GLYPH_MISSING` 並註明，不改用其他字型。
+  測試與基準腳本指向 `tests/fixtures/fonts/`（`scripts/fetch_fonts.py` 取得）。
+- **模式 B 的內容改寫**：目標運算子拆為「前段 TJ、`Tf` 新字型、新字 TJ、`Tf` 換回原字型、後段 TJ」，
+  後段以基線位置計算的 TJ 位移放回原位；新增頁面字型資源 `/PEditorB<n>`（頁面 `/Resources` 寫時複製，不改既有資源）。
+  `'`、`"` 運算子不拆（`UNSUPPORTED_LAYOUT`）。

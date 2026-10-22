@@ -10,12 +10,17 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import platform
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tests" / "integration"))
+# 模式 B 字型（ADR-0008：不入庫，由 scripts/fetch_fonts.py 取得）
+os.environ.setdefault(
+    "PEDITOR_MODE_B_FONT", str(ROOT / "tests/fixtures/fonts/NotoSansTC-Regular.otf")
+)
 
 import pymupdf  # noqa: E402
 import pypdfium2.version  # noqa: E402

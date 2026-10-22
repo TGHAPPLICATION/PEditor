@@ -40,6 +40,20 @@ P1 只在目標位於含 `/ActualText` 的**標記內容**（content stream 的 
 
 結構樹走訪沿用 P1 的節點數與深度上限，超過判 `RESOURCE_LIMIT`。
 
+### 修訂（2026-10-22，P2 步驟 7，工程師確認）：同步更新與內容相等的 /ActualText
+
+P2 實作時發現：Word 產生的 T05、T06、F06、L04，目標所在的 `/Span` 結構元素帶有 `/ActualText`，內容就是該行原文
+（例如 T05「本府辦理年度資訊安全稽核，請各單位配合。…」）。只改內容時，MuPDF 擷取會改從 `/ActualText` 取得**舊字**，
+PDFium 則取得新字，正是本 ADR 背景所述的風險。工程師選定同步更新，取代上列「元素或祖先含 `/ActualText` 即拒絕」：
+
+- 結構元素或祖先**含 `/Alt` 或 `/E`** → 仍拒絕（`UNSUPPORTED_FEATURE`）。
+- 元素與祖先中**只有一個**含 `/ActualText`，且該 `/ActualText` **完全等於**它所涵蓋內容的擷取文字
+  （依 `/K` 順序串接各 MCID 的文字，限同一頁、不含 OBJR）→ 允許編輯，並對 `/ActualText` 套用**同一字元範圍**的替換；
+  儲存後須驗證 `/ActualText` 仍完全等於新內容的擷取文字。
+- 不相等、跨頁、含 OBJR、多個層級都有 `/ActualText` → 拒絕（`UNSUPPORTED_FEATURE`）。
+- 標記內容（BDC 屬性）上的 `/ActualText`、`/Alt`、`/E` 仍一律拒絕。
+- 這是唯一允許修改的結構樹欄位；結構元素、MCID、`/ParentTree` 等仍不得變動。
+
 ### 編輯規則
 
 - 模式 A：只改寫 Tj／TJ 的字串運算元，BDC／EMC 與其屬性完全不動。

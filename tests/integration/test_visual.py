@@ -23,9 +23,28 @@ ORIGIN_TOL = 0.01  # pt
 
 def _cases():
     rows = visual.manifest()
-    mode_a = ("T01", "T02", "T08", "F01", "F04", "L02", "L03")  # 見 test_edit_text.MODE_A
+    supported = (
+        "T01",
+        "T02",
+        "T08",
+        "F01",
+        "F04",
+        "L02",
+        "L03",  # 模式 A（test_edit_text.MODE_A）
+        "T03",
+        "T04",
+        "T05",
+        "T06",
+        "T07",
+        "F02",
+        "F06",
+        "F07",
+        "L01",
+        "L04",
+        "L05",
+    )
     cases = [(f, rows[f]["original_text"], rows[f]["new_text"], rows[f]["editable_region_pt"])
-             for f in mode_a]  # fmt: skip
+             for f in supported]  # fmt: skip
     with open(visual.FIXTURES / "edit_cases.csv", encoding="utf-8", newline="") as fh:
         cases += [(c["fixture_id"], c["original_text"], c["new_text"], c["editable_region_pt"])
                   for c in csv.DictReader(fh) if not c["after_case"]]  # fmt: skip
