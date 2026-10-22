@@ -36,7 +36,7 @@ ERROR_CODES = frozenset(
         "UNSUPPORTED_FEATURE",
     }
 )
-# 協定層錯誤（非能力判定）：請求格式錯誤、worker 異常結束
+# 協定層錯誤（非能力判定；ADR-0016）：請求格式錯誤、worker 異常結束
 PROTOCOL_ERROR_CODES = frozenset({"INVALID_REQUEST", "WORKER_FAILED"})
 
 OPERATIONS = frozenset(
