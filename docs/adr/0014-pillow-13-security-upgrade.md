@@ -71,4 +71,4 @@ Pillow 13.0.0 發佈於 2026-10-16，晚於 `tool.uv.exclude-newer = "2026-09-28
   重產結果未提交，manifest 維持原 hash。
 - `packaging/smoke_build.py`：PEDITOR_SMOKE_OK，onedir 161.1 MiB。
 - `THIRD_PARTY_NOTICES.md`、`packaging/sbom/sbom-runtime.cdx.json` 的 Pillow 版本改為 13.0.0；`THREAT_MODEL.md` T1 已註記。
-- CI（Windows x64 / macOS arm64）：見 PR。
+- CI run 39709877095（commit `9e98404`）：Windows x64、macOS arm64 各 73 passed。
