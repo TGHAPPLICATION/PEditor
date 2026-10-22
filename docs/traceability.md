@@ -59,6 +59,7 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | G2-10 | §8.2 | 未修改頁同引擎像素完全相同 | `tests/integration/test_visual.py::test_untouched_pages_pixel_identical` | I02 | PLANNED |
 | G2-11 | §8.2 | 已修改頁：改動區 +2 pt 外每通道差 >8/255 的像素 ≤0.01% | `tests/integration/test_visual.py::test_changed_page_outside_mask_threshold` | T01–T04 | PLANNED |
 | G2-12 | §8.2 | 目標外框定位誤差 ≤0.5 pt | `tests/integration/test_visual.py::test_target_bbox_within_half_point` | T01–T04 | PLANNED |
+| G2-16 | §8.2、ADR-0015 | MuPDF 渲染空白的 7 份（T01、F01、F02、F05、L02、L03、B01）視覺比對只以 PDFium 判定；這 7 份 PDFium 渲染非空白、其他 support fixture MuPDF 渲染非空白（例外清單不得擴大） | `tests/integration/test_visual.py::test_mupdf_blank_exceptions_fixed` | T01、F01、F02、F05、L02、L03、B01 | PLANNED |
 | G2-13 | §7 | EditPlan 欄位完整；UI 不可送原始 PDF 指令 | `tests/unit/test_edit_plan.py::test_edit_plan_schema` | — | PLANNED |
 | G2-14 | §7 | target_id 含 revision、page、content stream、operator span、geometry hash | `tests/unit/test_edit_plan.py::test_target_id_components` | — | PLANNED |
 | G2-15 | §8.1 | 不宣稱鑑識級遮蔽 | 文件審查（使用說明） | — | PLANNED |
