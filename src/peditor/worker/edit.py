@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import math
 import secrets
 from dataclasses import dataclass
 
@@ -108,6 +109,7 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
         "baseline_start": [round(v, 3) for v in page_start],
         "baseline_end": [round(v, 3) for v in page_end],
         "font_size": run.size,
+        "pdfium_width_residual_pt": _truncation_residual(run, old_codes, codes),
     }
     if not all(contains(tuple(region), *p, tol=POSITION_TOL) for p in (page_start, page_end)):
         plan.unsupported_reasons.append("TEXT_OVERFLOW")
@@ -129,6 +131,20 @@ def _selection_box(selection: span.Selection) -> list[float]:
         raise ProtocolError("INVALID_REQUEST", "需指定 editable_region")
     return [min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes),
             max(b[3] for b in boxes)]  # fmt: skip
+
+
+def _truncation_residual(run: TextRun, old_codes: list[int], new_codes: list[int]) -> float:
+    """PDFium 將單位元組字型的小數 /Widths 截為整數（ADR-0019）：以規範字寬計算的補償，
+    在 PDFium 中會讓目標之後的字形移動此距離（pt）。Type0 與無小數字寬時為 0。"""
+    font = run.font
+    if font is None or font.two_byte:
+        return 0.0
+
+    def lost(codes: list[int]) -> float:
+        return sum(math.trunc(font.widths[c]) - font.widths[c] for c in codes if c in font.widths)
+
+    residual = (lost(new_codes) - lost(old_codes)) * run.size / 1000.0 * run.scale
+    return round(residual, 6) if abs(residual) > 1e-9 else 0.0
 
 
 def _start_origin(run: TextRun, g0: int) -> tuple[float, float]:
