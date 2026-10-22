@@ -156,6 +156,68 @@ def test_f007_plain_hyperlink_not_rejected(tmp_path):
     document.close()
 
 
+def test_f003_owner_password_only_rejected(tmp_path):
+    pdf = _pdf(tmp_path / "e.pdf", b"BT /F1 12 Tf 20 100 Td (a) Tj ET")
+    pdf.save(tmp_path / "e.pdf", encryption=pikepdf.Encryption(owner="owner", user=""))
+    document = analyzer.open_document(str(tmp_path / "e.pdf"))
+    assert document.flags["encrypted"] is True
+    assert document.flags["reasons"] == ["ENCRYPTED_DOCUMENT"]
+    with pytest.raises(ProtocolError) as exc:
+        analyzer.inspect_page(document, 0)
+    assert exc.value.code == "ENCRYPTED_DOCUMENT"
+    document.close()
+
+
+def _sig_value():
+    return pikepdf.Dictionary(Type=pikepdf.Name.Sig, Filter=pikepdf.Name("/Adobe.PPKLite"))
+
+
+def _signed_reasons(path: Path) -> list[str]:
+    document = analyzer.open_document(str(path))
+    try:
+        assert document.flags["signed"] is True
+        return document.flags["reasons"]
+    finally:
+        document.close()
+
+
+def test_f008_inherited_ft_signature_detected(tmp_path):
+    pdf = _pdf(tmp_path / "s.pdf", b"")
+    parent = pdf.make_indirect(pikepdf.Dictionary(T="sig", FT=pikepdf.Name.Sig))
+    kid = pdf.make_indirect(pikepdf.Dictionary(
+        Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Widget, Rect=[0, 0, 10, 10],
+        Parent=parent, V=_sig_value()))  # fmt: skip
+    parent.Kids = pikepdf.Array([kid])
+    pdf.Root.AcroForm = pikepdf.Dictionary(Fields=pikepdf.Array([parent]))
+    pdf.save(tmp_path / "s.pdf")
+    assert _signed_reasons(tmp_path / "s.pdf") == ["SIGNED_DOCUMENT"]
+
+
+def test_f008_widget_outside_fields_detected(tmp_path):
+    pdf = _pdf(tmp_path / "w.pdf", b"")
+    widget = pdf.make_indirect(pikepdf.Dictionary(
+        Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Widget, Rect=[0, 0, 10, 10],
+        FT=pikepdf.Name.Sig, V=_sig_value()))  # fmt: skip
+    pdf.pages[0].obj.Annots = pikepdf.Array([widget])
+    pdf.Root.AcroForm = pikepdf.Dictionary(Fields=pikepdf.Array([]))
+    pdf.save(tmp_path / "w.pdf")
+    assert _signed_reasons(tmp_path / "w.pdf") == ["SIGNED_DOCUMENT"]
+
+
+def test_f008_deep_field_tree_not_supported(tmp_path):
+    pdf = _pdf(tmp_path / "d.pdf", b"")
+    node = pdf.make_indirect(pikepdf.Dictionary(T="leaf", FT=pikepdf.Name.Sig, V=_sig_value()))
+    for i in range(100):  # 超過走訪深度上限 → 不得判為 support
+        parent = pdf.make_indirect(pikepdf.Dictionary(T=f"n{i}", Kids=pikepdf.Array([node])))
+        node.Parent = parent
+        node = parent
+    pdf.Root.AcroForm = pikepdf.Dictionary(Fields=pikepdf.Array([node]))
+    pdf.save(tmp_path / "d.pdf")
+    document = analyzer.open_document(str(tmp_path / "d.pdf"))
+    assert document.flags["status"] == "reject"
+    document.close()
+
+
 def test_f016_render_pixel_area_bounded(tmp_path):
     _pdf(tmp_path / "big.pdf", b"", media=(0, 0, 14400, 14400)).save(tmp_path / "big.pdf")
     document = analyzer.open_document(str(tmp_path / "big.pdf"))
