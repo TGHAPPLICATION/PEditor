@@ -48,6 +48,8 @@ class Document:
     pike: pikepdf.Pdf | None = None
     mu: pymupdf.Document | None = None
     pages: dict[int, dict] = field(default_factory=dict)
+    # 每頁全部文字運算子（含不可見）與 target_id → 索引；供 span 解析（ADR-0018），不回傳給呼叫端
+    runs: dict[int, tuple[list[TextRun], dict[str, int]]] = field(default_factory=dict)
 
     @property
     def doc_reasons(self) -> list[str]:
@@ -435,6 +437,7 @@ def _analyze_page(document: Document, page_index: int) -> dict:
     doc_reasons = document.doc_reasons
     if any(e.startswith("limit:") for e in content.errors):
         # 超過工作量上限：不再交給 MuPDF 擷取（同一份內容會讓 MuPDF 做相同的放大工作）
+        document.runs[page_index] = ([], {})
         return _page_result(page_index, geom, [], [], 0, [*doc_reasons, "RESOURCE_LIMIT"])
     grid = _chars(mu_page)
     rev = document.revision
@@ -449,6 +452,7 @@ def _analyze_page(document: Document, page_index: int) -> dict:
                for r in content.runs]  # fmt: skip
     vertical = _vertical_runs(content.runs, visible)
     text_targets = []
+    run_index: dict[str, int] = {}
     for i, run in enumerate(content.runs):
         if not visible[i]:
             continue
@@ -497,6 +501,8 @@ def _analyze_page(document: Document, page_index: int) -> dict:
             "glyphs": glyphs,
             "capability": _capability(reasons),
         })  # fmt: skip
+        run_index[text_targets[-1]["target_id"]] = i
+    document.runs[page_index] = (content.runs, run_index)
 
     image_targets = []
     for use in content.images:
