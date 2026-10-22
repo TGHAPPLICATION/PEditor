@@ -120,7 +120,7 @@ windows-latest 68 passed、macos-15 68 passed，P0 檢查腳本（含 smoke buil
 | U5 | 無 fixture 覆蓋的理由碼對應：Type3 → UNSUPPORTED_LAYOUT（spec §4 同列）；非 Identity-H 的 CMap → UNSUPPORTED_ENCODING；Form XObject 內的文字／影像 → UNSUPPORTED_LAYOUT（保守，未區分是否共享）；DCT／Flate 以外的影像濾鏡或 ImageMask → UNSUPPORTED_FEATURE；`/ActualText` → UNSUPPORTED_FEATURE | 皆為「拒絕」方向，不放寬支援範圍 | 工程師知悉 |
 | U6 | ToUnicode 不可靠以**字型**為單位：頁上同一字型任一已用字碼無對應，該字型的所有目標都拒絕（依 ADR-0011 不只判目標區域） | T09 全頁 F1 字型文字皆不可編輯 | 已依 ADR-0011 |
 | U7 | `/vuln-scan`、`/triage` 依 ADR-0005 須於 P1 結束前執行 | 工程師 2026-10-21 同意安裝技能並補跑；已完成，8 項確認問題已修正並有回歸測試（§8） | 已解決 |
-| U8 | 安全掃描判為誤報、但違反 spec §4 的分類缺口：f003（只有 owner 密碼的加密檔）、f008（繼承 `/FT` 的簽章欄位） | 目前無編輯／儲存路徑故不可利用；P2 引入編輯前須修正並補樣本。**2026-10-22 已修正**（分支 `p2-prep-f003-f008`，G1-10）：加密改以 MuPDF metadata `encryption` 或 pikepdf `is_encrypted` 判定；簽章沿 `/Parent` 解析繼承的 `/FT`、`/V`，並檢查未列入 `/AcroForm/Fields` 的頁面 widget；過深欄位樹沿用走訪上限判 RESOURCE_LIMIT。樣本依工程師決定於測試內產生、不進 manifest；4 項回歸測試本機 Windows 72 passed，CI 待推送 | 已解決（待 CI） |
+| U8 | 安全掃描判為誤報、但違反 spec §4 的分類缺口：f003（只有 owner 密碼的加密檔）、f008（繼承 `/FT` 的簽章欄位） | 目前無編輯／儲存路徑故不可利用；P2 引入編輯前須修正並補樣本。**2026-10-22 已修正**（分支 `p2-prep-f003-f008`，G1-10）：加密改以 MuPDF metadata `encryption` 或 pikepdf `is_encrypted` 判定；簽章沿 `/Parent` 解析繼承的 `/FT`、`/V`，並檢查未列入 `/AcroForm/Fields` 的頁面 widget；過深欄位樹沿用走訪上限判 RESOURCE_LIMIT。樣本依工程師決定於測試內產生、不進 manifest；4 項回歸測試本機 Windows 72 passed；CI run 39707720074（commit `08c6346`）雙平台 72 passed | 已解決 |
 
 ## 10. 關卡結果
 
