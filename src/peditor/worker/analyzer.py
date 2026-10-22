@@ -50,6 +50,7 @@ class Document:
     pages: dict[int, dict] = field(default_factory=dict)
     # 每頁全部文字運算子（含不可見）與 target_id → 索引；供 span 解析（ADR-0018），不回傳給呼叫端
     runs: dict[int, tuple[list[TextRun], dict[str, int]]] = field(default_factory=dict)
+    plans: dict[str, object] = field(default_factory=dict)  # plan_id → 待套用的計畫（worker 內部）
 
     @property
     def doc_reasons(self) -> list[str]:
@@ -60,6 +61,25 @@ class Document:
             self.mu.close()
         if self.pike is not None:
             self.pike.close()
+
+    def working_bytes(self) -> bytes:
+        """工作文件完整重寫後的位元組（不含增量更新；spec §8.1-4）。"""
+        buf = io.BytesIO()
+        self.pike.save(
+            buf, compress_streams=True, object_stream_mode=pikepdf.ObjectStreamMode.preserve
+        )
+        return buf.getvalue()
+
+    def commit(self) -> None:
+        """套用修改後：以重寫結果重新開啟、revision 加一、清除依舊版本建立的快取與計畫。"""
+        data = self.working_bytes()
+        self.close()
+        self.pike = pikepdf.open(io.BytesIO(data))
+        self.mu = pymupdf.open(stream=data, filetype="pdf")
+        self.revision += 1
+        self.pages.clear()
+        self.runs.clear()
+        self.plans.clear()
 
 
 def open_document(path: str) -> Document:

@@ -13,6 +13,7 @@
 | Pillow | 13.0.0 | MIT-CMU | pikepdf 相依 |
 | lxml | 6.1.3 | BSD-3-Clause | pikepdf 相依；wheel 內含 libxml2／libxslt（MIT） |
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause | pikepdf 相依 |
+| fontTools | 4.66.0 | MIT | 模式 A 字形檢查、模式 B 字型子集化（ADR-0018） |
 | CPython | 3.13 | PSF-2.0 | 打包時內嵌 |
 
 ## 字型

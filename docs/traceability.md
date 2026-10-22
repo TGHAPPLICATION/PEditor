@@ -49,11 +49,11 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | 需求 ID | spec | 需求 | 預定 test ID | fixture | 狀態 |
 | --- | --- | --- | --- | --- | --- |
 | G2-01 | G2-1 | 宣告支援文字案例 100% 通過，≥20 次操作、3 種產生來源、2 種繁中字型 | `tests/integration/test_edit_text.py::test_all_supported_text_cases` | T、F 群組 support | PLANNED |
-| G2-02 | G2-2 | 目標 occurrence 舊字形移除，新文可搜尋、複製，Unicode 精確相符 | `tests/integration/test_edit_text.py::test_target_occurrence_replaced_dual_engine` | T01–T04 | PLANNED |
+| G2-02 | G2-2 | 目標 occurrence 舊字形移除，新文可搜尋、複製，Unicode 精確相符 | `tests/integration/test_edit_text.py::test_target_occurrence_replaced_dual_engine` | T01–T04 | 部分（模式 A 11 案 PASS：本機；CI 待推送；模式 B 待步驟 7） |
 | G2-03 | G2-3 | 密集鄰字、背景、線條不被修改；不靠白底覆蓋 | `tests/integration/test_edit_text.py::test_neighbors_and_lines_untouched` | L03、B01 | PLANNED |
-| G2-04 | G2-4 | 不支援、缺字、溢出回傳理由碼，磁碟與工作文件不變 | `tests/integration/test_edit_text.py::test_rejections_leave_files_unchanged` | F03、F05、F08 | PLANNED |
+| G2-04 | G2-4 | 不支援、缺字、溢出回傳理由碼，磁碟與工作文件不變 | `tests/integration/test_edit_text.py::test_rejections_leave_files_unchanged` | F03、F05、F08 | 部分（GLYPH_MISSING 於原字型、拒絕不改檔 PASS；Noto Sans TC 缺字判定待步驟 7） |
 | G2-05 | G2-5 | 同原字型模式不偷換字型；B 模式證明先移除舊內容 | `tests/integration/test_edit_text.py::test_mode_a_keeps_font_mode_b_removes_old` | F01、F02 | PLANNED |
-| G2-06 | P2 | 超框一律拒絕，不偷偷縮字 | `tests/integration/test_edit_text.py::test_overflow_rejected` | T04 | PLANNED |
+| G2-06 | P2 | 超框一律拒絕，不偷偷縮字 | `tests/integration/test_edit_text.py::test_overflow_rejected`、`::test_stale_plan_and_revision_conflict` | T04 | PASS（模式 A；本機；CI 待推送；模式 B 溢出待步驟 7） |
 | G2-07 | §8.1-1 | 內容／資源解碼差異證明 occurrence 運算子已改寫 | `tests/integration/test_evidence.py::test_operator_diff_evidence` | T01 | PLANNED |
 | G2-08 | §8.1-4 | 完整另存、清除不可達物件，無增量歷史 | `tests/integration/test_evidence.py::test_full_rewrite_no_incremental_history` | T01 | PLANNED |
 | G2-09 | §8.2 | qpdf 無新增錯誤／warning | `tests/integration/test_evidence.py::test_no_new_qpdf_warnings` | 全部 support | PLANNED |
@@ -63,8 +63,8 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | G2-16 | §8.2、ADR-0015 | MuPDF 渲染空白的 7 份（T01、F01、F02、F05、L02、L03、B01）視覺比對只以 PDFium 判定；這 7 份 PDFium 渲染非空白、其他 support fixture MuPDF 渲染非空白（例外清單不得擴大） | `tests/integration/test_visual.py::test_mupdf_blank_exceptions_fixed` | T01、F01、F02、F05、L02、L03、B01 | PLANNED |
 | G2-17 | §8.1、ADR-0017 | 標記 PDF：替代文字（ActualText／Alt／E，含結構元素與祖先）涵蓋目標即拒絕；可編輯者儲存後結構樹與 MCID 不變 | `tests/integration/test_edit_text.py::test_tagged_structure_preserved`、`::test_tagged_actualtext_rejected` | T05、T06、T08、F06、F07、L04；腳本產生 | PLANNED |
 | G2-18 | §7、ADR-0018 §1 | span target：運算子內部分文字與連續多段運算子；只改不同的字，改動範圍限同一 BT（T08 跨 4 個 BT 的選取） | `tests/unit/test_edit_plan.py::test_span_target_resolution` | T01、T08、F04、T04 | PASS（CI run 39719180645 雙平台 80 passed） |
-| G2-19 | P2、ADR-0018 §2 | 模式 A 字寬不同時，目標後續字形位置不變 | `tests/integration/test_edit_text.py::test_following_glyphs_unmoved` | F04、E03、T02 | PLANNED |
-| G2-20 | G2-1 | 編輯案例實作前鎖定：manifest 18 個＋`edit_cases.csv` 4 個＝22 次操作（含同一文件連續編輯） | `tests/unit/test_manifest.py::test_edit_cases_locked` | E01–E04 | PLANNED |
+| G2-19 | P2、ADR-0018 §2 | 模式 A 字寬不同時，目標後續字形位置不變 | `tests/integration/test_edit_text.py::test_following_glyphs_unmoved` | F04、E03、T02 | PASS（本機；CI 待推送） |
+| G2-20 | G2-1 | 編輯案例實作前鎖定：manifest 18 個＋`edit_cases.csv` 4 個＝22 次操作（含同一文件連續編輯） | `tests/unit/test_manifest.py::test_edit_cases_locked`、`tests/integration/test_edit_text.py::test_chained_edit_e01_through_worker` | E01–E04 | 部分（鎖定 PASS；E01–E04 執行 PASS：本機；CI 待推送） |
 | G2-21 | §8.2 | 視覺門檻以 P2 實測基準鎖定後才寫入測試 | 報告記錄（`reports/P2/report.md`） | 全部 support | PLANNED |
 | G2-13 | §7 | EditPlan 欄位完整；UI 不可送原始 PDF 指令 | `tests/unit/test_edit_plan.py::test_edit_plan_schema` | — | PASS（CI run 39719180645 雙平台 80 passed） |
 | G2-14 | §7 | target_id 含 revision、page、content stream、operator span、geometry hash | `tests/unit/test_edit_plan.py::test_target_id_components` | — | PASS（CI run 39719180645 雙平台 80 passed） |

@@ -66,3 +66,10 @@ P2 的 18 個支援案例中，只有 T07、F01 的目標是整段文字運算�
 - 測試：`tests/unit/test_edit_plan.py::test_span_target_resolution`（G2-18）、
   `tests/integration/test_edit_text.py::test_following_glyphs_unmoved`（G2-19）、`::test_overflow_rejected`（G2-06）。
 - G2-04 的 F03、F08 由本 ADR §4 的 `GLYPH_MISSING` 規則判定（ADR-0013）。
+- **fontTools 改為執行期相依**（2026-10-22，P2 步驟 3）：模式 A 須確認新字的字形在嵌入子集中**確實有輪廓**
+  （子集化工具可能保留字碼／字形索引但清空輪廓，例如 T03、L01 的 Droid Sans Fallback），只看 ToUnicode 不足；
+  模式 B 也需以 fontTools 子集化。版本沿用 `uv.lock` 既有的 4.66.0（只從 dev 群組移到執行期，未升級），
+  授權 MIT，已列入 `THIRD_PARTY_NOTICES.md` 與 SBOM。
+- 嵌入 CID-keyed CFF 的字碼解讀：依本字型 ToUnicode 已對應的字碼**一致**採用「charset 的 CID」或「字形索引」其中一種；
+  兩者都不一致時不做模式 A。P0 以 PyMuPDF＋fontTools 產生的 Noto Sans TC fixture 屬後者（與 U3、ADR-0015 同源）。
+- 模式 A 實測可行案例：T01、T02、T08、F01、F04、L02、L03 與 E01–E04；其餘 support 案例（含 S2 估計為 A 的 T03、L01）需模式 B。

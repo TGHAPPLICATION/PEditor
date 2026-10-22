@@ -47,6 +47,19 @@ class TextRun:
     form_path: tuple[str, ...]
     actual_text: bool
     glyphs: list[Glyph] = field(default_factory=list)
+    # 文字狀態（模式 A 依此計算字寬補償；ADR-0018 §2）
+    char_space: float = 0.0
+    word_space: float = 0.0
+    scale: float = 1.0
+
+    def advance(self, code: int) -> float:
+        """字碼的水平位移（文字空間，未乘水平縮放），與 _show 的計算一致。"""
+        if self.font is None:
+            return 0.0
+        tx = self.font.width(code) * self.size + self.char_space
+        if code == 32 and not self.font.two_byte:
+            tx += self.word_space
+        return tx
 
     @property
     def text(self) -> str:
@@ -240,6 +253,9 @@ class _Interpreter:
             bt_index=self.bt_count,
             form_path=form_path,
             actual_text=actual,
+            char_space=gs.char_space,
+            word_space=gs.word_space,
+            scale=gs.scale,
         )
         for item in items:
             if isinstance(item, pikepdf.String):
@@ -248,10 +264,7 @@ class _Interpreter:
                 for code in font.codes(bytes(item)):
                     trm = multiply(multiply(render, text_m), gs.ctm)
                     run.glyphs.append(Glyph(code, font.unicode(code), apply(trm, 0.0, 0.0)))
-                    tx = font.width(code) * gs.size + gs.char_space
-                    if code == 32 and not font.two_byte:
-                        tx += gs.word_space
-                    text_m = multiply((1, 0, 0, 1, tx * gs.scale, 0), text_m)
+                    text_m = multiply((1, 0, 0, 1, run.advance(code) * gs.scale, 0), text_m)
             else:
                 tx = -_num(item) / 1000.0 * gs.size * gs.scale
                 text_m = multiply((1, 0, 0, 1, tx, 0), text_m)

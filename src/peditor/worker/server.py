@@ -48,6 +48,16 @@ class Worker:
             return self.analyzer.render_page(
                 document, params.get("page_index"), params.get("dpi", 150)
             )
+        if operation == "plan_text_edit":
+            from peditor.worker import edit
+
+            return edit.plan_text_edit(document, params)
+        if operation == "apply_edit":
+            from peditor.worker import edit
+
+            return edit.apply_edit(
+                document, params.get("plan_id"), message.get("expected_revision")
+            )
         if operation == "close_document":
             self.documents.pop(document.document_id).close()
             return {}

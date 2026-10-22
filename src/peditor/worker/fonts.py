@@ -60,7 +60,10 @@ class FontInfo:
     width_scale: float = 0.001  # Type3 以 FontMatrix 換算
     encoding: str | None = None  # 單位元組字型的標準編碼
     differences: dict[int, str] = field(default_factory=dict)
+    source: pikepdf.Dictionary | None = None  # 原字型物件（模式 A 檢查嵌入字形）
     _base14: pymupdf.Font | None = None
+    _reverse: dict[str, list[int]] | None = None
+    _outline: object = None  # 字碼 → 是否有字形的檢查函式（延遲載入）
 
     def codes(self, data: bytes) -> list[int]:
         if self.two_byte:
@@ -95,6 +98,46 @@ class FontInfo:
             except UnicodeDecodeError:
                 return None
         return None
+
+    def encode(
+        self, text: str, preferred: set[int] | frozenset[int] = frozenset()
+    ) -> list[int] | None:
+        """模式 A：把 text 逐字轉回本字型的字碼，且字形確實存在；任一字做不到回 None（不猜測）。
+
+        同一字元有多個字碼時，優先用本頁已使用的字碼（preferred），否則取最小者。
+        """
+        if self.unsupported is not None or not (self.embedded or self._base14 is not None):
+            return None
+        if self._reverse is None:
+            self._reverse = {}
+            candidates = (
+                self.to_unicode.items()
+                if self.to_unicode is not None
+                else ((code, self.unicode(code)) for code in ([] if self.two_byte else range(256)))
+            )
+            for code, uni in candidates:
+                if uni and len(uni) == 1:
+                    self._reverse.setdefault(uni, []).append(code)
+        codes = []
+        for ch in text:
+            options = sorted(self._reverse.get(ch, []), key=lambda c: (c not in preferred, c))
+            code = next((c for c in options if self.has_glyph(c, ch.isspace())), None)
+            if code is None:
+                return None
+            codes.append(code)
+        return codes
+
+    def has_glyph(self, code: int, blank_ok: bool = False) -> bool:
+        """字碼在字型中有字形（嵌入子集可能只留空字形）；blank_ok 時空白字形也算。"""
+        if self._base14 is not None:
+            uni = self.unicode(code)
+            return bool(uni) and self._base14.has_glyph(ord(uni)) != 0
+        if self._outline is None:
+            self._outline = _outline_checker(self)
+        try:
+            return self._outline(code, blank_ok)
+        except Exception:  # noqa: BLE001 — 延遲解析時才遇到畸形字形：視為沒有字形
+            return False
 
 
 def load_font(key: str, font: pikepdf.Dictionary) -> FontInfo:
@@ -140,6 +183,7 @@ def load_font(key: str, font: pikepdf.Dictionary) -> FontInfo:
     elif info._base14 is not None and base_font not in ("Symbol", "ZapfDingbats"):
         info.encoding = "latin-1"
     info.to_unicode = _load_to_unicode(font)
+    info.source = font
     return info
 
 
@@ -163,7 +207,99 @@ def _load_type0(key: str, font: pikepdf.Dictionary, objgen, base_font: str) -> F
         info.default_width = float(cid_font.get("/DW", 1000))
         info.widths = _cid_widths(cid_font.get("/W", []))
     info.to_unicode = _load_to_unicode(font)
+    info.source = font
     return info
+
+
+def _outline_checker(info: FontInfo):
+    """以 fontTools 讀嵌入字型程式，回傳 (code, blank_ok) → 是否有字形；無法判定一律 False。
+
+    支援：Type0 的 FontFile2（CIDToGIDMap Identity 或 stream）、FontFile3 CIDFontType0C／OpenType；
+    單位元組 TrueType（FontFile2，依 cmap (3,1)、(1,0)、(3,0) 查字形）。其他格式不做模式 A。
+    """
+    import io
+
+    from fontTools.cffLib import CFFFontSet
+    from fontTools.ttLib import TTFont
+
+    def never(code: int, blank_ok: bool) -> bool:
+        return False
+
+    font = info.source
+    if font is None:
+        return never
+    cid_font = None
+    if info.two_byte:
+        descendants = font.get("/DescendantFonts") or []
+        cid_font = descendants[0] if len(descendants) else None
+        holder = cid_font
+    else:
+        holder = font
+    descriptor = holder.get("/FontDescriptor") if holder is not None else None
+    if not isinstance(descriptor, pikepdf.Dictionary):
+        return never
+    try:
+        if isinstance(descriptor.get("/FontFile2"), pikepdf.Stream):
+            tt = TTFont(io.BytesIO(descriptor.FontFile2.read_bytes()), lazy=True)
+            order = tt.getGlyphOrder()
+            glyf = tt["glyf"]
+
+            def glyph_name(code: int) -> str | None:
+                if cid_font is not None:
+                    gid_map = cid_font.get("/CIDToGIDMap")
+                    if isinstance(gid_map, pikepdf.Stream):
+                        data = gid_map.read_bytes()
+                        gid = int.from_bytes(data[2 * code : 2 * code + 2], "big")
+                    else:
+                        gid = code
+                    return order[gid] if 0 < gid < len(order) else None
+                uni = info.unicode(code)
+                for (pid, eid), key in (((3, 1), ord(uni) if uni else None), ((1, 0), code),
+                                        ((3, 0), code), ((3, 0), 0xF000 + code)):  # fmt: skip
+                    table = tt["cmap"].getcmap(pid, eid)
+                    if key is not None and table is not None and key in table.cmap:
+                        return table.cmap[key]
+                return None
+
+            def check(code: int, blank_ok: bool) -> bool:
+                name = glyph_name(code)
+                if name is None or name not in glyf:
+                    return False
+                return blank_ok or glyf[name].numberOfContours != 0
+
+            return check
+        file3 = descriptor.get("/FontFile3")
+        if isinstance(file3, pikepdf.Stream):
+            data = file3.read_bytes()
+            if str(file3.get("/Subtype", "")) == "/OpenType":
+                cff = TTFont(io.BytesIO(data), lazy=True)["CFF "].cff
+            else:
+                cff = CFFFontSet()
+                cff.decompile(io.BytesIO(data), None)
+            top = cff[cff.fontNames[0]]
+            charstrings = top.CharStrings
+            order = top.getGlyphOrder()
+            # 字碼 → 字形：CID-keyed 依 charset（cidNNNNN）；部分產生器
+            # （PyMuPDF＋fontTools 子集，見 U3、ADR-0015）實際以字碼為字形索引。
+            # 依本字型 ToUnicode 已對應的字碼一致採用其中一種，否則不判定。
+            mapped = [c for c in (info.to_unicode or {}) if c]
+            by_cid = hasattr(top, "ROS") and all(f"cid{c:05d}" in charstrings for c in mapped)
+            by_index = not by_cid and all(c < len(order) for c in mapped)
+            if not info.two_byte or not mapped or not (by_cid or by_index):
+                return never
+
+            def check(code: int, blank_ok: bool) -> bool:
+                if code == 0:
+                    return False
+                name = f"cid{code:05d}" if by_cid else (order[code] if code < len(order) else None)
+                if name is None or name not in charstrings:
+                    return False
+                return blank_ok or charstrings[name].calcBounds(charstrings) is not None
+
+            return check
+    except Exception:  # noqa: BLE001 — 畸形字型程式：不做模式 A（不猜測）
+        return never
+    return never
 
 
 def _embedded(descriptor) -> bool:
