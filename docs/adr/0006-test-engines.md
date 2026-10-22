@@ -24,4 +24,4 @@ Poppler 在 Windows 沒有官方 pip 套件，需另行安裝 binary（conda 或
 ## 後果
 
 - `tests/integration/test_fixtures.py` 已用 PDFium 交叉驗證支援樣本的原文可擷取。
-- P2 的雙引擎渲染比對以 MuPDF 與 PDFium 各自「同引擎原／新比對」（spec §8.2）。
+- P2 的雙引擎渲染比對以 MuPDF 與 PDFium 各自「同引擎原／新比對」（spec §8.2）；MuPDF 渲染空白的 7 份例外只以 PDFium 判定（ADR-0015）。
