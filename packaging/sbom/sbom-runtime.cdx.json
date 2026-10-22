@@ -49,10 +49,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pillow-5@12.3.0",
+      "bom-ref": "pillow-5@13.0.0",
       "name": "pillow",
-      "version": "12.3.0",
-      "purl": "pkg:pypi/pillow@12.3.0"
+      "version": "13.0.0",
+      "purl": "pkg:pypi/pillow@13.0.0"
     },
     {
       "type": "library",
@@ -96,11 +96,11 @@
       "dependsOn": [
         "lxml-2@6.1.3",
         "packaging-3@26.3",
-        "pillow-5@12.3.0"
+        "pillow-5@13.0.0"
       ]
     },
     {
-      "ref": "pillow-5@12.3.0"
+      "ref": "pillow-5@13.0.0"
     },
     {
       "ref": "pymupdf-6@1.28.2"
