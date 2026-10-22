@@ -25,3 +25,6 @@ Thumbs.db
 
 # 安全掃描技能的暫存狀態（.claude/skills/triage）
 .triage-state/
+
+# P2 證據包的輸出 PDF（Word fixture 約 4–5 MB；SHA-256 記於 summary.json，以 scripts/p2_evidence.py 重產）
+reports/P2/evidence/*/output.pdf

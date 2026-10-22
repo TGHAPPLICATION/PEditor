@@ -1,0 +1,14 @@
+{
+  "mupdf": {
+    "new_text_found": true,
+    "old_count_before": 1,
+    "old_count_after": 1,
+    "after_text": "T07\n地點：本府北區第一會議室\n"
+  },
+  "pdfium": {
+    "new_text_found": true,
+    "old_count_before": 1,
+    "old_count_after": 1,
+    "after_text": "T07\n地點：本府北區第一會議室"
+  }
+}

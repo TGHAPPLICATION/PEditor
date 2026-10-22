@@ -1,0 +1,49 @@
+{
+  "output_hash": "1790b12eeaf8a1e74f91ee586256c04416a1a2201f8cbde519084f797b531e7d",
+  "validation_report": {
+    "sha256": "1790b12eeaf8a1e74f91ee586256c04416a1a2201f8cbde519084f797b531e7d",
+    "qpdf_baseline": 0,
+    "qpdf_output": 0,
+    "qpdf_new_problems": [],
+    "incremental": false,
+    "unreachable_objects": 0,
+    "mupdf_repaired": false,
+    "failures": [],
+    "ok": true,
+    "content_changes": [
+      {
+        "page_index": 0,
+        "stream_order": 0,
+        "kind": "replace",
+        "before_ops": [
+          40,
+          41
+        ],
+        "after_ops": [
+          40,
+          45
+        ],
+        "before": [
+          "[ <1d6d16f53bdb277b16d616fb39eb382e14c54f9c2c3a1e394ff238be0f00104c0ba23d230f034ff01d6d20750bb11f280b5a0f03198d39eb1c3a3c4336dc23872f054ff20d4114ea0cbf> ] TJ"
+        ],
+        "after": [
+          "[ <1d6d16f53bdb277b16d616fb39eb382e14c54f9c> ] TJ",
+          "/PEditorB1 12 Tf",
+          "[ <00020001> ] TJ",
+          "/F1 12 Tf",
+          "[ <4ff238be0f00104c0ba23d230f034ff01d6d20750bb11f280b5a0f03198d39eb1c3a3c4336dc23872f054ff20d4114ea0cbf> ] TJ"
+        ]
+      }
+    ],
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ]
+  }
+}

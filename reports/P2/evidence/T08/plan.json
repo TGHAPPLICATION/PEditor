@@ -1,0 +1,53 @@
+{
+  "plan_id": "0ccda3fc4086665e",
+  "document_id": "aecdcfff87a858f8",
+  "preconditions": {
+    "sha256": "3d5e0046e2c7a168f3411059d1cddbd94577959170083b9f9dd7b07c1aa31248",
+    "revision": 0
+  },
+  "target": {
+    "span_id": "span:t:r0:p0:s2.0:o53:f:g2df19b6b0972+t:r0:p0:s2.0:o63:f:g703b3ddbd34d+t:r0:p0:s2.0:o73:f:g2519a7f4588c+t:r0:p0:s2.0:o83:f:g7e7693e3e16c:c3-9",
+    "page_index": 0,
+    "selected_text": "（02）2720-8889",
+    "change": {
+      "target_ids": [
+        "t:r0:p0:s2.0:o83:f:g7e7693e3e16c"
+      ],
+      "glyph_range": [
+        [
+          5,
+          9
+        ]
+      ],
+      "old_text": "8889",
+      "new_text": "0000"
+    }
+  },
+  "new_text": "（02）2720-0000",
+  "policy": "prefer_a",
+  "mode": "A",
+  "font_policy": "keep_original",
+  "allowed_change_mask": [
+    274.45,
+    90.09,
+    373.4,
+    111.33
+  ],
+  "geometry": {
+    "baseline_start": [
+      344.568,
+      105.901
+    ],
+    "baseline_end": [
+      371.304,
+      105.901
+    ],
+    "font_size": 12.0,
+    "pdfium_width_residual_pt": 0.0
+  },
+  "resource_changes": [],
+  "font_changes": [],
+  "warnings": [],
+  "unsupported_reasons": [],
+  "ready": true
+}

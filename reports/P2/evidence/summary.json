@@ -1,0 +1,557 @@
+[
+  {
+    "case": "T01",
+    "fixture": "T01",
+    "ready": true,
+    "mode": "A",
+    "source_sha256": "65a4ebca20fe12159257b4c86bfe707e6994b37440833428801d4f2761acce1f",
+    "output_sha256": "4619d7d3c114a34be0ff2bc2c0ef015be8a09e9633f013b9f647fe44b4ae5dc3",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [],
+    "font_changes": [],
+    "warnings": [],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "T02",
+    "fixture": "T02",
+    "ready": true,
+    "mode": "A",
+    "source_sha256": "0c25d0dcbb3f2f4c349752d4b10306f6f15b4911a1787b318f1a1e1396f1ca0d",
+    "output_sha256": "5f0f5e44941847827124f3839193d70b53a28935e0327ed33cfce755f685f96b",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [],
+    "font_changes": [],
+    "warnings": [],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "T03",
+    "fixture": "T03",
+    "ready": true,
+    "mode": "B",
+    "source_sha256": "51ab60ba66509e7fddbbb9848f6fbc875c42928a09244f1be7c9edcc6dfb6a60",
+    "output_sha256": "b634d2a871eead32cfdc1dca593be585e7687d96007c3c6e836317c09d120787",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ],
+    "font_changes": [
+      {
+        "from": "SFAVZR+Droid Sans Fallback Regular",
+        "to": "NotoSansTC-Regular",
+        "text": "六"
+      }
+    ],
+    "warnings": [
+      "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+      "選取範圍內原字型與 Noto Sans TC 並存（只重建實際改動的字）"
+    ],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "T04",
+    "fixture": "T04",
+    "ready": true,
+    "mode": "B",
+    "source_sha256": "6c60ba41cf1be1e19b3863b86855f9371634ae2505c3212f6e38f17e65243e02",
+    "output_sha256": "c117727c7f1c183a9c003e94dfcd790d5f9eb3c846de735866f4b03d07f1eacc",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ],
+    "font_changes": [
+      {
+        "from": "AAAAAA+NotoSerifTC-ExtraLight",
+        "to": "NotoSansTC-Regular",
+        "text": "第二會議室"
+      }
+    ],
+    "warnings": [
+      "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+      "選取範圍內原字型與 Noto Sans TC 並存（只重建實際改動的字）"
+    ],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "T05",
+    "fixture": "T05",
+    "ready": true,
+    "mode": "B",
+    "source_sha256": "3704edfda119ed9c4a52fe6f67069363b61a3b45a1ad35e84eb09e592191465e",
+    "output_sha256": "1790b12eeaf8a1e74f91ee586256c04416a1a2201f8cbde519084f797b531e7d",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ],
+    "font_changes": [
+      {
+        "from": "BCDEEE+Noto-Sans-TC",
+        "to": "NotoSansTC-Regular",
+        "text": "檢查"
+      }
+    ],
+    "warnings": [
+      "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+      "選取範圍內原字型與 Noto Sans TC 並存（只重建實際改動的字）",
+      "已同步更新結構樹 /ActualText（ADR-0017）"
+    ],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "T06",
+    "fixture": "T06",
+    "ready": true,
+    "mode": "B",
+    "source_sha256": "d080361bf9ef79ebb9db637329350a7e2a46564b925cf1155d7428acc6e1e80c",
+    "output_sha256": "3d3db5383dabef651cdcbe70a389da106ed87229e4c6199673aa3e69331756bf",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ],
+    "font_changes": [
+      {
+        "from": "BCDEEE+Noto-Serif-TC",
+        "to": "NotoSansTC-Regular",
+        "text": "本"
+      }
+    ],
+    "warnings": [
+      "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+      "選取範圍內原字型與 Noto Sans TC 並存（只重建實際改動的字）",
+      "已同步更新結構樹 /ActualText（ADR-0017）"
+    ],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "T07",
+    "fixture": "T07",
+    "ready": true,
+    "mode": "B",
+    "source_sha256": "eb85f8ac17b352df2911716ae019370c84e97eac830a242473d88fd6eac56763",
+    "output_sha256": "4ed4eb3ab29fa342f576be9a77c0d201c49d03b34acff81400d3d98567f8bb38",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ],
+    "font_changes": [
+      {
+        "from": "CAAAAA+NotoSansTC-Regular",
+        "to": "NotoSansTC-Regular",
+        "text": "北區第一會議室"
+      }
+    ],
+    "warnings": [
+      "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+      "選取範圍內原字型與 Noto Sans TC 並存（只重建實際改動的字）"
+    ],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "T08",
+    "fixture": "T08",
+    "ready": true,
+    "mode": "A",
+    "source_sha256": "3d5e0046e2c7a168f3411059d1cddbd94577959170083b9f9dd7b07c1aa31248",
+    "output_sha256": "52587eb564742465e5fc762538e29c4e6519bda9800bf054ae3be1bc4a1646cc",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [],
+    "font_changes": [],
+    "warnings": [],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "F01",
+    "fixture": "F01",
+    "ready": true,
+    "mode": "A",
+    "source_sha256": "856059b4cdf1a3fa212168f1faa3c41acb701907d157960c3432d76471a924a7",
+    "output_sha256": "00a1088a04e2b079e2a9ffca19c27a9c829b42ca87315c605f20de79572163ae",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [],
+    "font_changes": [],
+    "warnings": [],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "F02",
+    "fixture": "F02",
+    "ready": true,
+    "mode": "B",
+    "source_sha256": "661ad257275807a1a88794d5637154d7fb0e3a100ee30c8943c51bc519a74380",
+    "output_sha256": "3c5caa4580c4c7ba384d0f98e4264364e026137be6855aa11ed3011c31f8ac9c",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ],
+    "font_changes": [
+      {
+        "from": "Noto Sans TC Regular",
+        "to": "NotoSansTC-Regular",
+        "text": "藥"
+      }
+    ],
+    "warnings": [
+      "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+      "選取範圍內原字型與 Noto Sans TC 並存（只重建實際改動的字）"
+    ],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "F04",
+    "fixture": "F04",
+    "ready": true,
+    "mode": "A",
+    "source_sha256": "6dda72bbbb80c9fa076d001e64978afae65e2448285d81f94b57005908111ae1",
+    "output_sha256": "3d4c280c13691e7c10e26978e4fd43d2d378a613e234ae9601f8f93f0ec49a50",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [],
+    "font_changes": [],
+    "warnings": [],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "F06",
+    "fixture": "F06",
+    "ready": true,
+    "mode": "B",
+    "source_sha256": "5bece6ae67bcf904589531ce18b2dae00f6120847cc7882a2177f3c5a91311cb",
+    "output_sha256": "60439b2f4e9c46d0dc333e8567fa0e46706684efd605e6f596233e679f9d292e",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ],
+    "font_changes": [
+      {
+        "from": "BCDEEE+Noto-Sans-TC",
+        "to": "NotoSansTC-Regular",
+        "text": "藥事"
+      }
+    ],
+    "warnings": [
+      "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+      "已同步更新結構樹 /ActualText（ADR-0017）"
+    ],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "F07",
+    "fixture": "F07",
+    "ready": true,
+    "mode": "B",
+    "source_sha256": "8a4af4b104d73b1c68b376724c411c2b45b3883b2af2fd880eaae0309beb235c",
+    "output_sha256": "5409818adc5d32ab33d91b7e60f5a159b15614418a272f25b5683081673f9d36",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ],
+    "font_changes": [
+      {
+        "from": "CAAAAA+NotoSerifTC-Regular",
+        "to": "NotoSansTC-Regular",
+        "text": "福利"
+      }
+    ],
+    "warnings": [
+      "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）"
+    ],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "L01",
+    "fixture": "L01",
+    "ready": true,
+    "mode": "B",
+    "source_sha256": "bc67ee410ef500a577509d7b40a612f79e4346a16187214790b9f1adadc61929",
+    "output_sha256": "33e81eda70a7aa892082fa70db0d10e2071a64c36dd13c5158737b59dcb03258",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ],
+    "font_changes": [
+      {
+        "from": "TMFWZB+Droid Sans Fallback Regular",
+        "to": "NotoSansTC-Regular",
+        "text": "四"
+      }
+    ],
+    "warnings": [
+      "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+      "選取範圍內原字型與 Noto Sans TC 並存（只重建實際改動的字）"
+    ],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "L02",
+    "fixture": "L02",
+    "ready": true,
+    "mode": "A",
+    "source_sha256": "0e744136f8cab0d1129de4dc8d338e836e93c416f8d98a7c6321bae88703884b",
+    "output_sha256": "00b8591ed5d48e74479a5e5d8fd4bd10fe2b709265594e1ebb1de635165384fd",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [],
+    "font_changes": [],
+    "warnings": [],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "L03",
+    "fixture": "L03",
+    "ready": true,
+    "mode": "A",
+    "source_sha256": "a8b045e2972a9369c8a92dbfbd9259f8e7ed0096cc0da4ccb029437864dcc897",
+    "output_sha256": "25cb86391207e6b7fbca23de790c667c87c058d3c165c2377ead00d149c51dfe",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [],
+    "font_changes": [],
+    "warnings": [],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "L04",
+    "fixture": "L04",
+    "ready": true,
+    "mode": "B",
+    "source_sha256": "0b854bbe0768405436caf61444687770cd1186d1ca9992e02dd4194cc272504e",
+    "output_sha256": "6d2cde6cca4f2604fb5c94612f9d084e14a6ef576d9f1dcd6ae762f72fc366ba",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ],
+    "font_changes": [
+      {
+        "from": "BCDEEE+Noto-Sans-TC",
+        "to": "NotoSansTC-Regular",
+        "text": "健保卡片"
+      }
+    ],
+    "warnings": [
+      "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+      "已同步更新結構樹 /ActualText（ADR-0017）"
+    ],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "L05",
+    "fixture": "L05",
+    "ready": true,
+    "mode": "B",
+    "source_sha256": "1f45125c32db8ed096289a45bd7bd0fc96f3c5d8ba71afc907370bef4522e8d6",
+    "output_sha256": "52e34c259448d6f583e3510cbd08e3b3e5214a9ac284750b7fa786dca3d6e52a",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ],
+    "font_changes": [
+      {
+        "from": "CAAAAA+NotoSerifTC-Regular",
+        "to": "NotoSansTC-Regular",
+        "text": "範例"
+      }
+    ],
+    "warnings": [
+      "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）"
+    ],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "E02",
+    "fixture": "F01",
+    "ready": true,
+    "mode": "A",
+    "source_sha256": "856059b4cdf1a3fa212168f1faa3c41acb701907d157960c3432d76471a924a7",
+    "output_sha256": "a3b7c12d594b3fdfed29b0f68917e94bcb0c93262f4c43d93fabc00efe0c8745",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [],
+    "font_changes": [],
+    "warnings": [],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "E03",
+    "fixture": "F04",
+    "ready": true,
+    "mode": "A",
+    "source_sha256": "6dda72bbbb80c9fa076d001e64978afae65e2448285d81f94b57005908111ae1",
+    "output_sha256": "09e48376d8776d39f8bbf3ee501c815bae57dd4c53c931efad917400afb89308",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [],
+    "font_changes": [],
+    "warnings": [],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  },
+  {
+    "case": "E04",
+    "fixture": "T02",
+    "ready": true,
+    "mode": "A",
+    "source_sha256": "0c25d0dcbb3f2f4c349752d4b10306f6f15b4911a1787b318f1a1e1396f1ca0d",
+    "output_sha256": "ef691e2ec6eb75481c144844c36b2825f0a746afe7ba03173c7d8cccfa0852e9",
+    "validation_ok": true,
+    "content_changes": 1,
+    "resource_changes": [],
+    "font_changes": [],
+    "warnings": [],
+    "extraction_new_found": {
+      "mupdf": true,
+      "pdfium": true
+    }
+  }
+]

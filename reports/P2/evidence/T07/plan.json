@@ -1,0 +1,69 @@
+{
+  "plan_id": "94bfb3dbfe91e9ce",
+  "document_id": "2380a55c0c1a5fb3",
+  "preconditions": {
+    "sha256": "eb85f8ac17b352df2911716ae019370c84e97eac830a242473d88fd6eac56763",
+    "revision": 0
+  },
+  "target": {
+    "span_id": "span:t:r0:p0:s2.0:o18:f:g3fcfcd38dd09:c0-5",
+    "page_index": 0,
+    "selected_text": "地點：本府",
+    "change": {
+      "target_ids": [
+        "t:r0:p0:s2.0:o18:f:g3fcfcd38dd09"
+      ],
+      "glyph_range": [
+        [
+          5,
+          5
+        ]
+      ],
+      "old_text": "",
+      "new_text": "北區第一會議室"
+    }
+  },
+  "new_text": "地點：本府北區第一會議室",
+  "policy": "prefer_a",
+  "mode": "B",
+  "font_policy": "replace_with_packaged",
+  "allowed_change_mask": [
+    70.1,
+    86.8,
+    523.3,
+    105.2
+  ],
+  "geometry": {
+    "baseline_start": [
+      132.1,
+      100.801
+    ],
+    "baseline_end": [
+      216.1,
+      100.801
+    ],
+    "font_size": 12.0,
+    "pdfium_width_residual_pt": 0.0
+  },
+  "resource_changes": [
+    {
+      "page_index": 0,
+      "kind": "Font",
+      "added": "/PEditorB1",
+      "font": "NotoSansTC-Regular"
+    }
+  ],
+  "font_changes": [
+    {
+      "from": "CAAAAA+NotoSansTC-Regular",
+      "to": "NotoSansTC-Regular",
+      "text": "北區第一會議室"
+    }
+  ],
+  "warnings": [
+    "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+    "選取範圍內原字型與 Noto Sans TC 並存（只重建實際改動的字）"
+  ],
+  "unsupported_reasons": [],
+  "ready": true
+}

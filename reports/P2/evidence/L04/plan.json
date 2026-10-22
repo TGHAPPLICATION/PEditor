@@ -1,0 +1,78 @@
+{
+  "plan_id": "bad1bec6c66515e4",
+  "document_id": "43a6f42f24e03720",
+  "preconditions": {
+    "sha256": "0b854bbe0768405436caf61444687770cd1186d1ca9992e02dd4194cc272504e",
+    "revision": 0
+  },
+  "target": {
+    "span_id": "span:t:r0:p0:s4.0:o45:f:ga54c7e7cec67:c6-10",
+    "page_index": 0,
+    "selected_text": "身分證件",
+    "change": {
+      "target_ids": [
+        "t:r0:p0:s4.0:o45:f:ga54c7e7cec67"
+      ],
+      "glyph_range": [
+        [
+          6,
+          10
+        ]
+      ],
+      "old_text": "身分證件",
+      "new_text": "健保卡片"
+    }
+  },
+  "new_text": "健保卡片",
+  "policy": "prefer_a",
+  "mode": "B",
+  "font_policy": "replace_with_packaged",
+  "allowed_change_mask": [
+    142.02,
+    117.3,
+    194.02,
+    134.74
+  ],
+  "geometry": {
+    "baseline_start": [
+      144.024,
+      131.3
+    ],
+    "baseline_end": [
+      192.024,
+      131.3
+    ],
+    "font_size": 12.0,
+    "pdfium_width_residual_pt": 0.0
+  },
+  "resource_changes": [
+    {
+      "page_index": 0,
+      "kind": "Font",
+      "added": "/PEditorB1",
+      "font": "NotoSansTC-Regular"
+    },
+    {
+      "page_index": 0,
+      "kind": "StructElem",
+      "field": "ActualText",
+      "element": [
+        27,
+        0
+      ]
+    }
+  ],
+  "font_changes": [
+    {
+      "from": "BCDEEE+Noto-Sans-TC",
+      "to": "NotoSansTC-Regular",
+      "text": "健保卡片"
+    }
+  ],
+  "warnings": [
+    "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+    "已同步更新結構樹 /ActualText（ADR-0017）"
+  ],
+  "unsupported_reasons": [],
+  "ready": true
+}

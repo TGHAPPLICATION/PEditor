@@ -1,0 +1,79 @@
+{
+  "plan_id": "5d685bdf14cc15a2",
+  "document_id": "816903331400513d",
+  "preconditions": {
+    "sha256": "d080361bf9ef79ebb9db637329350a7e2a46564b925cf1155d7428acc6e1e80c",
+    "revision": 0
+  },
+  "target": {
+    "span_id": "span:t:r0:p0:s4.0:o40:f:gfde62b1fa105:c5-13",
+    "page_index": 0,
+    "selected_text": "臺北市政府資訊局",
+    "change": {
+      "target_ids": [
+        "t:r0:p0:s4.0:o40:f:gfde62b1fa105"
+      ],
+      "glyph_range": [
+        [
+          5,
+          9
+        ]
+      ],
+      "old_text": "臺北市政",
+      "new_text": "本"
+    }
+  },
+  "new_text": "本府資訊局",
+  "policy": "prefer_a",
+  "mode": "B",
+  "font_policy": "replace_with_packaged",
+  "allowed_change_mask": [
+    130.02,
+    115.49,
+    230.02,
+    134.74
+  ],
+  "geometry": {
+    "baseline_start": [
+      132.024,
+      131.3
+    ],
+    "baseline_end": [
+      144.024,
+      131.3
+    ],
+    "font_size": 12.0,
+    "pdfium_width_residual_pt": 0.0
+  },
+  "resource_changes": [
+    {
+      "page_index": 0,
+      "kind": "Font",
+      "added": "/PEditorB1",
+      "font": "NotoSansTC-Regular"
+    },
+    {
+      "page_index": 0,
+      "kind": "StructElem",
+      "field": "ActualText",
+      "element": [
+        26,
+        0
+      ]
+    }
+  ],
+  "font_changes": [
+    {
+      "from": "BCDEEE+Noto-Serif-TC",
+      "to": "NotoSansTC-Regular",
+      "text": "本"
+    }
+  ],
+  "warnings": [
+    "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+    "選取範圍內原字型與 Noto Sans TC 並存（只重建實際改動的字）",
+    "已同步更新結構樹 /ActualText（ADR-0017）"
+  ],
+  "unsupported_reasons": [],
+  "ready": true
+}

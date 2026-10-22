@@ -1,0 +1,68 @@
+{
+  "plan_id": "10eb8e4359589374",
+  "document_id": "eb97833a346c5ea6",
+  "preconditions": {
+    "sha256": "8a4af4b104d73b1c68b376724c411c2b45b3883b2af2fd880eaae0309beb235c",
+    "revision": 0
+  },
+  "target": {
+    "span_id": "span:t:r0:p0:s2.0:o23:f:g8177abd21f80:c0-2",
+    "page_index": 0,
+    "selected_text": "衛生",
+    "change": {
+      "target_ids": [
+        "t:r0:p0:s2.0:o23:f:g8177abd21f80"
+      ],
+      "glyph_range": [
+        [
+          0,
+          2
+        ]
+      ],
+      "old_text": "衛生",
+      "new_text": "福利"
+    }
+  },
+  "new_text": "福利",
+  "policy": "prefer_a",
+  "mode": "B",
+  "font_policy": "replace_with_packaged",
+  "allowed_change_mask": [
+    70.1,
+    90.09,
+    98.1,
+    111.33
+  ],
+  "geometry": {
+    "baseline_start": [
+      72.1,
+      105.901
+    ],
+    "baseline_end": [
+      96.1,
+      105.901
+    ],
+    "font_size": 12.0,
+    "pdfium_width_residual_pt": 0.0
+  },
+  "resource_changes": [
+    {
+      "page_index": 0,
+      "kind": "Font",
+      "added": "/PEditorB1",
+      "font": "NotoSansTC-Regular"
+    }
+  ],
+  "font_changes": [
+    {
+      "from": "CAAAAA+NotoSerifTC-Regular",
+      "to": "NotoSansTC-Regular",
+      "text": "福利"
+    }
+  ],
+  "warnings": [
+    "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）"
+  ],
+  "unsupported_reasons": [],
+  "ready": true
+}

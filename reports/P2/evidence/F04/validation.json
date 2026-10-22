@@ -1,0 +1,36 @@
+{
+  "output_hash": "3d4c280c13691e7c10e26978e4fd43d2d378a613e234ae9601f8f93f0ec49a50",
+  "validation_report": {
+    "sha256": "3d4c280c13691e7c10e26978e4fd43d2d378a613e234ae9601f8f93f0ec49a50",
+    "qpdf_baseline": 0,
+    "qpdf_output": 0,
+    "qpdf_new_problems": [],
+    "incremental": false,
+    "unreachable_objects": 0,
+    "mupdf_repaired": false,
+    "failures": [],
+    "ok": true,
+    "content_changes": [
+      {
+        "page_index": 0,
+        "stream_order": 0,
+        "kind": "replace",
+        "before_ops": [
+          3,
+          4
+        ],
+        "after_ops": [
+          3,
+          4
+        ],
+        "before": [
+          "[ (Hel) -20 (lo W) 15 (orld) ] TJ"
+        ],
+        "after": [
+          "[ (Hel) -20 (lo Earth) 15 -221 ] TJ"
+        ]
+      }
+    ],
+    "resource_changes": []
+  }
+}

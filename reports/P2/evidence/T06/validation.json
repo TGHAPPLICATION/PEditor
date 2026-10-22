@@ -1,0 +1,49 @@
+{
+  "output_hash": "3d3db5383dabef651cdcbe70a389da106ed87229e4c6199673aa3e69331756bf",
+  "validation_report": {
+    "sha256": "3d3db5383dabef651cdcbe70a389da106ed87229e4c6199673aa3e69331756bf",
+    "qpdf_baseline": 0,
+    "qpdf_output": 0,
+    "qpdf_new_problems": [],
+    "incremental": false,
+    "unreachable_objects": 0,
+    "mupdf_repaired": false,
+    "failures": [],
+    "ok": true,
+    "content_changes": [
+      {
+        "page_index": 0,
+        "stream_order": 0,
+        "kind": "replace",
+        "before_ops": [
+          40,
+          41
+        ],
+        "after_ops": [
+          40,
+          45
+        ],
+        "before": [
+          "[ <296e1c2f104a0ba4471131bc0e60168a1bfa16f839e33827154a> ] TJ"
+        ],
+        "after": [
+          "[ <296e1c2f104a0ba44711> ] TJ",
+          "/PEditorB1 12 Tf",
+          "[ <0001> ] TJ",
+          "/F1 12 Tf",
+          "[ -3000 <16f839e33827154a> ] TJ"
+        ]
+      }
+    ],
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ]
+  }
+}

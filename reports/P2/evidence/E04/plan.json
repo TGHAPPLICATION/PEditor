@@ -1,0 +1,53 @@
+{
+  "plan_id": "186e4510b4478a91",
+  "document_id": "bf61fd09792a09d7",
+  "preconditions": {
+    "sha256": "0c25d0dcbb3f2f4c349752d4b10306f6f15b4911a1787b318f1a1e1396f1ca0d",
+    "revision": 0
+  },
+  "target": {
+    "span_id": "span:t:r0:p0:s11.0:o9:f:ga84d8f13c829:c15-24",
+    "page_index": 0,
+    "selected_text": "10 月 31 日",
+    "change": {
+      "target_ids": [
+        "t:r0:p0:s11.0:o9:f:ga84d8f13c829"
+      ],
+      "glyph_range": [
+        [
+          20,
+          22
+        ]
+      ],
+      "old_text": "31",
+      "new_text": "13"
+    }
+  },
+  "new_text": "10 月 13 日",
+  "policy": "prefer_a",
+  "mode": "A",
+  "font_policy": "keep_original",
+  "allowed_change_mask": [
+    177.56,
+    88.81,
+    241.44,
+    104.86
+  ],
+  "geometry": {
+    "baseline_start": [
+      211.031,
+      100.0
+    ],
+    "baseline_end": [
+      224.25,
+      100.0
+    ],
+    "font_size": 12.0,
+    "pdfium_width_residual_pt": 0.0
+  },
+  "resource_changes": [],
+  "font_changes": [],
+  "warnings": [],
+  "unsupported_reasons": [],
+  "ready": true
+}

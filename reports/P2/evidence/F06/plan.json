@@ -1,0 +1,78 @@
+{
+  "plan_id": "057628a07ceac4e3",
+  "document_id": "4f8f7101cf7b1892",
+  "preconditions": {
+    "sha256": "5bece6ae67bcf904589531ce18b2dae00f6120847cc7882a2177f3c5a91311cb",
+    "revision": 0
+  },
+  "target": {
+    "span_id": "span:t:r0:p0:s4.0:o40:f:g46426914cb13:c0-2",
+    "page_index": 0,
+    "selected_text": "醫療",
+    "change": {
+      "target_ids": [
+        "t:r0:p0:s4.0:o40:f:g46426914cb13"
+      ],
+      "glyph_range": [
+        [
+          0,
+          2
+        ]
+      ],
+      "old_text": "醫療",
+      "new_text": "藥事"
+    }
+  },
+  "new_text": "藥事",
+  "policy": "prefer_a",
+  "mode": "B",
+  "font_policy": "replace_with_packaged",
+  "allowed_change_mask": [
+    70.02,
+    116.1,
+    102.1,
+    135.82
+  ],
+  "geometry": {
+    "baseline_start": [
+      72.024,
+      132.14
+    ],
+    "baseline_end": [
+      100.104,
+      132.14
+    ],
+    "font_size": 14.04,
+    "pdfium_width_residual_pt": 0.0
+  },
+  "resource_changes": [
+    {
+      "page_index": 0,
+      "kind": "Font",
+      "added": "/PEditorB1",
+      "font": "NotoSansTC-Regular"
+    },
+    {
+      "page_index": 0,
+      "kind": "StructElem",
+      "field": "ActualText",
+      "element": [
+        26,
+        0
+      ]
+    }
+  ],
+  "font_changes": [
+    {
+      "from": "BCDEEE+Noto-Sans-TC",
+      "to": "NotoSansTC-Regular",
+      "text": "藥事"
+    }
+  ],
+  "warnings": [
+    "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+    "已同步更新結構樹 /ActualText（ADR-0017）"
+  ],
+  "unsupported_reasons": [],
+  "ready": true
+}

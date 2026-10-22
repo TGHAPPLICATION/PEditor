@@ -1,0 +1,53 @@
+{
+  "plan_id": "d74c67888c018e47",
+  "document_id": "8f688ed2299d9364",
+  "preconditions": {
+    "sha256": "a8b045e2972a9369c8a92dbfbd9259f8e7ed0096cc0da4ccb029437864dcc897",
+    "revision": 0
+  },
+  "target": {
+    "span_id": "span:t:r0:p0:s12.0:o5:f:g98c69eff111d:c6-8",
+    "page_index": 0,
+    "selected_text": "丙丁",
+    "change": {
+      "target_ids": [
+        "t:r0:p0:s12.0:o5:f:g98c69eff111d"
+      ],
+      "glyph_range": [
+        [
+          6,
+          8
+        ]
+      ],
+      "old_text": "丙丁",
+      "new_text": "甲乙"
+    }
+  },
+  "new_text": "甲乙",
+  "policy": "prefer_a",
+  "mode": "A",
+  "font_policy": "keep_original",
+  "allowed_change_mask": [
+    133.0,
+    84.08,
+    159.5,
+    105.46
+  ],
+  "geometry": {
+    "baseline_start": [
+      135.0,
+      100.0
+    ],
+    "baseline_end": [
+      156.0,
+      100.0
+    ],
+    "font_size": 12.0,
+    "pdfium_width_residual_pt": 0.0
+  },
+  "resource_changes": [],
+  "font_changes": [],
+  "warnings": [],
+  "unsupported_reasons": [],
+  "ready": true
+}

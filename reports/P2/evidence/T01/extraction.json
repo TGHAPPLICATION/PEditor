@@ -1,0 +1,14 @@
+{
+  "mupdf": {
+    "new_text_found": true,
+    "old_count_before": 1,
+    "old_count_after": 0,
+    "after_text": "臺北市政府測試局公告\n本公告內容為合成測試資料。\n"
+  },
+  "pdfium": {
+    "new_text_found": true,
+    "old_count_before": 1,
+    "old_count_after": 0,
+    "after_text": "臺北市政府測試局公告\n本公告內容為合成測試資料。"
+  }
+}

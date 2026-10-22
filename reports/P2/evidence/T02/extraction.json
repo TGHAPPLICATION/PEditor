@@ -1,0 +1,14 @@
+{
+  "mupdf": {
+    "new_text_found": true,
+    "old_count_before": 1,
+    "old_count_after": 0,
+    "after_text": "案號 115-0001 請於 11 月 5 日前回覆 ABC 公司。\n聯絡電話 02-2720-0000（合成）\n"
+  },
+  "pdfium": {
+    "new_text_found": true,
+    "old_count_before": 1,
+    "old_count_after": 0,
+    "after_text": "案號 115-0001 請於 11 月 5 日前回覆 ABC 公司。\n聯絡電話 02-2720-0000（合成）"
+  }
+}
