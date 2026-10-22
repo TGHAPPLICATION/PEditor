@@ -2,6 +2,7 @@
 
 模式 A：只改寫目標文字顯示運算子中被替換字形的字碼，原字型、座標、其他運算子不動；
 新舊字寬差以 TJ 位移補償，目標之後的字形位置不變（ADR-0018 §2）。
+改動跨同一 BT 內相鄰的多段運算子時，新字碼放入第一段，最後一段以開頭位移把剩餘字形放回原位。
 模式 B（P2 步驟 7）尚未實作：A 不可行時計畫回 GLYPH_MISSING 並註明。
 """
 
@@ -22,14 +23,34 @@ from peditor.worker.content import TextRun
 POSITION_TOL = 0.01  # pt；溢出判定的數值容許
 
 
+# 多段改動時，段與段之間只允許不移動文字位置的狀態運算子（ADR-0018 §2）
+_STATE_OPS = frozenset({"Tf", "Tc", "Tw", "Tz", "TL", "Ts", "Tr", "gs", "g", "G", "rg", "RG",
+                        "k", "K", "cs", "CS", "sc", "SC", "scn", "SCN", "w", "J", "j", "M", "d",
+                        "ri", "i"})  # fmt: skip
+_MARKED_OPS = frozenset({"BDC", "BMC", "EMC", "MP", "DP"})
+
+
 @dataclass
-class _Pending:
-    plan: EditPlan
+class _OpEdit:
+    """一個文字顯示運算子的改寫。
+
+    mode：replace＝替換字形 [g0, g1)（保留其間原有位移，可附補償）；
+    head＝自 g0 起到運算子結尾全部移除後放入新字碼；all＝全部移除；
+    tail＝移除開頭到字形 g1 之前（g1 為字形數時保留結尾位移），開頭放入補償。
+    """
+
     run: TextRun
+    mode: str
     g0: int
     g1: int
     codes: list[int]
-    compensation: float  # TJ 位移（千分之一字級）；0 表示不需補償
+    number: float  # TJ 位移（千分之一字級）；0 表示不需要
+
+
+@dataclass
+class _Pending:
+    plan: EditPlan
+    edits: list[_OpEdit]
 
 
 def _span_target(document: analyzer.Document, target_id: str) -> SpanTarget:
@@ -75,14 +96,16 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
     )
     if plan.unsupported_reasons:
         return _store(document, plan, None)
-    if len(change.pieces) != 1:
-        plan.unsupported_reasons.append("UNSUPPORTED_LAYOUT")
-        plan.warnings.append("改動跨多段運算子尚未實作（P2 步驟 6）")
-        return _store(document, plan, None)
-    run = selection.runs[piece.run_index]
+    runs = [selection.runs[p.run_index] for p in change.pieces]
+    run = runs[0]
     if _shared_stream(document, selection.page_index, run):
         plan.unsupported_reasons.append("SHARED_RESOURCE_UNSAFE")
         return _store(document, plan, None)
+    if len(runs) > 1:
+        reason = _between_pieces(document, runs)
+        if reason:
+            plan.unsupported_reasons.append(reason)
+            return _store(document, plan, None)
     codes = run.font.encode(change.new_text, {g.code for g in run.glyphs}) if run.font else None
     if codes is None:
         plan.unsupported_reasons.append("GLYPH_MISSING")
@@ -90,19 +113,27 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
             plan.warnings.append("原字型缺字，需模式 B；模式 B 尚未實作（P2 步驟 7）")
         return _store(document, plan, None)
 
-    old_codes = [g.code for g in run.glyphs[piece.g0 : piece.g1]]
-    old_adv = sum(run.advance(c) for c in old_codes)
+    old_codes = [g.code for p, r in zip(change.pieces, runs, strict=True)
+                 for g in r.glyphs[p.g0 : p.g1]]  # fmt: skip
     new_adv = sum(run.advance(c) for c in codes)
-    compensation = (new_adv - old_adv) * 1000.0 / run.size if run.size else 0.0
-    if abs(compensation) < 1e-6:
-        compensation = 0.0
-    if compensation and run.operator in ("'", '"'):
-        plan.unsupported_reasons.append("UNSUPPORTED_LAYOUT")  # 換行顯示運算子無法以 TJ 補償
-        return _store(document, plan, None)
-
     start = _start_origin(run, piece.g0)
     a, b = run.matrix[0], run.matrix[1]
     end = (start[0] + new_adv / run.size * a, start[1] + new_adv / run.size * b)
+    if len(runs) == 1:
+        old_adv = sum(run.advance(c) for c in old_codes)
+        compensation = (new_adv - old_adv) * 1000.0 / run.size if run.size else 0.0
+        if abs(compensation) < 1e-6:
+            compensation = 0.0
+        if compensation and run.operator in ("'", '"'):
+            plan.unsupported_reasons.append("UNSUPPORTED_LAYOUT")  # 換行顯示運算子無法以 TJ 補償
+            return _store(document, plan, None)
+        edits = [_OpEdit(run, "replace", piece.g0, piece.g1, codes, compensation)]
+    else:
+        edits = _multi_edits(change, runs, codes, start, end)
+        if edits is None:
+            plan.unsupported_reasons.append("UNSUPPORTED_LAYOUT")
+            return _store(document, plan, None)
+
     to_page = analyzer.page_geometry(document.pike.pages[selection.page_index]).pdf_to_page()
     page_start, page_end = apply(to_page, *start), apply(to_page, *end)
     plan.geometry = {
@@ -116,7 +147,62 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
         return _store(document, plan, None)
     plan.mode = "A"
     plan.resource_changes = []
-    return _store(document, plan, _Pending(plan, run, piece.g0, piece.g1, codes, compensation))
+    return _store(document, plan, _Pending(plan, edits))
+
+
+def _between_pieces(document: analyzer.Document, runs: list[TextRun]) -> str | None:
+    """多段改動：同字型、同字級、同方向基線，段與段之間只有不移動文字位置的狀態運算子。"""
+    first = runs[0]
+    for run in runs[1:]:
+        if run.font is None or first.font is None or run.font.objgen != first.font.objgen:
+            return "UNSUPPORTED_LAYOUT"  # 換字型會把原屬他字型的字改成第一段的字型
+        if run.size != first.size or run.scale != first.scale or run.operator in ("'", '"'):
+            return "UNSUPPORTED_LAYOUT"
+        if any(abs(u - v) > 1e-6 for u, v in zip(run.matrix[:4], first.matrix[:4], strict=True)):
+            return "UNSUPPORTED_LAYOUT"
+    instructions = list(pikepdf.parse_content_stream(document.pike.get_object(first.stream)))
+    for inst in instructions[first.op_index + 1 : runs[-1].op_index]:
+        if not isinstance(inst, pikepdf.ContentStreamInstruction):
+            return "UNSUPPORTED_LAYOUT"
+        op = str(inst.operator)
+        if op in _MARKED_OPS:
+            return "UNSUPPORTED_FEATURE"  # 跨標記內容（ADR-0017）
+        if op in ("Tj", "TJ") or op in _STATE_OPS:
+            if op == "Tf" and inst.operands and str(inst.operands[0]) != first.font.key:
+                return "UNSUPPORTED_LAYOUT"
+            continue
+        return "UNSUPPORTED_LAYOUT"  # Td／Tm／T*、路徑、影像等
+    return None
+
+
+def _multi_edits(change, runs, codes, start, end) -> list[_OpEdit] | None:
+    """新字碼全部放入第一段；中間段清空；最後一段移除被改字形，並以開頭位移把剩餘字形放回原位。
+
+    位移以基線方向上的實際位置計算（含原有 TJ 位移），不累加字寬。
+    """
+    first, last = runs[0], runs[-1]
+    piece_last = change.pieces[-1]
+    ux, uy = first.matrix[0], first.matrix[1]
+    unit = math.hypot(ux, uy)
+    if unit == 0:
+        return None
+    ux, uy = ux / unit, uy / unit
+    if piece_last.g1 < len(last.glyphs):
+        target = last.glyphs[piece_last.g1].origin
+    else:
+        tail = last.glyphs[-1]
+        step = last.advance(tail.code) / last.size
+        target = (tail.origin[0] + step * last.matrix[0], tail.origin[1] + step * last.matrix[1])
+    # 剩餘字形應在的位置 − 新字之後的位置（基線方向，PDF 空間）
+    gap = (target[0] - end[0]) * ux + (target[1] - end[1]) * uy
+    off_line = abs(-(target[0] - start[0]) * uy + (target[1] - start[1]) * ux)
+    if off_line > POSITION_TOL:
+        return None
+    number = -gap * 1000.0 / math.hypot(last.matrix[0], last.matrix[1])
+    edits = [_OpEdit(first, "head", change.pieces[0].g0, len(first.glyphs), codes, 0.0)]
+    edits += [_OpEdit(r, "all", 0, len(r.glyphs), [], 0.0) for r in runs[1:-1]]
+    edits.append(_OpEdit(last, "tail", 0, piece_last.g1, [], number if abs(number) > 1e-6 else 0.0))
+    return edits
 
 
 def _store(document: analyzer.Document, plan: EditPlan, pending: _Pending | None) -> dict:
@@ -182,10 +268,18 @@ def apply_edit(document: analyzer.Document, plan_id, expected_revision) -> dict:
 
 
 def _rewrite_mode_a(document: analyzer.Document, pending: _Pending) -> None:
-    run = pending.run
-    stream = document.pike.get_object(run.stream)
+    streams = {e.run.stream for e in pending.edits}
+    if len(streams) != 1:
+        raise ProtocolError("VALIDATION_FAILED", "內容與計畫不一致")
+    stream = document.pike.get_object(streams.pop())
     instructions = list(pikepdf.parse_content_stream(stream))
-    inst = instructions[run.op_index]
+    for edit in pending.edits:
+        instructions[edit.run.op_index] = _rewrite_op(instructions[edit.run.op_index], edit)
+    stream.write(pikepdf.unparse_content_stream(instructions))
+
+
+def _rewrite_op(inst, edit: _OpEdit):
+    run = edit.run
     if not isinstance(inst, pikepdf.ContentStreamInstruction) or str(inst.operator) != run.operator:
         raise ProtocolError("VALIDATION_FAILED", "內容與計畫不一致")
     operands = list(inst.operands)
@@ -196,29 +290,32 @@ def _rewrite_mode_a(document: analyzer.Document, pending: _Pending) -> None:
             tokens += [("g", code) for code in run.font.codes(bytes(item))]
         else:
             tokens.append(("n", item))
-    glyph_positions = [i for i, (kind, _) in enumerate(tokens) if kind == "g"]
-    if [tokens[i][1] for i in glyph_positions] != [g.code for g in run.glyphs]:
+    positions = [i for i, (kind, _) in enumerate(tokens) if kind == "g"]
+    if [tokens[i][1] for i in positions] != [g.code for g in run.glyphs]:
         raise ProtocolError("VALIDATION_FAILED", "內容與計畫不一致")
-    if pending.g0 < pending.g1:
-        lo, hi = glyph_positions[pending.g0], glyph_positions[pending.g1 - 1] + 1
-    else:  # 純插入
-        lo = hi = glyph_positions[pending.g0] if pending.g0 < len(glyph_positions) else len(tokens)
-    replaced = tokens[lo:hi]
-    kept_numbers = [t for t in replaced if t[0] == "n"]  # 被替換字形之間原有的位移
-    new_tokens = [("g", code) for code in pending.codes] + kept_numbers
-    if pending.compensation:
+    glyphs = [("g", code) for code in edit.codes]
+    number = [("n", edit.number)] if edit.number else []
+    if edit.mode == "replace":
+        if edit.g0 < edit.g1:
+            lo, hi = positions[edit.g0], positions[edit.g1 - 1] + 1
+        else:  # 純插入
+            lo = hi = positions[edit.g0] if edit.g0 < len(positions) else len(tokens)
+        kept = [t for t in tokens[lo:hi] if t[0] == "n"]  # 被替換字形之間原有的位移
         # TJ 數值 n 使位置移動 -n/1000×字級；n＝(新寬−舊寬)×1000/字級 抵銷字寬差
-        new_tokens.append(("n", pending.compensation))
-    tokens[lo:hi] = new_tokens
+        tokens[lo:hi] = glyphs + kept + number
+    elif edit.mode == "head":
+        tokens[positions[edit.g0] :] = glyphs
+    elif edit.mode == "all":
+        tokens = []
+    elif edit.mode == "tail":
+        hi = positions[edit.g1] if edit.g1 < len(positions) else positions[-1] + 1
+        tokens[:hi] = number
     array = _regroup(tokens, run.font.two_byte)
     if run.operator == "TJ" or len(array) != 1 or not isinstance(array[0], pikepdf.String):
         if run.operator in ("'", '"'):
             raise ProtocolError("VALIDATION_FAILED", "內容與計畫不一致")
-        new_inst = pikepdf.ContentStreamInstruction([pikepdf.Array(array)], pikepdf.Operator("TJ"))
-    else:
-        new_inst = pikepdf.ContentStreamInstruction([*operands[:-1], array[0]], inst.operator)
-    instructions[run.op_index] = new_inst
-    stream.write(pikepdf.unparse_content_stream(instructions))
+        return pikepdf.ContentStreamInstruction([pikepdf.Array(array)], pikepdf.Operator("TJ"))
+    return pikepdf.ContentStreamInstruction([*operands[:-1], array[0]], inst.operator)
 
 
 def _regroup(tokens, two_byte: bool) -> list:
