@@ -61,6 +61,11 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | G2-11 | §8.2 | 已修改頁：改動區 +2 pt 外每通道差 >8/255 的像素 ≤0.01% | `tests/integration/test_visual.py::test_changed_page_outside_mask_threshold` | T01–T04 | PLANNED |
 | G2-12 | §8.2 | 目標外框定位誤差 ≤0.5 pt | `tests/integration/test_visual.py::test_target_bbox_within_half_point` | T01–T04 | PLANNED |
 | G2-16 | §8.2、ADR-0015 | MuPDF 渲染空白的 7 份（T01、F01、F02、F05、L02、L03、B01）視覺比對只以 PDFium 判定；這 7 份 PDFium 渲染非空白、其他 support fixture MuPDF 渲染非空白（例外清單不得擴大） | `tests/integration/test_visual.py::test_mupdf_blank_exceptions_fixed` | T01、F01、F02、F05、L02、L03、B01 | PLANNED |
+| G2-17 | §8.1、ADR-0017 | 標記 PDF：替代文字（ActualText／Alt／E，含結構元素與祖先）涵蓋目標即拒絕；可編輯者儲存後結構樹與 MCID 不變 | `tests/integration/test_edit_text.py::test_tagged_structure_preserved`、`::test_tagged_actualtext_rejected` | T05、T06、T08、F06、F07、L04；腳本產生 | PLANNED |
+| G2-18 | §7、ADR-0018 §1 | span target：運算子內部分文字與同 BT 相鄰多段運算子 | `tests/unit/test_edit_plan.py::test_span_target_resolution` | T01、T08 | PLANNED |
+| G2-19 | P2、ADR-0018 §2 | 模式 A 字寬不同時，目標後續字形位置不變 | `tests/integration/test_edit_text.py::test_following_glyphs_unmoved` | F04、E03、T02 | PLANNED |
+| G2-20 | G2-1 | 編輯案例實作前鎖定：manifest 18 個＋`edit_cases.csv` 4 個＝22 次操作（含同一文件連續編輯） | `tests/unit/test_manifest.py::test_edit_cases_locked` | E01–E04 | PLANNED |
+| G2-21 | §8.2 | 視覺門檻以 P2 實測基準鎖定後才寫入測試 | 報告記錄（`reports/P2/report.md`） | 全部 support | PLANNED |
 | G2-13 | §7 | EditPlan 欄位完整；UI 不可送原始 PDF 指令 | `tests/unit/test_edit_plan.py::test_edit_plan_schema` | — | PLANNED |
 | G2-14 | §7 | target_id 含 revision、page、content stream、operator span、geometry hash | `tests/unit/test_edit_plan.py::test_target_id_components` | — | PLANNED |
 | G2-15 | §8.1 | 不宣稱鑑識級遮蔽 | 文件審查（使用說明） | — | PLANNED |
