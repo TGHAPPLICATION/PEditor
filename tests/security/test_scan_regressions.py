@@ -215,6 +215,23 @@ def test_f008_deep_field_tree_not_supported(tmp_path):
     pdf.save(tmp_path / "d.pdf")
     document = analyzer.open_document(str(tmp_path / "d.pdf"))
     assert document.flags["status"] == "reject"
+    assert "RESOURCE_LIMIT" in document.flags["reasons"]
+    document.close()
+
+
+def test_f008_long_parent_chain_not_supported(tmp_path):
+    pdf = _pdf(tmp_path / "c.pdf", b"")
+    parent = pdf.make_indirect(pikepdf.Dictionary(T="root", FT=pikepdf.Name.Sig, V=_sig_value()))
+    for i in range(100):  # 不在 /Fields 的 widget，/Parent 鏈超過繼承查找上限 → 不得判為 support
+        parent = pdf.make_indirect(pikepdf.Dictionary(T=f"n{i}", Parent=parent))
+    widget = pdf.make_indirect(pikepdf.Dictionary(
+        Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Widget, Rect=[0, 0, 10, 10],
+        Parent=parent))  # fmt: skip
+    pdf.pages[0].obj.Annots = pikepdf.Array([widget])
+    pdf.save(tmp_path / "c.pdf")
+    document = analyzer.open_document(str(tmp_path / "c.pdf"))
+    assert document.flags["status"] == "reject"
+    assert "RESOURCE_LIMIT" in document.flags["reasons"]
     document.close()
 
 

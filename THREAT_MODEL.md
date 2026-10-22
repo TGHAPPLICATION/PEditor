@@ -36,7 +36,7 @@ P0 時點只有空白 UI、fixture 產生器與 CI。P1（2026-10-21）實作 wo
 
 | id | threat | actor | surface | asset | impact | likelihood | status | controls | evidence |
 |---|---|---|---|---|---|---|---|---|---|
-| T1 | 惡意 PDF 經 MuPDF／qpdf 解析造成記憶體破壞並在使用者權限下執行程式碼 | remote_unauth | 開啟 PDF 檔 | 使用者主機, 使用者文件內容 | critical | likely | partially_mitigated | P1：解析只在 worker 子行程（G1-01 測試主行程無 PDF 程式庫）；崩潰／逾時即終止並重啟；worker 以 `python -P` 啟動，不載入工作目錄中的同名模組（P1 安全掃描 f011）。非 OS 沙箱，worker 仍有使用者權限（P7 評估） | MuPDF 與 qpdf 歷年記憶體安全 CVE（P1 vuln-scan 時補 CVE 編號） |
+| T1 | 惡意 PDF 經 MuPDF／qpdf 解析造成記憶體破壞並在使用者權限下執行程式碼 | remote_unauth | 開啟 PDF 檔 | 使用者主機, 使用者文件內容 | critical | likely | partially_mitigated | P1：解析只在 worker 子行程（G1-01 測試主行程無 PDF 程式庫）；崩潰／逾時即終止並重啟；worker 以 `python -P` 啟動，不載入工作目錄中的同名模組（P1 安全掃描 f011）。非 OS 沙箱，worker 仍有使用者權限（P7 評估）。Pillow（pikepdf 相依）升至 13.0.0 修補 9 項 Dependabot 警示（ADR-0014）；產品目前不載入 Pillow，日後若在 worker 以 Pillow 解碼使用者影像，須另設大小／像素上限 | MuPDF 與 qpdf 歷年記憶體安全 CVE（P1 vuln-scan 時補 CVE 編號） |
 | T2 | 已被攻陷或異常的 worker 透過 IPC 送出畸形訊息，攻陷或癱瘓 UI 主行程 | remote_unauth | worker → 主行程 IPC | 使用者主機, 使用者文件內容 | critical | possible | partially_mitigated | P1：JSON Lines、單則 64 MiB 上限（主行程讀取時即限制）、逾時、畸形回應即重啟；尚未以 schema 驗證回應內容（P7 加 fuzz 與 schema） | |
 | T6 | 相依套件或 CI action 遭供應鏈攻擊，於建置或執行時植入惡意程式 | supply_chain | 相依套件與建置 | 發佈產物, 使用者主機 | critical | rare | partially_mitigated | uv.lock 雜湊鎖定、exclude-newer 冷卻期、Actions commit SHA 鎖定、contents: read 權限 | |
 | T8 | 竄改的安裝包或離線升級包被安裝至使用者主機 | supply_chain | 離線升級包 | 發佈產物, 使用者主機 | critical | rare | unmitigated | 規劃附 hash 發佈；簽章延至正式散布（P8） | |

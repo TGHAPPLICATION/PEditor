@@ -37,6 +37,8 @@ build-backend = "hatchling.build"
 [tool.uv]
 # 供應鏈冷卻期：只解析此日期前發佈的版本；升級需走 ADR（見 CLAUDE.md）
 exclude-newer = "2026-09-28T00:00:00Z"
+# ADR-0014：Pillow 13.0.0 安全修補（Dependabot 9 項）的冷卻期例外，只限此套件
+exclude-newer-package = { pillow = "2026-10-17T00:00:00Z" }
 default-groups = ["dev"]
 
 [tool.pytest.ini_options]

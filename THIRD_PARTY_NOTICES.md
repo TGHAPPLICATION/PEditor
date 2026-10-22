@@ -10,7 +10,7 @@
 | pikepdf | 10.14.0 | MPL-2.0 | wheel 內含 qpdf（Apache-2.0） |
 | PySide6-Essentials | 6.11.2 | LGPL-3.0-only（上游為 LGPL-3.0／GPL-2.0／GPL-3.0 三選一，本產品選用 LGPL-3.0） | Qt 6 函式庫以動態連結使用 |
 | shiboken6 | 6.11.2 | LGPL-3.0-only（同上，三選一選用 LGPL-3.0） | |
-| Pillow | 12.3.0 | MIT-CMU | pikepdf 相依 |
+| Pillow | 13.0.0 | MIT-CMU | pikepdf 相依 |
 | lxml | 6.1.3 | BSD-3-Clause | pikepdf 相依；wheel 內含 libxml2／libxslt（MIT） |
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause | pikepdf 相依 |
 | CPython | 3.13 | PSF-2.0 | 打包時內嵌 |
