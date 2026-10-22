@@ -113,8 +113,8 @@ windows-latest 68 passed、macos-15 68 passed，P0 檢查腳本（含 smoke buil
 
 | # | 內容 | 影響 | 需誰確認 |
 | --- | --- | --- | --- |
-| U1 | 新增兩個**協定層**錯誤碼 `INVALID_REQUEST`（請求格式錯、頁碼超出範圍、文件未開啟）與 `WORKER_FAILED`（worker 未預期例外或異常結束），不在 spec §7／ADR-0007 清單；能力判定碼未增加 | 錯誤碼清單擴充；如需正式納入請以 ADR 確認 | 工程師 |
-| U2 | 頁面能力指「文字編輯」：沒有任何文字目標的頁面判 `readonly NO_TEXT_LAYER`（U01 掃描、U03 輪廓文字、I01–I03 純圖片頁皆然），影像目標各自判定。因此 **U01 的掃描影像本身被判為可替換（support）**；結構上無法區分「掃描影像」與「一般圖片」（需 OCR，不在範圍） | 若認為掃描頁的影像也應唯讀，需另定規則（例如面積門檻）並以 ADR 確認 | 工程師 |
+| U1 | 新增兩個**協定層**錯誤碼 `INVALID_REQUEST`（請求格式錯、頁碼超出範圍、文件未開啟）與 `WORKER_FAILED`（worker 未預期例外或異常結束），不在 spec §7／ADR-0007 清單；能力判定碼未增加 | 錯誤碼清單擴充；如需正式納入請以 ADR 確認。**2026-10-22 工程師決定正式列入**（ADR-0016，G1-11 單元測試鎖定錯誤碼清單）；spec §7 本文待下一版修訂補列 | 已決定（ADR-0016） |
+| U2 | 頁面能力指「文字編輯」：沒有任何文字目標的頁面判 `readonly NO_TEXT_LAYER`（U01 掃描、U03 輪廓文字、I01–I03 純圖片頁皆然），影像目標各自判定。因此 **U01 的掃描影像本身被判為可替換（support）**；結構上無法區分「掃描影像」與「一般圖片」（需 OCR，不在範圍） | 若認為掃描頁的影像也應唯讀，需另定規則（例如面積門檻）並以 ADR 確認。**2026-10-22 工程師決定維持現狀**：頁面能力只指文字編輯，影像目標各自判定，掃描影像可替換；不另訂面積門檻 | 已決定（維持現狀） |
 | U3 | **MuPDF 1.28.2 無法渲染 P0 以 PyMuPDF 產生的 Noto Sans TC（CFF，OTTO 包裝）fixture**：T01、F01、F02、F05、L02、L03、B01 渲染為空白頁（`FT_Load_Glyph … invalid argument`），PDFium 正常、文字擷取正常 | **P1 本身的產品輸出已受影響**：`render_page`／`peditor analyze` 對這 7 份輸出空白 PNG（獨立核對以 L02 重現）；P1 渲染對照改用 PDFium。**P2 的同引擎視覺比對（§8.2）若用 MuPDF，這 7 份會是空白對空白而失去意義**。P2 開工前須決定：重產這 7 份（hash 改變，依 CLAUDE.md 說明原因）或這 7 份改用 PDFium 視覺比對。**2026-10-22 工程師決定改用 PDFium**（ADR-0015）：這 7 份的 §8.2 視覺比對以 PDFium 判定，MuPDF 結果不列為證據；產品預覽空白仍待 P3 前另案處理 | 已決定（ADR-0015） |
 | U4 | L07 直排以啟發式偵測：同一 BT 內連續單字 run、x 相同、y 遞減（Word 以每行一字排直書，無 Identity-V） | 罕見版面可能誤判；真正 Identity-V 另以字型編碼判定 | 工程師知悉 |
 | U5 | 無 fixture 覆蓋的理由碼對應：Type3 → UNSUPPORTED_LAYOUT（spec §4 同列）；非 Identity-H 的 CMap → UNSUPPORTED_ENCODING；Form XObject 內的文字／影像 → UNSUPPORTED_LAYOUT（保守，未區分是否共享）；DCT／Flate 以外的影像濾鏡或 ImageMask → UNSUPPORTED_FEATURE；`/ActualText` → UNSUPPORTED_FEATURE | 皆為「拒絕」方向，不放寬支援範圍 | 工程師知悉 |
@@ -126,7 +126,7 @@ windows-latest 68 passed、macos-15 68 passed，P0 檢查腳本（含 smoke buil
 
 - CI：run 39572336577（commit `41abec3`）雙平台 68 passed
 - **關卡結果：PASS（附條件）**（範圍：repo 內 45 份 available；G1-01～G1-09 均有測試證據；G1-03 為 42 份相符＋3 份依 ADR-0013 延後；盲測、S03–S06 NOT RUN 並註明原因）
-- **下一段可開始：是**（PR 合併後；U7 安全掃描已補跑並修正）。延續條件：U8 的 f003、f008 須在 P2 編輯／儲存路徑前修正（2026-10-22 已修正，見 U8）；U3 須在 P2 視覺比對實作前決定（2026-10-22 已決定，見 ADR-0015）；U1、U2 建議 P2 開工前確認；ADR-0013 的 F03／F08 於 P2、B06 於 P6 補判定。
+- **下一段可開始：是**（PR 合併後；U7 安全掃描已補跑並修正）。延續條件：U8 的 f003、f008 須在 P2 編輯／儲存路徑前修正（2026-10-22 已修正，見 U8）；U3 須在 P2 視覺比對實作前決定（2026-10-22 已決定，見 ADR-0015）；U1、U2 建議 P2 開工前確認（2026-10-22 已決定：U1 見 ADR-0016，U2 維持現狀）；ADR-0013 的 F03／F08 於 P2、B06 於 P6 補判定。
 
 ## 11. 獨立核對紀錄
 
