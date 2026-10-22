@@ -51,6 +51,7 @@ class Document:
     # 每頁全部文字運算子（含不可見）與 target_id → 索引；供 span 解析（ADR-0018），不回傳給呼叫端
     runs: dict[int, tuple[list[TextRun], dict[str, int]]] = field(default_factory=dict)
     plans: dict[str, object] = field(default_factory=dict)  # plan_id → 待套用的計畫（worker 內部）
+    original: bytes = b""  # 開啟時的檔案內容（另存驗證的 qpdf 基準與內容差異；spec §8.1、§8.2）
 
     @property
     def doc_reasons(self) -> list[str]:
@@ -140,7 +141,7 @@ def open_document(path: str) -> Document:
         except LimitExceeded:  # 表單／書籤樹過大或有大量共享節點（P1 安全掃描 f009）
             reasons.append("RESOURCE_LIMIT")
     document = _doc(digest, page_count, flags, reasons)
-    document.pike, document.mu = pike, mu
+    document.pike, document.mu, document.original = pike, mu, data
     return document
 
 

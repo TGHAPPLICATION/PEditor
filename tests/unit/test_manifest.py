@@ -91,6 +91,14 @@ def test_edit_cases_locked(available_rows):
     assert len(manifest_ops) + len(cases) >= 20  # spec G2-1
 
 
+def test_qpdf_warnings_recorded(gen_fixtures, manifest_rows):
+    """G2-09：manifest 記錄每份 repo fixture 原有的 qpdf 問題數（spec §8.2）。"""
+    for row in manifest_rows:
+        path = FIXTURES / "files" / f"{row['fixture_id']}.pdf"
+        expected = gen_fixtures.qpdf_warning_count(path) if path.exists() else ""
+        assert row["qpdf_warnings"] == expected, row["fixture_id"]
+
+
 def test_synthetic_rows_are_defined_in_generator(gen_fixtures, available_rows):
     synthetic = {
         r["fixture_id"]

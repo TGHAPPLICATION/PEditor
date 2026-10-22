@@ -45,8 +45,10 @@ OPERATIONS = frozenset(
         "inspect_page",
         "assess_editability",
         "render_page",
+        "find_text",
         "plan_text_edit",
         "apply_edit",
+        "export_document",
         "close_document",
     }
 )

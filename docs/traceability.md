@@ -54,9 +54,9 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | G2-04 | G2-4 | 不支援、缺字、溢出回傳理由碼，磁碟與工作文件不變 | `tests/integration/test_edit_text.py::test_rejections_leave_files_unchanged` | F03、F05、F08 | 部分（GLYPH_MISSING 於原字型、拒絕不改檔 PASS；Noto Sans TC 缺字判定待步驟 7） |
 | G2-05 | G2-5 | 同原字型模式不偷換字型；B 模式證明先移除舊內容 | `tests/integration/test_edit_text.py::test_mode_a_keeps_font_mode_b_removes_old` | F01、F02 | PLANNED |
 | G2-06 | P2 | 超框一律拒絕，不偷偷縮字 | `tests/integration/test_edit_text.py::test_overflow_rejected`、`::test_stale_plan_and_revision_conflict` | T04 | PASS（模式 A；CI run 39721977455 雙平台 98 passed；模式 B 溢出待步驟 7） |
-| G2-07 | §8.1-1 | 內容／資源解碼差異證明 occurrence 運算子已改寫 | `tests/integration/test_evidence.py::test_operator_diff_evidence` | T01 | PLANNED |
-| G2-08 | §8.1-4 | 完整另存、清除不可達物件，無增量歷史 | `tests/integration/test_evidence.py::test_full_rewrite_no_incremental_history` | T01 | PLANNED |
-| G2-09 | §8.2 | qpdf 無新增錯誤／warning | `tests/integration/test_evidence.py::test_no_new_qpdf_warnings` | 全部 support | PLANNED |
+| G2-07 | §8.1-1 | 內容／資源解碼差異證明 occurrence 運算子已改寫 | `tests/integration/test_evidence.py::test_operator_diff_evidence` | T01 | PASS（模式 A 7 案；本機；CI 待推送） |
+| G2-08 | §8.1-4 | 完整另存、清除不可達物件，無增量歷史 | `tests/integration/test_evidence.py::test_full_rewrite_no_incremental_history`、`::test_export_refuses_existing_destination_and_bad_path`、`::test_validation_failure_writes_nothing`、`tests/integration/test_cli_edit.py` | T01 | PASS（模式 A 7 案；`worker/export.py`；本機；CI 待推送） |
+| G2-09 | §8.2 | qpdf 無新增錯誤／warning | `tests/integration/test_evidence.py::test_no_new_qpdf_warnings`、`tests/unit/test_manifest.py::test_qpdf_warnings_recorded` | 全部 support | PASS（manifest `qpdf_warnings`、模式 A 7 案；本機；CI 待推送） |
 | G2-10 | §8.2 | 未修改頁同引擎像素完全相同 | `tests/integration/test_visual.py::test_untouched_pages_pixel_identical` | I02 | PLANNED |
 | G2-11 | §8.2 | 已修改頁：改動區 +2 pt 外每通道差 >8/255 的像素 ≤0.01% | `tests/integration/test_visual.py::test_changed_page_outside_mask_threshold` | T01–T04 | PLANNED |
 | G2-12 | §8.2 | 目標外框定位誤差 ≤0.5 pt | `tests/integration/test_visual.py::test_target_bbox_within_half_point` | T01–T04 | PLANNED |

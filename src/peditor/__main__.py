@@ -37,6 +37,10 @@ def main(argv: list[str] | None = None) -> int:
         from peditor.cli import analyze
 
         return analyze(argv[1:])
+    if argv[:1] == ["edit-text"]:
+        from peditor.cli import edit_text
+
+        return edit_text(argv[1:])
 
     parser = argparse.ArgumentParser(prog="peditor")
     parser.add_argument("--smoke", action="store_true", help="啟動後立即結束（CI 用）")

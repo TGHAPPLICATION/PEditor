@@ -125,6 +125,11 @@ class DocumentService:
             document_id, "render_page", {"page_index": page_index, "dpi": dpi}, None
         )
 
+    def find_text(self, document_id: str, page_index: int, text: str, occurrence: int = 0):
+        """以內容尋找文字，回傳 span_id（不是 bbox 定位；ADR-0018 §1）。"""
+        params = {"page_index": page_index, "text": text, "occurrence": occurrence}
+        return self._doc_call(document_id, "find_text", params, None)["span_id"]
+
     def plan_text_edit(
         self,
         document_id: str,
@@ -143,6 +148,13 @@ class DocumentService:
         """套用 ready 的計畫。worker 重啟後工作文件回到原檔（P3 才有 command log），
         revision 不符即回 REVISION_CONFLICT，不會套用到錯的版本。"""
         return self._doc_call(document_id, "apply_edit", {"plan_id": plan_id}, expected_revision)
+
+    def export_document(
+        self, document_id: str, destination: str | os.PathLike, expected_revision: int
+    ):
+        """完整重寫並驗證後寫出新檔；目的檔已存在時回 SAVE_FAILED（交易式覆寫屬 P3）。"""
+        params = {"destination": os.fspath(destination)}
+        return self._doc_call(document_id, "export_document", params, expected_revision)
 
     def close_document(self, document_id: str) -> None:
         doc = self._docs.pop(document_id, None)

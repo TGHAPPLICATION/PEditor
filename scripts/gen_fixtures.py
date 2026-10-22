@@ -46,7 +46,7 @@ FIELDS = [
     "fixture_id", "group", "sha256", "generator", "generator_version", "fonts",
     "expected", "reason_code", "page_index", "target", "bbox_pt", "original_text",
     "new_text", "editable_region_pt", "protected_region", "blind", "storage", "status",
-    "notes",
+    "qpdf_warnings", "notes",
 ]  # fmt: skip
 
 FIXED_DATE = "D:20260101000000Z"
@@ -542,6 +542,27 @@ def update_manifest(paths: dict[str, Path], manifest: Path = MANIFEST) -> None:
             status="available",
             notes=fx.notes,
         )
+    write_manifest(fill_qpdf_warnings(rows), manifest)
+
+
+def qpdf_warning_count(path: Path) -> str:
+    """fixture 原有的 qpdf 問題數（開檔警告＋語法檢查；spec §8.2、G2-09）；無法開啟（加密）為空。"""
+    try:
+        with pikepdf.open(path) as pdf:
+            return str(len(pdf.get_warnings()) + len(pdf.check_pdf_syntax()))
+    except (pikepdf.PasswordError, pikepdf.PdfError):
+        return ""
+
+
+def fill_qpdf_warnings(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    for row in rows:
+        path = FILES / f"{row['fixture_id']}.pdf"
+        available = row["storage"] == "repo" and row["status"] == "available" and path.exists()
+        row["qpdf_warnings"] = qpdf_warning_count(path) if available else ""
+    return rows
+
+
+def write_manifest(rows: list[dict[str, str]], manifest: Path = MANIFEST) -> None:
     with manifest.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.DictWriter(fh, FIELDS, lineterminator="\n")
         writer.writeheader()
@@ -549,7 +570,10 @@ def update_manifest(paths: dict[str, Path], manifest: Path = MANIFEST) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
+    if sys.argv[1:] == ["--qpdf-only"]:  # 只回填 qpdf_warnings，不重產任何 fixture（hash 不變）
+        write_manifest(fill_qpdf_warnings(read_manifest()))
+        print("已回填 manifest 的 qpdf_warnings")
+    elif len(sys.argv) > 1:
         for fid, p in generate(Path(sys.argv[1])).items():
             print(fid, sha256(p)[:16])
     else:
