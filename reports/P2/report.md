@@ -190,4 +190,4 @@ c0196b6 的修補與回歸測試；並在 HEAD 重產證據兩次逐位元組比
 
 另：本機測試輸出的 faulthandler 堆疊先前誤判為「殘留輸出」，已查明為 pypdfium2 初始化時的已處理例外（§4）。
 
-補強後本機與 CI 結果見下一個 commit 的 traceability 更新。
+補強後：本機 273 passed；CI run 40458762159（commit `1b44d3b`）雙平台 273 passed。
