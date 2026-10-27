@@ -165,7 +165,7 @@ macos-15 272 passed，P0 檢查腳本（含 smoke build）PASS。attempt 1 的 m
 
 ## 10. 關卡結果
 
-- CI：run 40442075176（commit `c0196b6`）attempt 2 雙平台 272 passed；獨立核對補強後 run 40458762159（commit `1b44d3b`）雙平台 273 passed（最終狀態見 §11）
+- CI：run 40442075176（commit `c0196b6`）attempt 2 雙平台 272 passed；獨立核對補強後 run 40458762159（commit `1b44d3b`）雙平台 273 passed；U6 實作後 run 40479995390（commit `3167433`）雙平台 275 passed（見 §11）
 - **關卡結果：PASS（附條件）**（範圍：repo 內 18 份支援＋3 份拒絕 fixture、E01–E04；G2-01～G2-22 均有測試證據，
   G2-02 附條件見 U7（G2-17 原附條件已隨 U6 解除）；盲測、macOS 實機、§8.3 效能 NOT RUN 並註明原因）
 - **下一段可開始：待定**：須由工程師確認 U1、U2、U7（U6 已處理）；U3、U4、U5 可於 P3 開工前決定。
@@ -209,3 +209,6 @@ c0196b6 的修補與回歸測試；並在 HEAD 重產證據兩次逐位元組比
 | R2-7 | `test_unsupported_encoding_rejected_on_edit_path` docstring 寫「計畫不可套用」，但未實際呼叫 `apply_edit` | 測試補上 `apply_edit` 須回 INVALID_REQUEST（與 `test_overflow_rejected` 相同），未改其他期望 |
 
 第二輪處理後：本機 273 passed；CI run 40471720782（commit `010902c`）雙平台 273 passed。
+
+U6 實作（工程師 2026-10-27 決定，commit `3167433`）：本機 275 passed；CI run 40479995390 windows-latest 275 passed、
+macos-15 275 passed。第三輪獨立核對：待執行。
