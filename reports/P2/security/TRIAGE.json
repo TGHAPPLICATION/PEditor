@@ -66,7 +66,10 @@
       ],
       "claimed_severity": "LOW",
       "duplicate_of": null,
-      "absorbed": []
+      "absorbed": [],
+      "outcome": "fixed",
+      "outcome_note": "export.content_diff trims common leading/trailing operators before SequenceMatcher",
+      "regression_tests": "tests/security/test_p2_scan_regressions.py"
     },
     {
       "id": "f004",
@@ -108,7 +111,10 @@
       ],
       "claimed_severity": "MEDIUM",
       "duplicate_of": null,
-      "absorbed": []
+      "absorbed": [],
+      "outcome": "fixed",
+      "outcome_note": "edit._rewrite_op pure insertion at end of run inserts before trailing TJ numbers (positions[-1]+1), matching the planned start",
+      "regression_tests": "tests/security/test_p2_scan_regressions.py"
     },
     {
       "id": "f002",
@@ -149,7 +155,10 @@
       ],
       "claimed_severity": "MEDIUM",
       "duplicate_of": null,
-      "absorbed": []
+      "absorbed": [],
+      "outcome": "fixed",
+      "outcome_note": "edit._shared_stream counts every indirect reference to the target stream (_references); >1 -> SHARED_RESOURCE_UNSAFE",
+      "regression_tests": "tests/security/test_p2_scan_regressions.py"
     },
     {
       "id": "f001",
@@ -536,7 +545,10 @@
       ],
       "claimed_severity": "LOW",
       "duplicate_of": null,
-      "absorbed": []
+      "absorbed": [],
+      "outcome": "fixed",
+      "outcome_note": "dropped as security; root cause (stream listed twice in /Contents) now rejected by the f002 fix",
+      "regression_tests": "tests/security/test_p2_scan_regressions.py"
     },
     {
       "id": "f013",

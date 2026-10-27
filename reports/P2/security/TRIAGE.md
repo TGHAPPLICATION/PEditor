@@ -92,3 +92,14 @@ Verifiers confirmed the mechanism exists but found no security impact (attacker 
 | f023 | ToUnicode codes outside the font code space give a ready plan that fails at apply | P2 |
 | f015 | raw `startxref` byte count can block export of a file containing that string | P2/P3 |
 | f024 | ToUnicode/CIDToGIDMap/font programs inflated before size checks | P7 limits |
+
+## Fix status
+
+Regression tests: `tests/security/test_p2_scan_regressions.py` (traceability G2-22). Before the fix, the f004 and f002 tests fail and the f014 test exceeds 60 s; after the fix all pass.
+
+| id | outcome | change |
+| --- | --- | --- |
+| f014 | fixed | `export.content_diff` trims common leading/trailing operators before `SequenceMatcher` |
+| f004 | fixed | `edit._rewrite_op` pure insertion at end of run inserts before trailing TJ numbers, matching the planned start |
+| f002 | fixed | `edit._shared_stream` counts every indirect reference to the target stream; more than one -> `SHARED_RESOURCE_UNSAFE` |
+| f012 | fixed (via f002) | a stream listed twice in `/Contents` is now rejected before `_between_pieces` runs |

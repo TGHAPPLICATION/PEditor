@@ -73,10 +73,16 @@ def content_diff(before: bytes, after: bytes) -> list[dict]:
                 continue
             for order, (a, b) in enumerate(zip(s0, s1, strict=True)):
                 ops_a, ops_b = _ops(a), _ops(b)
-                matcher = difflib.SequenceMatcher(a=ops_a, b=ops_b, autojunk=False)
+                # 只比對前後相同運算子之間的部分：SequenceMatcher 遇大量相同運算子為平方級，
+                # 未改動的串流不得進入比對（P2 triage f014）
+                lo, hi = _common_ends(ops_a, ops_b)
+                matcher = difflib.SequenceMatcher(
+                    a=ops_a[lo : len(ops_a) - hi], b=ops_b[lo : len(ops_b) - hi], autojunk=False
+                )
                 for tag, i0, i1, j0, j1 in matcher.get_opcodes():
                     if tag == "equal":
                         continue
+                    i0, i1, j0, j1 = i0 + lo, i1 + lo, j0 + lo, j1 + lo
                     changes.append({
                         "page_index": page_index, "stream_order": order, "kind": tag,
                         "before_ops": [i0, i1], "after_ops": [j0, j1],
@@ -109,6 +115,18 @@ def _streams(page: pikepdf.Page) -> list[pikepdf.Stream]:
     contents = page.obj.get("/Contents")
     items = list(contents) if isinstance(contents, pikepdf.Array) else [contents]
     return [s for s in items if isinstance(s, pikepdf.Stream)]
+
+
+def _common_ends(a: list[bytes], b: list[bytes]) -> tuple[int, int]:
+    """相同開頭與相同結尾的運算子數（兩者不重疊）。"""
+    limit = min(len(a), len(b))
+    lo = 0
+    while lo < limit and a[lo] == b[lo]:
+        lo += 1
+    hi = 0
+    while hi < limit - lo and a[-1 - hi] == b[-1 - hi]:
+        hi += 1
+    return lo, hi
 
 
 def _ops(stream: pikepdf.Stream) -> list[bytes]:

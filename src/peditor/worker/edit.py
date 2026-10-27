@@ -17,6 +17,7 @@ import pikepdf
 
 from peditor.core.editplan import EditPlan, SpanTarget, parse_target_id, validate_plan_params
 from peditor.core.geometry import apply, contains
+from peditor.core.limits import MAX_OBJECT_WALK
 from peditor.core.protocol import ProtocolError
 from peditor.worker import analyzer, fontb, span, tagged
 from peditor.worker.content import TextRun
@@ -103,7 +104,7 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
         return _store(document, plan, None)
     runs = [selection.runs[p.run_index] for p in change.pieces]
     run = runs[0]
-    if _shared_stream(document, selection.page_index, run):
+    if _shared_stream(document, run):
         plan.unsupported_reasons.append("SHARED_RESOURCE_UNSAFE")
         return _store(document, plan, None)
     if len(runs) > 1:
@@ -325,16 +326,32 @@ def _start_origin(run: TextRun, g0: int) -> tuple[float, float]:
     return (last.origin[0] + step * run.matrix[0], last.origin[1] + step * run.matrix[1])
 
 
-def _shared_stream(document: analyzer.Document, page_index: int, run: TextRun) -> bool:
-    """目標 content stream 也被其他頁使用時，就地改寫會連帶改動其他頁。"""
-    for i, page in enumerate(document.pike.pages):
-        if i == page_index:
+def _shared_stream(document: analyzer.Document, run: TextRun) -> bool:
+    """目標 content stream 被參照超過一次時，就地改寫會連帶改動其他繪製處：其他頁、
+    同頁 /Contents 重複列出、Form XObject、註解外觀等（P2 triage f002、f012）。"""
+    return _references(document.pike, run.stream) > 1
+
+
+def _references(pdf: pikepdf.Pdf, objgen: tuple[int, int]) -> int:
+    """整份文件中指向 objgen 的間接參照數（只走各物件的直接子物件，不追參照）。"""
+    count = steps = 0
+    for top in pdf.objects:
+        if not isinstance(top, (pikepdf.Dictionary, pikepdf.Array, pikepdf.Stream)):
             continue
-        contents = page.obj.get("/Contents")
-        streams = contents if isinstance(contents, pikepdf.Array) else [contents]
-        if any(isinstance(s, pikepdf.Stream) and s.objgen == run.stream for s in streams):
-            return True
-    return False
+        stack = [top.stream_dict if isinstance(top, pikepdf.Stream) else top]
+        while stack:
+            obj = stack.pop()
+            steps += 1
+            if steps > MAX_OBJECT_WALK * 10:
+                raise ProtocolError("RESOURCE_LIMIT", "物件數超過上限")
+            for child in obj.values() if isinstance(obj, pikepdf.Dictionary) else obj:
+                if not isinstance(child, (pikepdf.Dictionary, pikepdf.Array, pikepdf.Stream)):
+                    continue
+                if child.is_indirect:
+                    count += child.objgen == objgen
+                else:
+                    stack.append(child)
+    return count
 
 
 def apply_edit(document: analyzer.Document, plan_id, expected_revision) -> dict:
@@ -408,8 +425,9 @@ def _rewrite_op(inst, edit: _OpEdit, b_codes: list[int], font_name: str | None) 
     if edit.mode == "replace":
         if edit.g0 < edit.g1:
             lo, hi = positions[edit.g0], positions[edit.g1 - 1] + 1
-        else:  # 純插入
-            lo = hi = positions[edit.g0] if edit.g0 < len(positions) else len(tokens)
+        else:  # 純插入；插在最後時放在結尾 TJ 位移之前，與計畫的起點一致（P2 triage f004）
+            end_of_glyphs = positions[-1] + 1 if positions else len(tokens)
+            lo = hi = positions[edit.g0] if edit.g0 < len(positions) else end_of_glyphs
         kept = [t for t in tokens[lo:hi] if t[0] == "n"]  # 被替換字形之間原有的位移
         # TJ 數值 n 使位置移動 -n/1000×字級；n＝(新寬−舊寬)×1000/字級 抵銷字寬差
         tokens[lo:hi] = glyphs + kept + number
