@@ -39,7 +39,7 @@ CI 證據為 run 40442075176 attempt 2（commit `c0196b6`）雙平台 272 passed
 | 需求 ID | test ID | fixture | 結果 |
 | --- | --- | --- | --- |
 | G2-01 | `tests/integration/test_edit_text.py::test_all_supported_text_cases`、`::test_supported_case_coverage` | 18 份＋E01–E04 | PASS：22 次操作（模式 A 7＋E01–E04、模式 B 11）；產生來源 pymupdf／reportlab／word／libreoffice；字型 Noto Sans TC、Noto Serif TC、Droid Sans Fallback |
-| G2-02 | `test_edit_text.py::test_target_occurrence_replaced_dual_engine`（模式 A 10 案）、`::test_all_supported_text_cases`（18 份＋E02–E04） | 18 份＋E02–E04 | PASS（附條件，§9 U7）（兩引擎擷取到新文：模式 A 10 案另有不去空白子字串比對，模式 B 11 案只有去空白後子字串比對；目標 occurrence 舊文移除：MuPDF、PDFium 各自計數，PDFium 計數為獨立核對後補） |
+| G2-02 | `test_edit_text.py::test_target_occurrence_replaced_dual_engine`（模式 A 10 案）、`::test_all_supported_text_cases`（18 份＋E02–E04） | 18 份＋E02–E04 | PASS（比對方式經工程師接受，§9 U7）（兩引擎擷取到新文：模式 A 10 案另有不去空白子字串比對，模式 B 11 案只有去空白後子字串比對；目標 occurrence 舊文移除：MuPDF、PDFium 各自計數，PDFium 計數為獨立核對後補） |
 | G2-03 | `test_edit_text.py::test_neighbors_and_lines_untouched`、`tests/integration/test_visual.py::test_changed_page_outside_mask_threshold` | L03、L04、L05、T07、F07、T03 | PASS（繪圖／色彩運算子完全相同、無新增覆蓋；目標外文字運算子逐一保留） |
 | G2-04 | `test_edit_text.py::test_rejections_leave_files_unchanged`、`::test_mode_b_font_unavailable`、`::test_overflow_rejected`、`::test_unsupported_encoding_rejected_on_edit_path` | F03、F05、F08；T01、F02（溢出） | PASS（F03、F08 GLYPH_MISSING：𠮷 於原字型與 Noto Sans TC 皆缺，磁碟與工作文件位元組不變；F05 編輯路徑 UNSUPPORTED_ENCODING、溢出拒絕後運算子與磁碟 hash 不變，兩者為獨立核對後補；P1 ADR-0013 延後項完成） |
 | G2-05 | `test_edit_text.py::test_target_occurrence_replaced_dual_engine`（模式 A 10 案，`font_changes` 為空）、`::test_mode_a_keeps_font_mode_b_removes_old`（模式 B 11 案）、`tests/integration/test_evidence.py::test_operator_diff_evidence` | 模式 A：T01、T02、T08、F01、F04、L02、L03、E02–E04；模式 B：其餘 11 份 | PASS（模式 A 不換字型；模式 B 證明原字型舊字形已不存在並明示字型替換） |
@@ -161,14 +161,14 @@ macos-15 272 passed，P0 檢查腳本（含 smoke build）PASS。attempt 1 的 m
 | U4 | triage 確認屬實但未修的正確性缺陷（§8 末項）：TRIAGE 建議 P2 處理的 f006、f018、f023、f015（f007 已隨 U6 修正）；建議 P3 的 f003（無回滾）、f017（部分輸出）；P7 的 f022、f024 | f003：唯一呼叫端 CLI 在失敗時中止、不匯出，目前無實際後果，P3 引入 UI／多次編輯後會暴露 | 工程師決定哪些排入 P2 收尾 |
 | U5 | spec §8.3 效能基準「P2 決定是否調整或收縮規模」，本段未量測 | 規模決策延後 | 工程師決定是否於 P3 前量測 |
 | U6 | ADR-0017 修訂（`docs/adr/0017-tagged-pdf-text-edit.md:46,52`）要求「儲存後須驗證 /ActualText 仍完全等於新內容的擷取文字」，產品端未實作：`apply_edit` 只確認舊值相等後寫入新值，匯出驗證沒有 /ActualText 檢查；測試以子字串比對。f007 顯示在重複 MCID 的結構上，同步後舊文會留在 /ActualText 而仍回報「已同步」。另外 MuPDF 擷取會讀 /ActualText，T05、T06、F06、L04 的 MuPDF「擷取到新文」來自同步寫入值，字形內容的獨立驗證只有 PDFium | G2-17 改標「PASS（附條件）」；在畸形結構樹上可能違反 spec §8.1「不能只更新畫面」的對應要求 | **已處理**（工程師 2026-10-27 決定 P2 收尾補上）：`tagged.synced` 由 MCID 經 /ParentTree 找回結構元素，`apply_edit` 在 commit 重開後要求 /ActualText 完全等於涵蓋內容（依 /K 順序）的擷取文字，不等則以修改前位元組復原並回 `VALIDATION_FAILED`；`tagged._covered_runs` 拒絕 /K 重複 MCID（f007）。測試：`test_tagged.py::test_tagged_duplicate_mcid_rejected`、`::test_tagged_actualtext_verified_after_save`（修正前皆失敗）。ADR-0017 文字未變。已知限制（P3 須處理）：復原用的是 qpdf 重寫後的位元組，物件重編號使 revision 不變但所有 target_id 改變，呼叫端持舊 ID 會得 INVALID_REQUEST 而非可重試的 REVISION_CONFLICT；`synced` 本身拋例外時已 commit（機率低）。P2 唯一呼叫端 CLI 失敗即中止，無實際後果 |
-| U7 | G2-2 要求新文「Unicode 精確相符」，測試只做子字串比對：模式 A 10 案（`test_target_occurrence_replaced_dual_engine`）不去空白，模式 B 11 案（`test_all_supported_text_cases`）只在去除空白後比對；未驗證擷取結果整段完全等於預期全文 | 模式 B 擷取可能多出或少掉空白而未被測出；G2-02 改標「PASS（附條件）」 | 工程師決定：接受子字串比對視為符合（並記錄理由），或要求補整段等值比對 |
+| U7 | G2-2 要求新文「Unicode 精確相符」，測試只做子字串比對：模式 A 10 案（`test_target_occurrence_replaced_dual_engine`）不去空白，模式 B 11 案（`test_all_supported_text_cases`）只在去除空白後比對；未驗證擷取結果整段完全等於預期全文 | 模式 B 擷取可能多出或少掉空白而未被測出 | **已處理**（工程師 2026-10-27 決定接受子字串比對）。理由：(1) 去空白只是因應擷取引擎依字形間距推測的空白，不是產品寫入的內容。實測 2026-10-27（HEAD `2e554ca`）模式 B 11 案中，10 案兩引擎皆不去空白即完全包含新文；唯一例外是 T06 的 PDFium（「臺北市政府資訊局」→「本府資訊局」，擷取為「本 府資訊局」）。新文較短，而依 ADR-0018 §2／G2-19，後續字形位置不動，「本」與「府」之間留下間隙，PDFium 據此補一個空白，MuPDF 則否。(2) 產品寫入的 ToUnicode／字碼由兩引擎擷取到新文與舊文計數驗證；模式 A 10 案另有不去空白的比對。(3) 擷取整段完全等於預期全文須讓兩引擎的分行、分欄與空白推測一致，非產品可控制。G2-02 改回 PASS |
 
 ## 10. 關卡結果
 
 - CI：run 40442075176（commit `c0196b6`）attempt 2 雙平台 272 passed；獨立核對補強後 run 40458762159（commit `1b44d3b`）雙平台 273 passed；U6 實作後 run 40479995390（commit `3167433`）雙平台 275 passed（見 §11）
 - **關卡結果：PASS（附條件）**（範圍：repo 內 18 份支援＋3 份拒絕 fixture、E01–E04；G2-01～G2-22 均有測試證據，
-  G2-02 附條件見 U7（G2-17 原附條件已隨 U6 解除）；盲測、macOS 實機、§8.3 效能 NOT RUN 並註明原因）
-- **下一段可開始：待定**：須由工程師確認 U1、U2、U7（U6 已處理）；U3、U4、U5 可於 P3 開工前決定。
+  G2-02 比對方式經工程師接受（U7），G2-17 原附條件已隨 U6 解除；盲測、macOS 實機、§8.3 效能 NOT RUN 並註明原因）
+- **下一段可開始：待定**：須由工程師確認 U1、U2（U6、U7 已處理）；U3、U4、U5 可於 P3 開工前決定。
 
 ## 11. 獨立核對紀錄
 
