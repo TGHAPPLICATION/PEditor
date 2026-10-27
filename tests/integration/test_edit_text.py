@@ -140,11 +140,12 @@ def test_all_supported_text_cases(fid, old, new, region, mode):
         )
         edit.apply_edit(document, plan["plan_id"], 0)
         mu, pdfium = _texts(document.working_bytes())
-        before = _texts(original)[0]
+        before_mu, before_pdfium = _texts(original)
         assert new.replace(" ", "") in mu.replace(" ", "")
         assert new.replace(" ", "") in pdfium.replace(" ", "")
-        # 只移除目標 occurrence（新文本身含原文時，例如 T04 的插入，原文仍會出現）
-        assert mu.count(old) == before.count(old) - 1 + new.count(old)
+        # 只移除目標 occurrence（新文本身含原文時，例如 T04 的插入，原文仍會出現）；兩引擎各自判定
+        assert mu.count(old) == before_mu.count(old) - 1 + new.count(old)
+        assert pdfium.count(old) == before_pdfium.count(old) - 1 + new.count(old)
     finally:
         document.close()
 
@@ -261,16 +262,40 @@ def test_following_glyphs_unmoved(fid, old, new):
 def test_overflow_rejected(fid, old, new):
     """G2-06：超出可改動區域一律 TEXT_OVERFLOW，不縮字；計畫不可套用、文件不變。"""
     row = _manifest()[fid]
-    document = analyzer.open_document(str(FILES / f"{fid}.pdf"))
+    path = FILES / f"{fid}.pdf"
+    document = analyzer.open_document(str(path))
     try:
+        before = _ops(document.working_bytes())
         plan = _plan(document, old, new, row["editable_region_pt"])
         assert plan["unsupported_reasons"] == ["TEXT_OVERFLOW"] and not plan["ready"]
         with pytest.raises(ProtocolError) as exc:
             edit.apply_edit(document, plan["plan_id"], 0)
         assert exc.value.code == "INVALID_REQUEST"
-        assert document.revision == 0
+        assert document.revision == 0 and _ops(document.working_bytes()) == before
     finally:
         document.close()
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == row["sha256"]
+
+
+def test_unsupported_encoding_rejected_on_edit_path():
+    """G2-04：ToUnicode 不完整（F05）在編輯路徑回 UNSUPPORTED_ENCODING，計畫不可套用、文件不變。
+    F05 無法以內容搜尋定位，改用 P1 的文字目標 ID。"""
+    row = _manifest()["F05"]
+    path = FILES / "F05.pdf"
+    document = analyzer.open_document(str(path))
+    try:
+        before = _ops(document.working_bytes())
+        analyzer.inspect_page(document, 0)
+        _, index = document.runs[0]
+        assert index
+        for target_id in index:
+            plan = edit.plan_text_edit(document, {"target_id": target_id, "new_text": "臺灣",
+                                                  "editable_region": [0, 0, 999, 999]})  # fmt: skip
+            assert plan["unsupported_reasons"] == ["UNSUPPORTED_ENCODING"] and not plan["ready"]
+        assert document.revision == 0 and _ops(document.working_bytes()) == before
+    finally:
+        document.close()
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == row["sha256"]
 
 
 @pytest.mark.parametrize(("fid", "policy"), [
