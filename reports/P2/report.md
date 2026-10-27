@@ -206,3 +206,5 @@ c0196b6 的修補與回歸測試；並在 HEAD 重產證據兩次逐位元組比
 | R2-5 | G2-02「Unicode 精確相符」只有子字串比對，模式 B 只有去空白比對，卻標無條件 PASS | G2-02 改「PASS（附條件）」，新增 §9 U7 待工程師決定 |
 | R2-6 | traceability G2-02 fixture 寫「18 份」，報告為「18 份＋E02–E04」；G2-05 fixture 仍寫「F01、F02」（第一輪 #9 未同步） | traceability 兩列 fixture 欄與報告一致 |
 | R2-7 | `test_unsupported_encoding_rejected_on_edit_path` docstring 寫「計畫不可套用」，但未實際呼叫 `apply_edit` | 測試補上 `apply_edit` 須回 INVALID_REQUEST（與 `test_overflow_rejected` 相同），未改其他期望 |
+
+第二輪處理後：本機 273 passed；CI run 40471720782（commit `010902c`）雙平台 273 passed。
