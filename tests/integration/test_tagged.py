@@ -1,6 +1,7 @@
 """標記 PDF：結構樹不被破壞、替代文字規則（G2-17；ADR-0017 含 2026-10-22 修訂）。"""
 
 import csv
+import dataclasses
 import io
 from pathlib import Path
 
@@ -8,6 +9,7 @@ import pikepdf
 import pymupdf
 import pytest
 
+from peditor.core.protocol import ProtocolError
 from peditor.worker import analyzer, edit, span
 from peditor.worker.content import interpret
 
@@ -146,3 +148,37 @@ def test_tagged_actualtext_equal_is_synced(tmp_path):
         assert str(element.ActualText) == "Howdy World"
     finally:
         document.close()
+
+
+def test_tagged_duplicate_mcid_rejected(tmp_path):
+    """/K 重複列出同一 MCID：同步只能改到其中一處，應拒絕（P2 triage f007）。"""
+    extra = {"/K": pikepdf.Array([0, 0]), "/ActualText": pikepdf.String("Hello WorldHello World")}
+    path = _tagged_sample(tmp_path, element_extra=extra)
+    document, plan = _plan(path)
+    try:
+        assert not plan["ready"] and plan["unsupported_reasons"] == ["UNSUPPORTED_FEATURE"], plan
+    finally:
+        document.close()
+
+
+def test_tagged_actualtext_verified_after_save(tmp_path):
+    """儲存後 /ActualText 不等於新內容擷取文字 → VALIDATION_FAILED，工作文件復原（ADR-0017）。"""
+    path = _tagged_sample(tmp_path, element_extra={"/ActualText": pikepdf.String("Hello World")})
+    document, plan = _plan(path)
+    try:
+        assert plan["ready"]
+        before = document.working_bytes()
+        pending = document.plans[plan["plan_id"]]
+        pending.sync = dataclasses.replace(pending.sync, new="Howdy Earth")  # 模擬同步值算錯
+        with pytest.raises(ProtocolError) as exc:
+            edit.apply_edit(document, plan["plan_id"], 0)
+        assert exc.value.code == "VALIDATION_FAILED"
+        assert document.revision == 0 and _ops(document.working_bytes()) == _ops(before)
+        assert str(document.pike.Root.StructTreeRoot.K[0].ActualText) == "Hello World"
+    finally:
+        document.close()
+
+
+def _ops(data: bytes) -> list:
+    with pikepdf.open(io.BytesIO(data)) as pdf:
+        return [pikepdf.unparse_content_stream(pikepdf.parse_content_stream(p)) for p in pdf.pages]

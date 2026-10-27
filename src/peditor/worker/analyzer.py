@@ -73,11 +73,14 @@ class Document:
 
     def commit(self) -> None:
         """套用修改後：以重寫結果重新開啟、revision 加一、清除依舊版本建立的快取與計畫。"""
-        data = self.working_bytes()
+        self.reopen(self.working_bytes(), self.revision + 1)
+
+    def reopen(self, data: bytes, revision: int) -> None:
+        """以指定位元組重新開啟工作文件（commit，或儲存後驗證失敗時復原）。"""
         self.close()
         self.pike = pikepdf.open(io.BytesIO(data))
         self.mu = pymupdf.open(stream=data, filetype="pdf")
-        self.revision += 1
+        self.revision = revision
         self.pages.clear()
         self.runs.clear()
         self.plans.clear()

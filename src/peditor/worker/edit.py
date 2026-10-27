@@ -362,13 +362,22 @@ def apply_edit(document: analyzer.Document, plan_id, expected_revision) -> dict:
         pending.plan.preconditions["revision"] != document.revision
     ):
         raise ProtocolError("REVISION_CONFLICT", "文件版本不符", retryable=True)
-    _rewrite(document, pending)
-    if pending.sync is not None:
-        element = document.pike.get_object(pending.sync.element)
-        if str(element.get("/ActualText")) != pending.sync.old:
+    sync = pending.sync
+    if sync is not None:
+        element = document.pike.get_object(sync.element)
+        if str(element.get("/ActualText")) != sync.old:
             raise ProtocolError("VALIDATION_FAILED", "內容與計畫不一致")
-        element.ActualText = pikepdf.String(pending.sync.new)
+        before, revision = document.working_bytes(), document.revision
+    _rewrite(document, pending)
+    if sync is not None:
+        element.ActualText = pikepdf.String(sync.new)
     document.commit()
+    # 儲存後驗證（ADR-0017 修訂）：重新開啟後 /ActualText 須完全等於新內容的擷取文字，
+    # 否則回到修改前
+    if sync is not None and not tagged.synced(document.pike, pending.plan.target["page_index"],
+                                              sync.mcid):  # fmt: skip
+        document.reopen(before, revision)
+        raise ProtocolError("VALIDATION_FAILED", "/ActualText 與新內容不一致")
     return {"new_revision": document.revision, "command_id": secrets.token_hex(8)}
 
 

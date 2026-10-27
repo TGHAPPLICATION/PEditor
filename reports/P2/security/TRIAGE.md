@@ -103,3 +103,4 @@ Regression tests: `tests/security/test_p2_scan_regressions.py` (traceability G2-
 | f004 | fixed | `edit._rewrite_op` pure insertion at end of run inserts before trailing TJ numbers, matching the planned start |
 | f002 | fixed | `edit._shared_stream` counts every indirect reference to the target stream; more than one -> `SHARED_RESOURCE_UNSAFE` |
 | f012 | fixed (via f002) | a stream listed twice in `/Contents` is now rejected before `_between_pieces` runs |
+| f007 | fixed (correctness, P2 report U6) | `tagged._covered_runs` rejects a holder whose `/K` lists an MCID twice (`UNSUPPORTED_FEATURE`); `apply_edit` re-opens the saved result and requires `/ActualText` to equal the covered content text, else restores the pre-edit document and raises `VALIDATION_FAILED`. Tests: `tests/integration/test_tagged.py::test_tagged_duplicate_mcid_rejected`, `::test_tagged_actualtext_verified_after_save` (both fail before the fix) |

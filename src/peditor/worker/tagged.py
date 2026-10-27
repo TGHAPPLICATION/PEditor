@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import pikepdf
 
 from peditor.core.limits import MAX_OBJECT_WALK
-from peditor.worker.content import TextRun
+from peditor.worker.content import TextRun, interpret
 
 _ALT_KEYS = ("/ActualText", "/Alt", "/E")
 
@@ -21,6 +21,7 @@ class ActualTextSync:
     element: tuple[int, int]  # 結構元素 objgen
     old: str
     new: str
+    mcid: int  # 儲存後以 MCID 找回結構元素（存檔會重編物件號）
 
 
 def _props(inst, resources) -> pikepdf.Dictionary | None:
@@ -142,6 +143,45 @@ def check(
     mcid = mcids.pop()
     if mcid is None:
         return None, None  # 不在結構中的內容（例如 Artifact）
+    reason, holder = _holder(root, page, mcid)
+    if reason or holder is None:
+        return reason, None
+    covered = _covered_runs(holder, page, marks, len(runs))
+    if covered is None:
+        return "UNSUPPORTED_FEATURE", None
+    text, offset = "", None
+    for i in covered:
+        if i == changed[0]:
+            offset = len(text) + char_start
+        text += runs[i].text
+    actual = str(holder.ActualText)
+    if offset is None or actual != text or actual[offset : offset + len(old)] != old:
+        return "UNSUPPORTED_FEATURE", None
+    updated = actual[:offset] + new + actual[offset + len(old) :]
+    return None, ActualTextSync(holder.objgen, actual, updated, mcid)
+
+
+def synced(pdf: pikepdf.Pdf, page_index: int, mcid: int) -> bool:
+    """儲存後驗證：MCID 所屬的 /ActualText 完全等於其涵蓋內容的擷取文字（ADR-0017）。"""
+    root = pdf.Root.get("/StructTreeRoot")
+    if not isinstance(root, pikepdf.Dictionary):
+        return False
+    page = pdf.pages[page_index]
+    reason, holder = _holder(root, page, mcid)
+    if reason or holder is None:
+        return False
+    runs = interpret(page).runs
+    covered = _covered_runs(holder, page, marked_content(page, runs), len(runs))
+    if covered is None:
+        return False
+    return str(holder.ActualText) == "".join(runs[i].text for i in covered)
+
+
+def _holder(root, page: pikepdf.Page, mcid: int) -> tuple[str | None, pikepdf.Dictionary | None]:
+    """MCID 所屬結構元素鏈上唯一帶 /ActualText 的元素。
+
+    帶 /Alt、/E、多層 /ActualText 或結構不一致時回拒絕理由碼。
+    """
     parents = page.obj.get("/StructParents")
     array = _number_tree_get(root.get("/ParentTree"), int(parents)) if parents is not None else None
     element = array[mcid] if isinstance(array, pikepdf.Array) and mcid < len(array) else None
@@ -160,24 +200,21 @@ def check(
                 return "UNSUPPORTED_FEATURE", None
             holder = node
         node = node.get("/P")
-    if holder is None:
-        return None, None
+    return None, holder
+
+
+def _covered_runs(holder, page: pikepdf.Page, marks: dict, count: int) -> list[int] | None:
+    """/ActualText 涵蓋的文字運算子（runs 索引，依 /K 順序）。
+
+    含 OBJR、他頁內容或重複 MCID 時回 None。重複 MCID 會讓同一段內容在
+    /ActualText 中出現兩次，同步只能改到其中一處（P2 triage f007）。
+    """
     covered = _mcids_under(holder, page)
-    if covered is None:
-        return "UNSUPPORTED_FEATURE", None
+    if covered is None or len(covered) != len(set(covered)):
+        return None
     by_mcid: dict[int, list[int]] = {}
-    for i in range(len(runs)):
+    for i in range(count):
         m = marks.get(i, (None, False))[0]
         if m is not None:
             by_mcid.setdefault(m, []).append(i)
-    text, offset = "", None
-    for m in covered:
-        for i in by_mcid.get(m, []):
-            if i == changed[0]:
-                offset = len(text) + char_start
-            text += runs[i].text
-    actual = str(holder.ActualText)
-    if offset is None or actual != text or actual[offset : offset + len(old)] != old:
-        return "UNSUPPORTED_FEATURE", None
-    updated = actual[:offset] + new + actual[offset + len(old) :]
-    return None, ActualTextSync(holder.objgen, actual, updated)
+    return [i for m in covered for i in by_mcid.get(m, [])]

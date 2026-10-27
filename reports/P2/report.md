@@ -54,7 +54,7 @@ CI 證據為 run 40442075176 attempt 2（commit `c0196b6`）雙平台 272 passed
 | G2-14 | `test_edit_plan.py::test_target_id_components` | — | PASS |
 | G2-15 | 文件審查（`README.md`「限制」節） | — | PASS（不宣稱鑑識級遮蔽） |
 | G2-16 | `test_visual.py::test_mupdf_blank_exceptions_fixed` | T01、F01、F02、F05、L02、L03、B01 | PASS（ADR-0015 例外清單固定為 7 份） |
-| G2-17 | `tests/integration/test_tagged.py::test_tagged_structure_preserved`、`::test_tagged_actualtext_rejected`、`::test_tagged_actualtext_equal_is_synced` | T05、T06、T08、F06、F07、L04；腳本產生 | PASS（附條件）：結構樹與 MCID 不變；Word 4 份同步 /ActualText（測試以子字串比對）。ADR-0017 修訂要求的「儲存後 /ActualText 完全等於新內容擷取文字」未在產品端驗證；這 4 份的 MuPDF 擷取會讀 /ActualText，字形內容的獨立驗證只有 PDFium（§9 U6） |
+| G2-17 | `tests/integration/test_tagged.py::test_tagged_structure_preserved`、`::test_tagged_actualtext_rejected`、`::test_tagged_actualtext_equal_is_synced`、`::test_tagged_duplicate_mcid_rejected`、`::test_tagged_actualtext_verified_after_save` | T05、T06、T08、F06、F07、L04；腳本產生 | PASS：結構樹與 MCID 不變；Word 4 份同步 /ActualText，產品端儲存後驗證 /ActualText 完全等於新內容擷取文字（不等則復原、回 VALIDATION_FAILED）；重複 MCID 拒絕。MuPDF 擷取會讀 /ActualText，字形內容由 PDFium 與上述等值驗證確認（§9 U6，原附條件已解除） |
 | G2-18 | `test_edit_plan.py::test_span_target_resolution`、`tests/integration/test_edit_multi.py` | T01、T08、F04、T04；測試內樣本 | PASS |
 | G2-19 | `test_edit_text.py::test_following_glyphs_unmoved`、`test_edit_multi.py::test_multi_operator_change` | F04、E03、T02 | PASS |
 | G2-20 | `tests/unit/test_manifest.py::test_edit_cases_locked`、`test_edit_text.py::test_chained_edit_e01_through_worker` | E01–E04 | PASS（實作前鎖定 22 次操作；E01 經 worker 連續編輯） |
@@ -138,16 +138,17 @@ macos-15 272 passed，P0 檢查腳本（含 smoke build）PASS。attempt 1 的 m
   | f002 | LOW | `_shared_stream` 只看其他頁 /Contents，漏同頁重複列出、Form XObject、註解外觀共用（`edit.py`） | 計算整份文件對目標串流的間接參照數，>1 即 SHARED_RESOURCE_UNSAFE；同時涵蓋 f012 |
 
 - **判為誤報但程式缺陷屬實**（安全上不可利用，列為後續；清單見 `TRIAGE.md` 末節）：
-  - f003 `apply_edit` 在 /ActualText 檢查前已改寫串流與資源，失敗時無回滾
+  - f003 `apply_edit` 在 /ActualText 檢查前已改寫串流與資源，失敗時無回滾（U6 處理時已把該舊值檢查移到改寫前，
+    儲存後驗證失敗也會復原；`_rewrite` 本身中途失敗仍無回滾，P3）
   - f017 寫檔失敗留下部分輸出（違反 spec §7，P3）
   - f006 標記 PDF 的 /Alt、/E 檢查只信 /ParentTree 與 /P，可被與 /K 不一致的結構繞過
-  - f007 /K 中重複的 MCID 使 /ActualText 同步後**舊文仍留在 /ActualText**，卻照樣給出「已同步」警告；這對應 spec 停止條件
-    「宣稱成功但原文仍在指定內容」（在惡意或畸形的結構樹上），§9 U6
+  - f007 /K 中重複的 MCID 使 /ActualText 同步後舊文仍留在 /ActualText，卻照樣給出「已同步」警告（對應 spec 停止條件
+    「宣稱成功但原文仍在指定內容」）。**已修正**（§9 U6）：重複 MCID 拒絕，並加上儲存後等值驗證
   - f018 模式 B ToUnicode 合併共用同一字形的碼位
   - f023 超出字碼空間的 ToUnicode 碼使計畫 ready、套用時失敗
   - f015 原始 `startxref` 位元組計數可阻擋含此字串的檔案匯出
   - f022／f024 CMap 正則平方級與解壓前未限大小（P7）
-  - TRIAGE 建議由 P2 處理的 f006、f007、f018、f023、f015 本段**均未修正**（§9 U4）
+  - TRIAGE 建議由 P2 處理的 f006、f018、f023、f015 本段**未修正**（§9 U4）；f007 已隨 U6 修正
 - `THREAT_MODEL.md`：本段**未更新**（§9 U2）。
 
 ## 9. 不確定性與人工確認項目
@@ -157,17 +158,17 @@ macos-15 272 passed，P0 檢查腳本（含 smoke build）PASS。attempt 1 的 m
 | U1 | 分支 commit 依序為 S3 步驟 1–7、9，**沒有步驟 8 的 commit**；repo 內也找不到步驟 8 的定義 | 若步驟 8 原有規劃的工作，可能未完成 | 工程師確認步驟 8 是否被合併、取消或漏做 |
 | U2 | P2 引入編輯與另存路徑（worker 寫出檔案、修改工作文件），`THREAT_MODEL.md` 未隨之更新（CLAUDE.md：架構變更時更新） | 威脅模型未反映 T3 完整性控制與 worker 寫檔權限 | 工程師決定是否於合併前更新 |
 | U3 | 3 個測試直接比對兩次 `working_bytes()` 的位元組（`test_edit_multi.py:106`、`test_edit_text.py::test_rejections_leave_files_unchanged`、`test_p2_scan_regressions.py:88`），存檔跨秒時 /ID 不同而失敗 | CI 偶發失敗（本段已發生 1 次）；另 `tests/security/test_worker_limits.py::test_basic_timeout_and_cancel`（依實際時間判定）在本機整套測試負載下失敗 1 次，單獨重跑 3 次與整套重跑皆通過，未修改 | 工程師決定：比對時排除 /ID，或產品存檔改用固定 /ID（會改變輸出）；時間性測試是否放寬須另以 ADR 決定，本段未動 |
-| U4 | triage 確認屬實但未修的正確性缺陷（§8 末項）：TRIAGE 建議 P2 處理的 f006、f007、f018、f023、f015；建議 P3 的 f003（無回滾）、f017（部分輸出）；P7 的 f022、f024 | f003：唯一呼叫端 CLI 在失敗時中止、不匯出，目前無實際後果，P3 引入 UI／多次編輯後會暴露；f007 見 U6 | 工程師決定哪些排入 P2 收尾 |
+| U4 | triage 確認屬實但未修的正確性缺陷（§8 末項）：TRIAGE 建議 P2 處理的 f006、f018、f023、f015（f007 已隨 U6 修正）；建議 P3 的 f003（無回滾）、f017（部分輸出）；P7 的 f022、f024 | f003：唯一呼叫端 CLI 在失敗時中止、不匯出，目前無實際後果，P3 引入 UI／多次編輯後會暴露 | 工程師決定哪些排入 P2 收尾 |
 | U5 | spec §8.3 效能基準「P2 決定是否調整或收縮規模」，本段未量測 | 規模決策延後 | 工程師決定是否於 P3 前量測 |
-| U6 | ADR-0017 修訂（`docs/adr/0017-tagged-pdf-text-edit.md:46,52`）要求「儲存後須驗證 /ActualText 仍完全等於新內容的擷取文字」，產品端未實作：`apply_edit` 只確認舊值相等後寫入新值，匯出驗證沒有 /ActualText 檢查；測試以子字串比對。f007 顯示在重複 MCID 的結構上，同步後舊文會留在 /ActualText 而仍回報「已同步」。另外 MuPDF 擷取會讀 /ActualText，T05、T06、F06、L04 的 MuPDF「擷取到新文」來自同步寫入值，字形內容的獨立驗證只有 PDFium | G2-17 改標「PASS（附條件）」；在畸形結構樹上可能違反 spec §8.1「不能只更新畫面」的對應要求 | 工程師決定：P2 收尾補上儲存後等值驗證（並拒絕重複 MCID），或修訂 ADR-0017 |
+| U6 | ADR-0017 修訂（`docs/adr/0017-tagged-pdf-text-edit.md:46,52`）要求「儲存後須驗證 /ActualText 仍完全等於新內容的擷取文字」，產品端未實作：`apply_edit` 只確認舊值相等後寫入新值，匯出驗證沒有 /ActualText 檢查；測試以子字串比對。f007 顯示在重複 MCID 的結構上，同步後舊文會留在 /ActualText 而仍回報「已同步」。另外 MuPDF 擷取會讀 /ActualText，T05、T06、F06、L04 的 MuPDF「擷取到新文」來自同步寫入值，字形內容的獨立驗證只有 PDFium | G2-17 改標「PASS（附條件）」；在畸形結構樹上可能違反 spec §8.1「不能只更新畫面」的對應要求 | **已處理**（工程師 2026-10-27 決定 P2 收尾補上）：`tagged.synced` 由 MCID 經 /ParentTree 找回結構元素，`apply_edit` 在 commit 重開後要求 /ActualText 完全等於涵蓋內容（依 /K 順序）的擷取文字，不等則以修改前位元組復原並回 `VALIDATION_FAILED`；`tagged._covered_runs` 拒絕 /K 重複 MCID（f007）。測試：`test_tagged.py::test_tagged_duplicate_mcid_rejected`、`::test_tagged_actualtext_verified_after_save`（修正前皆失敗）。ADR-0017 文字未變 |
 | U7 | G2-2 要求新文「Unicode 精確相符」，測試只做子字串比對：模式 A 10 案（`test_target_occurrence_replaced_dual_engine`）不去空白，模式 B 11 案（`test_all_supported_text_cases`）只在去除空白後比對；未驗證擷取結果整段完全等於預期全文 | 模式 B 擷取可能多出或少掉空白而未被測出；G2-02 改標「PASS（附條件）」 | 工程師決定：接受子字串比對視為符合（並記錄理由），或要求補整段等值比對 |
 
 ## 10. 關卡結果
 
 - CI：run 40442075176（commit `c0196b6`）attempt 2 雙平台 272 passed；獨立核對補強後 run 40458762159（commit `1b44d3b`）雙平台 273 passed（最終狀態見 §11）
 - **關卡結果：PASS（附條件）**（範圍：repo 內 18 份支援＋3 份拒絕 fixture、E01–E04；G2-01～G2-22 均有測試證據，
-  G2-02 附條件見 U7、G2-17 附條件見 U6；盲測、macOS 實機、§8.3 效能 NOT RUN 並註明原因）
-- **下一段可開始：待定**：須由工程師確認 U1、U2、U6、U7；U3、U4、U5 可於 P3 開工前決定。
+  G2-02 附條件見 U7（G2-17 原附條件已隨 U6 解除）；盲測、macOS 實機、§8.3 效能 NOT RUN 並註明原因）
+- **下一段可開始：待定**：須由工程師確認 U1、U2、U7（U6 已處理）；U3、U4、U5 可於 P3 開工前決定。
 
 ## 11. 獨立核對紀錄
 
