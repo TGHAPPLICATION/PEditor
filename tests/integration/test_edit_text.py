@@ -292,6 +292,9 @@ def test_unsupported_encoding_rejected_on_edit_path():
             plan = edit.plan_text_edit(document, {"target_id": target_id, "new_text": "臺灣",
                                                   "editable_region": [0, 0, 999, 999]})  # fmt: skip
             assert plan["unsupported_reasons"] == ["UNSUPPORTED_ENCODING"] and not plan["ready"]
+            with pytest.raises(ProtocolError) as exc:
+                edit.apply_edit(document, plan["plan_id"], 0)
+            assert exc.value.code == "INVALID_REQUEST"
         assert document.revision == 0 and _ops(document.working_bytes()) == before
     finally:
         document.close()

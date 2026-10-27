@@ -4,8 +4,8 @@
 
 ## 1. 階段／commit／日期
 
-- 階段：P2　分支：`p2-text-edit`　commit：`c0196b6`（程式，含安全修補）、`674fbb2`（traceability）　日期：2026-10-27
-- 撰寫：Claude Code；審查：待工程師；獨立核對：待執行（§11）
+- 階段：P2　分支：`p2-text-edit`　commit：`c0196b6`（程式，含安全修補）、`674fbb2`（traceability）、`1b44d3b`（獨立核對後補強測試）、本次第二輪核對後修正　日期：2026-10-27
+- 撰寫：Claude Code；審查：待工程師；獨立核對：兩輪完成（§11）
 - 輸入：spec v1.1 P2／G2／§7／§8.1／§8.2、ADR-0001～0019、manifest（qpdf_warnings 欄位於步驟 4 加入）、
   `tests/fixtures/edit_cases.csv`（E01–E04）、P1 報告 §10 延續條件
 - P2 前置分支（已合併 main）：`p2-prep-f003-f008`（P1 U8）、`p2-pillow-13`（ADR-0014）、`p2-u3-pdfium-visual`（ADR-0015）、
@@ -39,7 +39,7 @@ CI 證據為 run 40442075176 attempt 2（commit `c0196b6`）雙平台 272 passed
 | 需求 ID | test ID | fixture | 結果 |
 | --- | --- | --- | --- |
 | G2-01 | `tests/integration/test_edit_text.py::test_all_supported_text_cases`、`::test_supported_case_coverage` | 18 份＋E01–E04 | PASS：22 次操作（模式 A 7＋E01–E04、模式 B 11）；產生來源 pymupdf／reportlab／word／libreoffice；字型 Noto Sans TC、Noto Serif TC、Droid Sans Fallback |
-| G2-02 | `test_edit_text.py::test_target_occurrence_replaced_dual_engine`（模式 A 10 案）、`::test_all_supported_text_cases`（18 份＋E02–E04） | 18 份＋E02–E04 | PASS（兩引擎擷取到新文：去空白後子字串比對；目標 occurrence 舊文移除：MuPDF、PDFium 各自計數，PDFium 計數為獨立核對後補） |
+| G2-02 | `test_edit_text.py::test_target_occurrence_replaced_dual_engine`（模式 A 10 案）、`::test_all_supported_text_cases`（18 份＋E02–E04） | 18 份＋E02–E04 | PASS（附條件，§9 U7）（兩引擎擷取到新文：模式 A 10 案另有不去空白子字串比對，模式 B 11 案只有去空白後子字串比對；目標 occurrence 舊文移除：MuPDF、PDFium 各自計數，PDFium 計數為獨立核對後補） |
 | G2-03 | `test_edit_text.py::test_neighbors_and_lines_untouched`、`tests/integration/test_visual.py::test_changed_page_outside_mask_threshold` | L03、L04、L05、T07、F07、T03 | PASS（繪圖／色彩運算子完全相同、無新增覆蓋；目標外文字運算子逐一保留） |
 | G2-04 | `test_edit_text.py::test_rejections_leave_files_unchanged`、`::test_mode_b_font_unavailable`、`::test_overflow_rejected`、`::test_unsupported_encoding_rejected_on_edit_path` | F03、F05、F08；T01、F02（溢出） | PASS（F03、F08 GLYPH_MISSING：𠮷 於原字型與 Noto Sans TC 皆缺，磁碟與工作文件位元組不變；F05 編輯路徑 UNSUPPORTED_ENCODING、溢出拒絕後運算子與磁碟 hash 不變，兩者為獨立核對後補；P1 ADR-0013 延後項完成） |
 | G2-05 | `test_edit_text.py::test_target_occurrence_replaced_dual_engine`（模式 A 10 案，`font_changes` 為空）、`::test_mode_a_keeps_font_mode_b_removes_old`（模式 B 11 案）、`tests/integration/test_evidence.py::test_operator_diff_evidence` | 模式 A：T01、T02、T08、F01、F04、L02、L03、E02–E04；模式 B：其餘 11 份 | PASS（模式 A 不換字型；模式 B 證明原字型舊字形已不存在並明示字型替換） |
@@ -75,7 +75,7 @@ G2 各驗收條件：
 
 ```
 uv run ruff check . && uv run ruff format --check .   → exit 0
-uv run pytest -q                                        → exit 0，272 passed（Windows 實機，2026-10-27，含 G2-22 的 5 項；獨立核對後補強見 §11）
+uv run pytest -q                                        → exit 0，272 passed（Windows 實機，2026-10-27，含 G2-22 的 5 項）；獨立核對補強後 273 passed（見 §11）
 uv run python scripts/p2_evidence.py reports/P2/evidence → exit 0，21 案（commit 994c452 產生）
 ```
 
@@ -156,17 +156,18 @@ macos-15 272 passed，P0 檢查腳本（含 smoke build）PASS。attempt 1 的 m
 | --- | --- | --- | --- |
 | U1 | 分支 commit 依序為 S3 步驟 1–7、9，**沒有步驟 8 的 commit**；repo 內也找不到步驟 8 的定義 | 若步驟 8 原有規劃的工作，可能未完成 | 工程師確認步驟 8 是否被合併、取消或漏做 |
 | U2 | P2 引入編輯與另存路徑（worker 寫出檔案、修改工作文件），`THREAT_MODEL.md` 未隨之更新（CLAUDE.md：架構變更時更新） | 威脅模型未反映 T3 完整性控制與 worker 寫檔權限 | 工程師決定是否於合併前更新 |
-| U3 | 3 個測試直接比對兩次 `working_bytes()` 的位元組（`test_edit_multi.py:106`、`test_edit_text.py:293`、`test_p2_scan_regressions.py:88`），存檔跨秒時 /ID 不同而失敗 | CI 偶發失敗（本段已發生 1 次）；另 `tests/security/test_worker_limits.py::test_basic_timeout_and_cancel`（依實際時間判定）在本機整套測試負載下失敗 1 次，單獨重跑 3 次與整套重跑皆通過，未修改 | 工程師決定：比對時排除 /ID，或產品存檔改用固定 /ID（會改變輸出）；時間性測試是否放寬須另以 ADR 決定，本段未動 |
+| U3 | 3 個測試直接比對兩次 `working_bytes()` 的位元組（`test_edit_multi.py:106`、`test_edit_text.py::test_rejections_leave_files_unchanged`、`test_p2_scan_regressions.py:88`），存檔跨秒時 /ID 不同而失敗 | CI 偶發失敗（本段已發生 1 次）；另 `tests/security/test_worker_limits.py::test_basic_timeout_and_cancel`（依實際時間判定）在本機整套測試負載下失敗 1 次，單獨重跑 3 次與整套重跑皆通過，未修改 | 工程師決定：比對時排除 /ID，或產品存檔改用固定 /ID（會改變輸出）；時間性測試是否放寬須另以 ADR 決定，本段未動 |
 | U4 | triage 確認屬實但未修的正確性缺陷（§8 末項）：TRIAGE 建議 P2 處理的 f006、f007、f018、f023、f015；建議 P3 的 f003（無回滾）、f017（部分輸出）；P7 的 f022、f024 | f003：唯一呼叫端 CLI 在失敗時中止、不匯出，目前無實際後果，P3 引入 UI／多次編輯後會暴露；f007 見 U6 | 工程師決定哪些排入 P2 收尾 |
 | U5 | spec §8.3 效能基準「P2 決定是否調整或收縮規模」，本段未量測 | 規模決策延後 | 工程師決定是否於 P3 前量測 |
 | U6 | ADR-0017 修訂（`docs/adr/0017-tagged-pdf-text-edit.md:46,52`）要求「儲存後須驗證 /ActualText 仍完全等於新內容的擷取文字」，產品端未實作：`apply_edit` 只確認舊值相等後寫入新值，匯出驗證沒有 /ActualText 檢查；測試以子字串比對。f007 顯示在重複 MCID 的結構上，同步後舊文會留在 /ActualText 而仍回報「已同步」。另外 MuPDF 擷取會讀 /ActualText，T05、T06、F06、L04 的 MuPDF「擷取到新文」來自同步寫入值，字形內容的獨立驗證只有 PDFium | G2-17 改標「PASS（附條件）」；在畸形結構樹上可能違反 spec §8.1「不能只更新畫面」的對應要求 | 工程師決定：P2 收尾補上儲存後等值驗證（並拒絕重複 MCID），或修訂 ADR-0017 |
+| U7 | G2-2 要求新文「Unicode 精確相符」，測試只做子字串比對：模式 A 10 案（`test_target_occurrence_replaced_dual_engine`）不去空白，模式 B 11 案（`test_all_supported_text_cases`）只在去除空白後比對；未驗證擷取結果整段完全等於預期全文 | 模式 B 擷取可能多出或少掉空白而未被測出；G2-02 改標「PASS（附條件）」 | 工程師決定：接受子字串比對視為符合（並記錄理由），或要求補整段等值比對 |
 
 ## 10. 關卡結果
 
-- CI：run 40442075176（commit `c0196b6`）雙平台 272 passed
+- CI：run 40442075176（commit `c0196b6`）attempt 2 雙平台 272 passed；獨立核對補強後 run 40458762159（commit `1b44d3b`）雙平台 273 passed（最終狀態見 §11）
 - **關卡結果：PASS（附條件）**（範圍：repo 內 18 份支援＋3 份拒絕 fixture、E01–E04；G2-01～G2-22 均有測試證據，
-  G2-17 附條件見 U6；盲測、macOS 實機、§8.3 效能 NOT RUN 並註明原因）
-- **下一段可開始：待定**：須由工程師確認 U1、U2、U6；U3、U4、U5 可於 P3 開工前決定。
+  G2-02 附條件見 U7、G2-17 附條件見 U6；盲測、macOS 實機、§8.3 效能 NOT RUN 並註明原因）
+- **下一段可開始：待定**：須由工程師確認 U1、U2、U6、U7；U3、U4、U5 可於 P3 開工前決定。
 
 ## 11. 獨立核對紀錄
 
@@ -191,3 +192,17 @@ c0196b6 的修補與回歸測試；並在 HEAD 重產證據兩次逐位元組比
 另：本機測試輸出的 faulthandler 堆疊先前誤判為「殘留輸出」，已查明為 pypdfium2 初始化時的已處理例外（§4）。
 
 補強後：本機 273 passed；CI run 40458762159（commit `1b44d3b`）雙平台 273 passed。
+
+第二輪（2026-10-27，HEAD `f5c4e08`）：另一個未參與實作的子代理人逐項核對第一輪 10 項的處理（`git show 1b44d3b`、`f5c4e08`），
+確認測試補強只新增斷言、未刪除或放寬既有期望、`src/` 無改動；本機完整測試 273 passed，CI run 40458762159 雙平台 273 passed。
+結論「有出入」：第一輪 1、2、4–8、10 已處理，3、9 部分處理（traceability 未同步），另有新出入，處理如下：
+
+| # | 出入 | 處理 |
+| --- | --- | --- |
+| R2-1 | U3 引用的 `test_edit_text.py:293` 因 1b44d3b 插入程式碼而過期 | 改寫為測試名稱，不再隨行號變動 |
+| R2-2 | traceability G2-17 仍為無條件 PASS（第一輪 #3 未同步） | traceability G2-17 改「PASS（附條件）」並指向 U6 |
+| R2-3 | §10 仍只列舊 CI run 與 272 | §10、§4 補上 run 40458762159 與 273 |
+| R2-4 | §1 未列 1b44d3b，獨立核對仍寫「待執行」 | §1 更新 |
+| R2-5 | G2-02「Unicode 精確相符」只有子字串比對，模式 B 只有去空白比對，卻標無條件 PASS | G2-02 改「PASS（附條件）」，新增 §9 U7 待工程師決定 |
+| R2-6 | traceability G2-02 fixture 寫「18 份」，報告為「18 份＋E02–E04」；G2-05 fixture 仍寫「F01、F02」（第一輪 #9 未同步） | traceability 兩列 fixture 欄與報告一致 |
+| R2-7 | `test_unsupported_encoding_rejected_on_edit_path` docstring 寫「計畫不可套用」，但未實際呼叫 `apply_edit` | 測試補上 `apply_edit` 須回 INVALID_REQUEST（與 `test_overflow_rejected` 相同），未改其他期望 |
