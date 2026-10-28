@@ -1,0 +1,984 @@
+{
+  "triage_completed": true,
+  "triage_context": {
+    "mode": "interactive (P1 interview answers reused for P2, same product and trust boundary)",
+    "environment": "Offline single-user desktop app (no network services). PDF files are untrusted (external sources). The PDF worker subprocess may be compromised by a malicious PDF, so its output is untrusted to the main process. Operator CLI flags and environment variables are trusted, but the contents of the operator's working directory (e.g. extracted attachments) are untrusted.",
+    "threat_model": [
+      "Malicious PDF executes code on the user's host (THREAT_MODEL T1)",
+      "Original file corruption or leakage of document content/paths (T3, T9)",
+      "Resource exhaustion making the app or host unusable (T5; full limits planned for P7)"
+    ],
+    "scoring": "Derived HIGH/MEDIUM/LOW from preconditions",
+    "noise_tolerance": "recall",
+    "votes_per_finding": 2,
+    "repo": ".",
+    "votes_note": "2 votes; a 3rd tie-break vote only where the first two split (same as P1)"
+  },
+  "summary": {
+    "input_count": 24,
+    "duplicates": 0,
+    "false_positives": 21,
+    "true_positives": 3,
+    "needs_manual_test": 0,
+    "by_severity": {
+      "HIGH": 0,
+      "MEDIUM": 0,
+      "LOW": 3
+    }
+  },
+  "findings": [
+    {
+      "id": "f014",
+      "scanner_id": "F-014",
+      "source": "reports/P2/security/VULN-FINDINGS.json#13 (json)",
+      "title": "content_diff runs quadratic difflib over every content stream of every page",
+      "file": "src/peditor/worker/export.py",
+      "line": 76,
+      "category": "algorithmic complexity",
+      "verdict": "true_positive",
+      "verify_verdict": "exploitable",
+      "confidence": 6.5,
+      "severity": "LOW",
+      "severity_label": "LOW",
+      "severity_alignment": 1,
+      "preconditions": [
+        "User opens an attacker-crafted PDF with a content stream of ~1e5+ identical or repetitive operators",
+        "User exports (no edit needed; export_document always runs content_diff on every stream)",
+        "Open/analyze completes within its own limits before export"
+      ],
+      "access_level": "local",
+      "threat_match": "T5 resource exhaustion (weak: bounded by the 30 s timeout and worker restart)",
+      "rationale": "export.py:76 SequenceMatcher(autojunk=False) on every stream incl. unedited pages; ~N^2 steps for N identical ops; no operator cap on this path (content.py:161 only, 1M per page); only bound is REQUEST_TIMEOUT_S=30 (limits.py:10, service.py:258-261) so export fails with RESOURCE_LIMIT after a full CPU timeout. Legitimate dense pages (maps/CAD) may also hit it.\n\nA crafted PDF reliably drives SequenceMatcher(autojunk=False) to ~O(N^2) over uncapped operator lists; MAX_CONTENT_OPERATORS is only enforced in content.py:161. Impact is bounded by REQUEST_TIMEOUT_S=30 and kill/restart: that one document cannot be exported. Requires local open+export and is self-limiting, so LOW; claimed LOW is about right. Dense legitimate pages (maps/CAD) may also hit it, a usability concern.",
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 0,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [],
+      "exclusion_rule": null,
+      "first_links": [
+        "src/peditor/cli.py:101",
+        "src/peditor/worker/export.py:163"
+      ],
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; single-maintainer repo (git log: tghtaipei only)",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": [],
+      "outcome": "fixed",
+      "outcome_note": "export.content_diff trims common leading/trailing operators before SequenceMatcher",
+      "regression_tests": "tests/security/test_p2_scan_regressions.py"
+    },
+    {
+      "id": "f004",
+      "scanner_id": "F-004",
+      "source": "reports/P2/security/VULN-FINDINGS.json#3 (json)",
+      "title": "Mode A pure insertion at end of TJ inserts after trailing TJ numbers, diverging from planned geometry (TEXT_OVERFLOW bypass)",
+      "file": "src/peditor/worker/edit.py",
+      "line": 412,
+      "category": "integrity / overflow-check bypass",
+      "verdict": "true_positive",
+      "verify_verdict": "exploitable",
+      "confidence": 6.5,
+      "severity": "LOW",
+      "severity_label": "LOW",
+      "severity_alignment": -2,
+      "preconditions": [
+        "User opens an attacker-crafted (or unusual) PDF whose target run is a TJ array ending in a numeric adjustment, e.g. [(Amount:) -60000] TJ",
+        "User performs a pure insertion at the end of that run (g0=g1=len(glyphs))",
+        "Plan resolves to mode A replace, so edit.py:412 writes after the trailing number while edit.py:162 checked the planned point",
+        "User applies and saves without re-rendering and noticing the misplaced text"
+      ],
+      "access_level": "local",
+      "threat_match": null,
+      "rationale": "For end-of-run insertion _start_origin (edit.py:323-325) places start at last glyph origin + advance, ignoring a trailing TJ number that content.py:216-217 shows does move the text position. TEXT_OVERFLOW (edit.py:162) uses that position, but _rewrite_op (edit.py:412) sets lo=hi=len(tokens), writing new glyphs after the trailing number; [(X) -60000] TJ gets a plan inside the region while drawn ~60 em away. Mode B correctly uses positions[-1]+1 (edit.py:424); nothing post-write checks allowed_change_mask.\n\nThe overflow check validates a start point that ignores the trailing TJ number while the rewrite places glyphs after it, with no post-write geometry check. Exploitation needs a crafted PDF plus a specific edit shape and the user not noticing, so 3+ preconditions with local interaction only. Outcome is misplaced text visible on re-render; MEDIUM inflated by about one level.",
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 0,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [],
+      "exclusion_rule": null,
+      "first_links": [
+        "src/peditor/worker/edit.py:147",
+        "src/peditor/worker/span.py:151"
+      ],
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; single-maintainer repo (git log: tghtaipei only)",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "MEDIUM",
+      "duplicate_of": null,
+      "absorbed": [],
+      "outcome": "fixed",
+      "outcome_note": "edit._rewrite_op pure insertion at end of run inserts before trailing TJ numbers (positions[-1]+1), matching the planned start",
+      "regression_tests": "tests/security/test_p2_scan_regressions.py"
+    },
+    {
+      "id": "f002",
+      "scanner_id": "F-002",
+      "source": "reports/P2/security/VULN-FINDINGS.json#1 (json)",
+      "title": "_shared_stream misses same-page duplicate /Contents entries and Form-XObject/annotation-AP reuse of the target content stream",
+      "file": "src/peditor/worker/edit.py",
+      "line": 328,
+      "category": "integrity / shared-object modification",
+      "verdict": "true_positive",
+      "verify_verdict": "exploitable",
+      "confidence": 6.0,
+      "severity": "LOW",
+      "severity_label": "LOW",
+      "severity_alignment": -2,
+      "preconditions": [
+        "User opens an attacker-crafted PDF (local delivery)",
+        "Target content stream is reused in a way _shared_stream misses: listed twice in the same page's /Contents, used as a Form XObject via Do, or as an annotation /AP (edit.py:328-337 skips the target page)",
+        "User selects text inside that shared stream and the plan passes the other gates",
+        "User approves the edit and exports; harm requires relying on the change report, which omits XObject-propagated changes"
+      ],
+      "access_level": "local",
+      "threat_match": null,
+      "rationale": "_shared_stream (edit.py:328-337) skips the target page and compares only other pages' /Contents; a stream listed twice on page 1 or reused as Form XObject via Do or /AP is not detected, while Form copies are rejected only as edit targets (analyzer.py:503). _rewrite (edit.py:376-383) mutates the shared instruction in place and _rewrite_op code check (edit.py:404) passes for duplicates. content_diff (export.py:62-111) compares only /Contents so the XObject-propagated change is unreported. Impact low: attacker gets only the user's typed text duplicated.\n\nNeeds local delivery plus the user selecting text inside the shared stream and approving the edit: 3+ preconditions, no remote path, so LOW. Integrity-only: the user's own edit also changes unselected copies of the stream and the change report omits them; no code execution, leakage or damage to the original. Claimed MEDIUM inflated by about one level.",
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 0,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [],
+      "exclusion_rule": null,
+      "first_links": [
+        "src/peditor/worker/edit.py:106"
+      ],
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; single-maintainer repo (git log: tghtaipei only)",
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "MEDIUM",
+      "duplicate_of": null,
+      "absorbed": [],
+      "outcome": "fixed",
+      "outcome_note": "edit._shared_stream counts every indirect reference to the target stream (_references); >1 -> SHARED_RESOURCE_UNSAFE",
+      "regression_tests": "tests/security/test_p2_scan_regressions.py"
+    },
+    {
+      "id": "f001",
+      "scanner_id": "F-001",
+      "source": "reports/P2/security/VULN-FINDINGS.json#0 (json)",
+      "title": "Revision restarts at 0 after worker restart; expected_revision can approve a document that silently lost applied edits",
+      "file": "src/peditor/core/service.py",
+      "line": 201,
+      "category": "data-integrity / revision race across worker restart",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 7.5,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "Only caller cli.py:100-102 applies once at revision 0 and exports at returned revision 1; after any restart reopened doc is revision 0 so worker check (worker/server.py:83-84, edit.py:344) returns REVISION_CONFLICT. Claimed chain needs a client knowingly re-applying at stale revision 0, which no code path does; a compromised worker already controls export bytes.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "already_handled",
+        "implausible_trigger"
+      ],
+      "exclusion_rule": "3",
+      "first_links": [
+        "src/peditor/cli.py:100"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "MEDIUM",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f003",
+      "scanner_id": "F-003",
+      "source": "reports/P2/security/VULN-FINDINGS.json#2 (json)",
+      "title": "Failed apply_edit leaves the working document half-edited (stream/resources mutated before checks); later export/commit includes it",
+      "file": "src/peditor/worker/edit.py",
+      "line": 349,
+      "category": "integrity / non-atomic state mutation",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 6.0,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "Non-atomic order real (Resources at edit.py:375, stream at edit.py:383, before ActualText check edit.py:349-352, no rollback; server.py:103-108 keeps document). But only shipped caller CLI aborts on error (cli.py:100-106) and never exports; no GUI calls apply_edit. Author already controls content and /ActualText; remaining is missing atomicity guarantee (rules 12/13).",
+      "vote_breakdown": {
+        "true_positive": 1,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "src/peditor/cli.py:100",
+        "src/peditor/core/service.py:150",
+        "src/peditor/worker/server.py:66"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "MEDIUM",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f005",
+      "scanner_id": "F-005",
+      "source": "reports/P2/security/VULN-FINDINGS.json#4 (json)",
+      "title": "Mode A selects codes from attacker /ToUnicode and checks glyphs via a mapping different from the renderer's",
+      "file": "src/peditor/worker/fonts.py",
+      "line": 113,
+      "category": "integrity: wrong glyph rendered while mode A reports success",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 7.0,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "Mismatch real: has_glyph checks via ToUnicode char through (3,1)/base14/any outlined CID (fonts.py:132-134, 256-261, 291-297) while viewers choose glyph from code via /Encoding. But mode A reuses the attacker-embedded font by design (ADR-0018:69-74) whose outlines the attacker also controls, so no mapping check can guarantee drawn shape; GUI re-render shows actual glyphs.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "intentional_behavior"
+      ],
+      "exclusion_rule": "3",
+      "first_links": [
+        "src/peditor/worker/edit.py:121"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "MEDIUM",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f006",
+      "scanner_id": "F-006",
+      "source": "reports/P2/security/VULN-FINDINGS.json#5 (json)",
+      "title": "Alt/E/ActualText check trusts /ParentTree and /P back-links, which can disagree with the /K tree",
+      "file": "src/peditor/worker/tagged.py",
+      "line": 146,
+      "category": "integrity / check bypass (assistive-tech text retains old content)",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 6.5,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "tagged.py:146-162 does resolve the element only via /ParentTree and climb unverified /P, so a crafted file can steer the /Alt//E check to a decoy (negative MCID at :147 indexes from end). But the surviving /Alt is the attacker-author's own content, who could embed arbitrary divergent hidden text anyway; best-effort fidelity guard (ADR-0017), no security impact.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger",
+        "not_actionable"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "src/peditor/worker/edit.py:115"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "MEDIUM",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f007",
+      "scanner_id": "F-007",
+      "source": "reports/P2/security/VULN-FINDINGS.json#6 (json)",
+      "title": "Duplicate MCID in holder /K: only last copy rewritten, old text remains in /ActualText",
+      "file": "src/peditor/worker/tagged.py",
+      "line": 176,
+      "category": "integrity / partial ActualText sync",
+      "outcome": "fixed",
+      "outcome_note": "correctness fix (P2 report U6): duplicate MCID in holder /K rejected; apply_edit verifies /ActualText equals covered content text after save, else restores and raises VALIDATION_FAILED",
+      "regression_tests": "tests/integration/test_tagged.py",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 6.0,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "Mechanism real: _mcids_under (tagged.py:93-121) keeps duplicate MCIDs, loop at tagged.py:174-178 doubles text and moves offset to last copy, doubled ActualText passes tagged.py:180 and :182 leaves old text; apply_edit (edit.py:349-353) commits it. Leftover text is attacker-authored; no new capability, low-impact sync bug on a malformed structure tree.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "exclusion_rule": "12",
+      "first_links": [
+        "src/peditor/worker/edit.py:115"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "MEDIUM",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f008",
+      "scanner_id": "F-008",
+      "source": "reports/P2/security/VULN-FINDINGS.json#7 (json)",
+      "title": "Main process uses worker results without schema validation; worker keys override main-process report fields",
+      "file": "src/peditor/cli.py",
+      "line": 97,
+      "category": "compromised-worker response handling (no schema validation)",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 7.5,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "Worker already writes output.pdf (service.py:156) and computes output_hash/validation_report itself (worker/export.py:155-174); source_sha256 also worker-supplied (service.py:110-112); worker unsandboxed (THREAT_MODEL.md:62) and could write validation.json directly. No trust boundary crossed; crashes are nuisance.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger",
+        "not_actionable"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "src/peditor/cli.py:101",
+        "src/peditor/cli.py:94"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f009",
+      "scanner_id": "F-009",
+      "source": "reports/P2/security/VULN-FINDINGS.json#8 (json)",
+      "title": "edit-text writes removed original text in plaintext to plan.json/validation.json beside output",
+      "file": "src/peditor/cli.py",
+      "line": 107,
+      "category": "sensitive data exposure in sidecar output",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 8.0,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "cli.py:96 and :107 write plan/validation sidecars into operator-chosen --out; README.md:14 and scripts/p2_evidence.py:8-9 document them as intended outputs with change details and content diff. old_text (edit.py:91) is the operator's own --find argument (cli.py:77); symlink/overwrite path set by trusted CLI input.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "intentional_behavior"
+      ],
+      "exclusion_rule": "3",
+      "first_links": [
+        "src/peditor/cli.py:96"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f010",
+      "scanner_id": "F-010",
+      "source": "reports/P2/security/VULN-FINDINGS.json#9 (json)",
+      "title": "export_document passes raw caller path to worker; spec §7 requires destination_token",
+      "file": "src/peditor/core/service.py",
+      "line": 156,
+      "category": "path handling across IPC (spec §7 deviation)",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 8.0,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "Destination at service.py:156 comes only from cli.py:101-102 built from the trusted operator --out flag (cli.py:83-84); attacker cannot steer it. A compromised worker already has same-user write authority, so main-process path validation would not constrain it; the claimed exploit requires a future less-trusted caller or a sandbox that does not exist. Spec section 7 token deviation is missing hardening with no concrete exploit (rules 8/13).",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "exclusion_rule": "8",
+      "first_links": [
+        "src/peditor/cli.py:101"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f011",
+      "scanner_id": "F-011",
+      "source": "reports/P2/security/VULN-FINDINGS.json#10 (json)",
+      "title": "Overflow check tests only baseline start/end; negative widths or Tc let intermediate glyphs leave the region",
+      "file": "src/peditor/worker/edit.py",
+      "line": 162,
+      "category": "integrity / overflow-check bypass",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 7.5,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "edit.py:162 checks only baseline endpoints and advances summed at edit.py:129-132 are PDF-controlled, so the gap is real; but it is a layout/fit heuristic inside the untrusted worker, nothing outside enforces allowed_change_mask, and the font-width author already controls every glyph position. Result is the user's own text drawn outside the intended box.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "exclusion_rule": "12",
+      "first_links": [
+        "src/peditor/core/service.py:145",
+        "src/peditor/worker/edit.py:78"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f012",
+      "scanner_id": "F-012",
+      "source": "reports/P2/security/VULN-FINDINGS.json#11 (json)",
+      "title": "_between_pieces checks nothing when runs come from different occurrences of the same stream or op_index not increasing",
+      "file": "src/peditor/worker/edit.py",
+      "line": 236,
+      "category": "integrity / validation bypass",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 6.0,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "Bypass real: content.py:126-135,154,184 gives cross-pass runs of a repeated stream the same bt_index; they pass span.py:80-82,160-162; edit.py:236 slice empty when last.op_index <= first.op_index; _rewrite (edit.py:376-383) changes both copies. Only alters glyphs inside the attacker's own PDF; visible in re-render and content_diff. Root cause is _shared_stream (edit.py:328-337) ignoring same page.",
+      "vote_breakdown": {
+        "true_positive": 1,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "exclusion_rule": "12",
+      "first_links": [
+        "src/peditor/worker/edit.py:110"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": [],
+      "outcome": "fixed",
+      "outcome_note": "dropped as security; root cause (stream listed twice in /Contents) now rejected by the f002 fix",
+      "regression_tests": "tests/security/test_p2_scan_regressions.py"
+    },
+    {
+      "id": "f013",
+      "scanner_id": "F-013",
+      "source": "reports/P2/security/VULN-FINDINGS.json#12 (json)",
+      "title": "Default allowed_change_mask covers whole target runs, not the selected glyphs",
+      "file": "src/peditor/worker/edit.py",
+      "line": 297,
+      "category": "integrity / overflow-check weakness",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 7.5,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "Fallback mask (edit.py:78, 297-302) covers the whole run (span.py:90), so a mid-run replacement can overlap following glyphs kept in place by design (ADR-0018 section 2, edit.py:140-147). Scanner example fails: '100' ends the run so edit.py:162 returns TEXT_OVERFLOW. New text is operator-chosen; layout-quality guard, not a security boundary.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "src/peditor/cli.py:94",
+        "src/peditor/worker/edit.py:78"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f015",
+      "scanner_id": "F-015",
+      "source": "reports/P2/security/VULN-FINDINGS.json#14 (json)",
+      "title": "Incremental check counts raw 'startxref' bytes; attacker bytes block every export",
+      "file": "src/peditor/worker/export.py",
+      "line": 136,
+      "category": "validation logic (fail-closed DoS)",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 7.0,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "Raw byte count at export.py:136 can be tripped because analyzer.py:69-70 preserves DCT stream data and literal strings verbatim, but the only result is the attacker's own file failing export closed with VALIDATION_FAILED (export.py:166): nothing written, other documents untouched; attacker can already induce validation failure many ways.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "exclusion_rule": "12",
+      "first_links": [
+        "src/peditor/cli.py:101",
+        "src/peditor/worker/server.py:72"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f016",
+      "scanner_id": "F-016",
+      "source": "reports/P2/security/VULN-FINDINGS.json#15 (json)",
+      "title": "Export computes content/resource diffs but never checks them against the applied plans",
+      "file": "src/peditor/worker/export.py",
+      "line": 163,
+      "category": "validation bypass",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 8.0,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "export.py:162-166 records diffs only as evidence per spec section 8.1; claimed shared-stream exploit blocked at plan time by edit.py:106-108 for cross-page /Contents sharing; Form XObjects not compared by content_diff (export.py:108-111); output bytes come from fixed edit routine; defense-in-depth only.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "already_handled",
+        "intentional_behavior"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "src/peditor/worker/export.py:163",
+        "src/peditor/worker/server.py:72"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f017",
+      "scanner_id": "F-017",
+      "source": "reports/P2/security/VULN-FINDINGS.json#16 (json)",
+      "title": "Failed write leaves a partial PDF at the destination",
+      "file": "src/peditor/worker/export.py",
+      "line": 167,
+      "category": "file handling / partial output",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 6.0,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "export.py:167-173 leaves the xb-opened file on OSError, violating docs/spec.md:167, but only local I/O failures trigger it (validation done at :165 first); SAVE_FAILED surfaced (cli.py:104-106), no validation.json/hash written; stale file blocks retry (:159); transactional write deferred to P3 (docstring :3-4).",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "exclusion_rule": "12",
+      "first_links": [
+        "src/peditor/cli.py:101"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f018",
+      "scanner_id": "F-018",
+      "source": "reports/P2/security/VULN-FINDINGS.json#17 (json)",
+      "title": "Mode B ToUnicode keeps only the last character when two characters map to the same Noto glyph",
+      "file": "src/peditor/worker/fontb.py",
+      "line": 134,
+      "category": "integrity: generated ToUnicode loses characters",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 6.0,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "fontb.py:113 and :134 collapse distinct characters sharing a glyph into one ToUnicode entry (bug real), but text is the operator's own replacement (edit.py:183, 364), not untrusted input; effect is extraction fidelity for rare lookalike code points.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "exclusion_rule": "12",
+      "first_links": [
+        "src/peditor/worker/edit.py:364"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f019",
+      "scanner_id": "F-019",
+      "source": "reports/P2/security/VULN-FINDINGS.json#18 (json)",
+      "title": "Outline check accepts composites/degenerate paths that render blank",
+      "file": "src/peditor/worker/fonts.py",
+      "line": 268,
+      "category": "integrity: blank glyph accepted as present",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 8.0,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "Blank-glyph checks at fonts.py:268/297 reached only via encode (fonts.py:124, has_glyph fonts.py:130-138) are a heuristic for ordinary-tool subset placeholders; the font program is attacker-controlled so any glyph can already draw nothing or the wrong shape; common subsetters keep composite components.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger",
+        "not_actionable"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "src/peditor/worker/fonts.py:124"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f020",
+      "scanner_id": "F-020",
+      "source": "reports/P2/security/VULN-FINDINGS.json#19 (json)",
+      "title": "CID-keyed CFF with one ToUnicode code missing from charset falls back to code-as-GID",
+      "file": "src/peditor/worker/fonts.py",
+      "line": 287,
+      "category": "integrity: wrong glyph decision (CID vs GID)",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 7.5,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "by_cid/by_index fallback at fonts.py:286-287 and odd-length CIDToGIDMap slice at fonts.py:252 real, but only feed the non-empty-outline check via encode; author controls every outline; dual reading documented intentional (fonts.py:282-284, ADR-0015).",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "exclusion_rule": "12",
+      "first_links": [
+        "src/peditor/worker/fonts.py:124"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f021",
+      "scanner_id": "F-021",
+      "source": "reports/P2/security/VULN-FINDINGS.json#20 (json)",
+      "title": "calcBounds interprets attacker CFF charstrings with unbounded subroutine fan-out",
+      "file": "src/peditor/worker/fonts.py",
+      "line": 297,
+      "category": "algorithmic complexity (untrusted font program)",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 6.5,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "fontTools op_callsubr (psCharStrings.py:395-398) has no op limit so calcBounds at fonts.py:297 (via edit.py:121 -> fonts.py:124/138) can burn CPU on crafted CFF, but only in the isolated worker with 30 s timeout kill/restart returning RESOURCE_LIMIT (service.py:258-261); intended containment for hostile input.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "already_handled"
+      ],
+      "exclusion_rule": "12",
+      "first_links": [
+        "src/peditor/worker/edit.py:121"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f022",
+      "scanner_id": "F-022",
+      "source": "reports/P2/security/VULN-FINDINGS.json#21 (json)",
+      "title": "parse_cmap lazy regexes quadratic on unterminated beginbfchar/beginbfrange blocks (4 MiB cap still allows ~1e11 steps)",
+      "file": "src/peditor/worker/fonts.py",
+      "line": 359,
+      "category": "ReDoS / algorithmic complexity",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 6.0,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "Regex at fonts.py:359/363 genuinely quadratic within 4 MiB cap, but runs only in isolated worker killed after REQUEST_TIMEOUT_S=30 (limits.py:10, service.py:258-261) with clean recovery (service.py:200-218); only single-document CLI callers (cli.py:32, 91); concrete effect is the malicious PDF failing after 30 s.",
+      "vote_breakdown": {
+        "true_positive": 1,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "already_handled"
+      ],
+      "exclusion_rule": "12",
+      "first_links": [
+        "src/peditor/cli.py:32",
+        "src/peditor/cli.py:34",
+        "src/peditor/worker/content.py:238"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f023",
+      "scanner_id": "F-023",
+      "source": "reports/P2/security/VULN-FINDINGS.json#22 (json)",
+      "title": "ToUnicode codes outside the font code space reach encode; plan ready but apply crashes",
+      "file": "src/peditor/worker/fonts.py",
+      "line": 374,
+      "category": "exception escaping / plan-apply inconsistency",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 7.0,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "Trigger works: parse_cmap (fonts.py:361, 374-375) accepts codes >255 for single-byte fonts, encode/has_glyph (fonts.py:113-127, 256-261) accept 0x141 via Unicode-keyed cmap lookup, _regroup bytes([value]) (edit.py:459) raises on apply. Raised before stream.write (edit.py:383) and commit (edit.py:354), so document unchanged; server.py:105-108 returns controlled WORKER_FAILED. Plan/apply consistency bug, no security impact.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "exclusion_rule": "12",
+      "first_links": [
+        "src/peditor/worker/edit.py:121"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": []
+    },
+    {
+      "id": "f024",
+      "scanner_id": "F-024",
+      "source": "reports/P2/security/VULN-FINDINGS.json#23 (json)",
+      "title": "ToUnicode/CIDToGIDMap/font programs fully decompressed before limits; CIDToGIDMap re-inflated per glyph check",
+      "file": "src/peditor/worker/fonts.py",
+      "line": 393,
+      "category": "unbounded memory (decompress before size check)",
+      "verdict": "false_positive",
+      "verify_verdict": null,
+      "confidence": 6.5,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "rationale": "fonts.py:393 decompresses ToUnicode before MAX_CMAP_BYTES check (fonts.py:355) and FontFile2/3 (fonts.py:243, 273) uncapped, but effect is a decompression bomb exhausting the isolated worker, killed on timeout (service.py:176, 258); CIDToGIDMap re-read (fonts.py:251) bounded by MAX_NEW_TEXT=200 (editplan.py:17,106); content/render paths decompress equally fully.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "already_handled",
+        "implausible_trigger"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "src/peditor/worker/content.py:238",
+        "src/peditor/worker/fonts.py:209"
+      ],
+      "owner_hint": null,
+      "missing_fields": [
+        "preconditions"
+      ],
+      "claimed_severity": "LOW",
+      "duplicate_of": null,
+      "absorbed": []
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "plan_id": "ed13ad6d9e90d7fb",
+  "document_id": "3b9161e6354df1af",
+  "preconditions": {
+    "sha256": "6dda72bbbb80c9fa076d001e64978afae65e2448285d81f94b57005908111ae1",
+    "revision": 0
+  },
+  "target": {
+    "span_id": "span:t:r0:p0:s7.0:o3:f:gae3d01212d1d:c0-5",
+    "page_index": 0,
+    "selected_text": "Hello",
+    "change": {
+      "target_ids": [
+        "t:r0:p0:s7.0:o3:f:gae3d01212d1d"
+      ],
+      "glyph_range": [
+        [
+          1,
+          5
+        ]
+      ],
+      "old_text": "ello",
+      "new_text": "i"
+    }
+  },
+  "new_text": "Hi",
+  "policy": "prefer_a",
+  "mode": "A",
+  "font_policy": "keep_original",
+  "allowed_change_mask": [
+    70.0,
+    82.84,
+    106.17,
+    106.08
+  ],
+  "geometry": {
+    "baseline_start": [
+      82.108,
+      99.89
+    ],
+    "baseline_end": [
+      85.216,
+      99.89
+    ],
+    "font_size": 14.0,
+    "pdfium_width_residual_pt": 0.0
+  },
+  "resource_changes": [],
+  "font_changes": [],
+  "warnings": [],
+  "unsupported_reasons": [],
+  "ready": true
+}

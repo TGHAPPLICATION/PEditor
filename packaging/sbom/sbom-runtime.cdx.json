@@ -74,6 +74,13 @@
       "name": "shiboken6",
       "version": "6.11.2",
       "purl": "pkg:pypi/shiboken6@6.11.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "fonttools-9@4.66.0",
+      "name": "fonttools",
+      "version": "4.66.0",
+      "purl": "pkg:pypi/fonttools@4.66.0"
     }
   ],
   "dependencies": [
@@ -86,6 +93,7 @@
     {
       "ref": "peditor-1@0.0.1",
       "dependsOn": [
+        "fonttools-9@4.66.0",
         "pikepdf-4@10.14.0",
         "pymupdf-6@1.28.2",
         "pyside6-essentials-7@6.11.2"
@@ -113,6 +121,9 @@
     },
     {
       "ref": "shiboken6-8@6.11.2"
+    },
+    {
+      "ref": "fonttools-9@4.66.0"
     }
   ]
 }

@@ -1,0 +1,14 @@
+{
+  "mupdf": {
+    "new_text_found": true,
+    "old_count_before": 1,
+    "old_count_after": 0,
+    "after_text": "醫衛龜臺灣\n衛生醫療資料（合成）\n"
+  },
+  "pdfium": {
+    "new_text_found": true,
+    "old_count_before": 1,
+    "old_count_after": 0,
+    "after_text": "醫衛龜臺灣\n衛生醫療資料（合成）"
+  }
+}

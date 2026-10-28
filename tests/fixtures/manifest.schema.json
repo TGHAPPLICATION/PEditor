@@ -7,7 +7,8 @@
   "additionalProperties": false,
   "required": ["fixture_id", "group", "sha256", "generator", "generator_version", "fonts", "expected",
                "reason_code", "page_index", "target", "bbox_pt", "original_text", "new_text",
-               "editable_region_pt", "protected_region", "blind", "storage", "status", "notes"],
+               "editable_region_pt", "protected_region", "blind", "storage", "status", "qpdf_warnings",
+               "notes"],
   "properties": {
     "fixture_id": {"type": "string", "pattern": "^[TFLIBUS][0-9]{2}$", "description": "群組字母 + 序號（spec §5）"},
     "group": {"enum": ["T 基礎文字", "F 字型與編碼", "L 幾何與背景", "I 圖片", "B 表格", "U 特殊文件", "S 損毀與惡意"]},
@@ -32,6 +33,7 @@
     "blind": {"enum": ["true", "false"]},
     "storage": {"enum": ["repo", "offline"], "description": "repo=tests/fixtures/files/<id>.pdf；offline=人工保管不進 repo"},
     "status": {"enum": ["available", "pending"]},
+    "qpdf_warnings": {"type": "string", "pattern": "^([0-9]+)?$", "description": "fixture 原有 qpdf 問題數（開檔警告＋check_pdf_syntax）；輸出不得多於此數（spec §8.2、G2-09）；空白＝無法開啟或不在 repo"},
     "notes": {"type": "string"}
   },
   "allOf": [

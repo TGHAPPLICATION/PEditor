@@ -1,0 +1,5 @@
+case_id,fixture_id,after_case,page_index,original_text,new_text,expected,reason_code,expected_mode,bbox_pt,editable_region_pt,notes
+E01,T01,T01,0,測試局,衛生局,support,,A,"142.00,83.76,184.00,104.03","140.00,81.76,186.00,106.03",同一文件連續第二次編輯：先套用 manifest T01（衛生局→測試局），再改回；驗證 revision 遞增與第二次編輯以第一次結果為基礎
+E02,F01,,0,臺灣醫衛龜,醫衛龜臺灣,support,,A,"72.00,81.44,152.00,104.61","70.00,79.44,154.00,106.61",同字集不同排列；新字皆在原子集內
+E03,F04,,0,Hello,Hi,support,,A,"72.00,84.84,104.17,104.08","70.00,82.84,106.17,106.08",base14 Helvetica（WinAnsi）較短替換；同一運算子後續「 World」位置不得移動（ADR-0018 §2、G2-19）
+E04,T02,,0,10 月 31 日,10 月 13 日,support,,A,"179.56,90.81,239.44,102.86","177.56,88.81,241.44,104.86",ReportLab／Droid Sans Fallback 子集；數字重排，新字皆在原子集內

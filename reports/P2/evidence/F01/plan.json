@@ -1,0 +1,53 @@
+{
+  "plan_id": "c1afe1d2a615ea73",
+  "document_id": "07f52aa7ec18b34f",
+  "preconditions": {
+    "sha256": "856059b4cdf1a3fa212168f1faa3c41acb701907d157960c3432d76471a924a7",
+    "revision": 0
+  },
+  "target": {
+    "span_id": "span:t:r0:p0:s12.0:o4:f:g62627b444b07:c0-5",
+    "page_index": 0,
+    "selected_text": "臺灣醫衛龜",
+    "change": {
+      "target_ids": [
+        "t:r0:p0:s12.0:o4:f:g62627b444b07"
+      ],
+      "glyph_range": [
+        [
+          0,
+          5
+        ]
+      ],
+      "old_text": "臺灣醫衛龜",
+      "new_text": "龜衛臺灣醫"
+    }
+  },
+  "new_text": "龜衛臺灣醫",
+  "policy": "prefer_a",
+  "mode": "A",
+  "font_policy": "keep_original",
+  "allowed_change_mask": [
+    70.0,
+    79.44,
+    154.0,
+    106.61
+  ],
+  "geometry": {
+    "baseline_start": [
+      72.0,
+      100.0
+    ],
+    "baseline_end": [
+      152.0,
+      100.0
+    ],
+    "font_size": 16.0,
+    "pdfium_width_residual_pt": 0.0
+  },
+  "resource_changes": [],
+  "font_changes": [],
+  "warnings": [],
+  "unsupported_reasons": [],
+  "ready": true
+}

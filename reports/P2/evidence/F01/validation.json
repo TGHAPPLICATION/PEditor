@@ -1,0 +1,36 @@
+{
+  "output_hash": "00a1088a04e2b079e2a9ffca19c27a9c829b42ca87315c605f20de79572163ae",
+  "validation_report": {
+    "sha256": "00a1088a04e2b079e2a9ffca19c27a9c829b42ca87315c605f20de79572163ae",
+    "qpdf_baseline": 0,
+    "qpdf_output": 0,
+    "qpdf_new_problems": [],
+    "incremental": false,
+    "unreachable_objects": 0,
+    "mupdf_repaired": false,
+    "failures": [],
+    "ok": true,
+    "content_changes": [
+      {
+        "page_index": 0,
+        "stream_order": 0,
+        "kind": "replace",
+        "before_ops": [
+          4,
+          5
+        ],
+        "after_ops": [
+          4,
+          5
+        ],
+        "before": [
+          "[ <00070004000a0008000b> ] TJ"
+        ],
+        "after": [
+          "[ <000b000800070004000a> ] TJ"
+        ]
+      }
+    ],
+    "resource_changes": []
+  }
+}

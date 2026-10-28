@@ -1,0 +1,641 @@
+{
+  "dpi": 150,
+  "channel_tol": 8,
+  "mask_margin_pt": 2.0,
+  "platform": "Windows AMD64",
+  "pymupdf": "1.28.2",
+  "pypdfium2": "5.13.0",
+  "pdfium": "153.0.7999.0",
+  "cases": [
+    {
+      "fixture_id": "T01",
+      "mode": "A",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 0,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 0,
+          "used_for_gate": false,
+          "start_offset_pt": 0.0
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 1145,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        }
+      }
+    },
+    {
+      "fixture_id": "T02",
+      "mode": "A",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.009374,
+      "adr0019": true,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 339,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.027
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 707,
+          "over_outside": 305,
+          "outside_fraction": 0.00014011946447718902,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.105
+        }
+      }
+    },
+    {
+      "fixture_id": "T03",
+      "mode": "B",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 326,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 334,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        }
+      }
+    },
+    {
+      "fixture_id": "T04",
+      "mode": "B",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 1461,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 1541,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        }
+      }
+    },
+    {
+      "fixture_id": "T05",
+      "mode": "B",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 764,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 798,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        }
+      }
+    },
+    {
+      "fixture_id": "T06",
+      "mode": "B",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 922,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 1005,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        }
+      }
+    },
+    {
+      "fixture_id": "T07",
+      "mode": "B",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 1918,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0002
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 2058,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0002
+        }
+      }
+    },
+    {
+      "fixture_id": "T08",
+      "mode": "A",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 573,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0002
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 647,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0002
+        }
+      }
+    },
+    {
+      "fixture_id": "F01",
+      "mode": "A",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 0,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 0,
+          "used_for_gate": false,
+          "start_offset_pt": 0.0
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 3942,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        }
+      }
+    },
+    {
+      "fixture_id": "F02",
+      "mode": "B",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 490,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": false,
+          "start_offset_pt": 0.0
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 638,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        }
+      }
+    },
+    {
+      "fixture_id": "F04",
+      "mode": "A",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 937,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0002
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 1035,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0002
+        }
+      }
+    },
+    {
+      "fixture_id": "F06",
+      "mode": "B",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 1122,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 1154,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        }
+      }
+    },
+    {
+      "fixture_id": "F07",
+      "mode": "B",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 788,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0002
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 839,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0002
+        }
+      }
+    },
+    {
+      "fixture_id": "L01",
+      "mode": "B",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 1595472,
+          "over_total": 292,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 1595472,
+          "over_total": 321,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        }
+      }
+    },
+    {
+      "fixture_id": "L02",
+      "mode": "A",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 0,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 0,
+          "used_for_gate": false,
+          "start_offset_pt": 0.0
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 918,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        }
+      }
+    },
+    {
+      "fixture_id": "L03",
+      "mode": "A",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 0,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 0,
+          "used_for_gate": false,
+          "start_offset_pt": 0.0
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 613,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        }
+      }
+    },
+    {
+      "fixture_id": "L04",
+      "mode": "B",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 1321,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 1449,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        }
+      }
+    },
+    {
+      "fixture_id": "L05",
+      "mode": "B",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 809,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 221,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0002
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 894,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 220,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0002
+        }
+      }
+    },
+    {
+      "fixture_id": "F01",
+      "mode": "A",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 0,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 0,
+          "used_for_gate": false,
+          "start_offset_pt": 0.0
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 3972,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0
+        }
+      }
+    },
+    {
+      "fixture_id": "F04",
+      "mode": "A",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 432,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0002
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 540,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.0002
+        }
+      }
+    },
+    {
+      "fixture_id": "T02",
+      "mode": "A",
+      "ready": true,
+      "reasons": [],
+      "pdfium_width_residual_pt": 0.0,
+      "adr0019": false,
+      "engines": {
+        "mupdf": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 282,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.037
+        },
+        "pdfium": {
+          "size_mismatch": false,
+          "pixels": 2176714,
+          "over_total": 325,
+          "over_outside": 0,
+          "outside_fraction": 0.0,
+          "max_channel_diff": 255,
+          "used_for_gate": true,
+          "start_offset_pt": 0.131
+        }
+      }
+    }
+  ]
+}

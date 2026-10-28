@@ -48,6 +48,10 @@ class Document:
     pike: pikepdf.Pdf | None = None
     mu: pymupdf.Document | None = None
     pages: dict[int, dict] = field(default_factory=dict)
+    # 每頁全部文字運算子（含不可見）與 target_id → 索引；供 span 解析（ADR-0018），不回傳給呼叫端
+    runs: dict[int, tuple[list[TextRun], dict[str, int]]] = field(default_factory=dict)
+    plans: dict[str, object] = field(default_factory=dict)  # plan_id → 待套用的計畫（worker 內部）
+    original: bytes = b""  # 開啟時的檔案內容（另存驗證的 qpdf 基準與內容差異；spec §8.1、§8.2）
 
     @property
     def doc_reasons(self) -> list[str]:
@@ -58,6 +62,28 @@ class Document:
             self.mu.close()
         if self.pike is not None:
             self.pike.close()
+
+    def working_bytes(self) -> bytes:
+        """工作文件完整重寫後的位元組（不含增量更新；spec §8.1-4）。"""
+        buf = io.BytesIO()
+        self.pike.save(
+            buf, compress_streams=True, object_stream_mode=pikepdf.ObjectStreamMode.preserve
+        )
+        return buf.getvalue()
+
+    def commit(self) -> None:
+        """套用修改後：以重寫結果重新開啟、revision 加一、清除依舊版本建立的快取與計畫。"""
+        self.reopen(self.working_bytes(), self.revision + 1)
+
+    def reopen(self, data: bytes, revision: int) -> None:
+        """以指定位元組重新開啟工作文件（commit，或儲存後驗證失敗時復原）。"""
+        self.close()
+        self.pike = pikepdf.open(io.BytesIO(data))
+        self.mu = pymupdf.open(stream=data, filetype="pdf")
+        self.revision = revision
+        self.pages.clear()
+        self.runs.clear()
+        self.plans.clear()
 
 
 def open_document(path: str) -> Document:
@@ -118,7 +144,7 @@ def open_document(path: str) -> Document:
         except LimitExceeded:  # 表單／書籤樹過大或有大量共享節點（P1 安全掃描 f009）
             reasons.append("RESOURCE_LIMIT")
     document = _doc(digest, page_count, flags, reasons)
-    document.pike, document.mu = pike, mu
+    document.pike, document.mu, document.original = pike, mu, data
     return document
 
 
@@ -435,6 +461,7 @@ def _analyze_page(document: Document, page_index: int) -> dict:
     doc_reasons = document.doc_reasons
     if any(e.startswith("limit:") for e in content.errors):
         # 超過工作量上限：不再交給 MuPDF 擷取（同一份內容會讓 MuPDF 做相同的放大工作）
+        document.runs[page_index] = ([], {})
         return _page_result(page_index, geom, [], [], 0, [*doc_reasons, "RESOURCE_LIMIT"])
     grid = _chars(mu_page)
     rev = document.revision
@@ -449,6 +476,7 @@ def _analyze_page(document: Document, page_index: int) -> dict:
                for r in content.runs]  # fmt: skip
     vertical = _vertical_runs(content.runs, visible)
     text_targets = []
+    run_index: dict[str, int] = {}
     for i, run in enumerate(content.runs):
         if not visible[i]:
             continue
@@ -497,6 +525,8 @@ def _analyze_page(document: Document, page_index: int) -> dict:
             "glyphs": glyphs,
             "capability": _capability(reasons),
         })  # fmt: skip
+        run_index[text_targets[-1]["target_id"]] = i
+    document.runs[page_index] = (content.runs, run_index)
 
     image_targets = []
     for use in content.images:

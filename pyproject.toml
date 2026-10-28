@@ -11,6 +11,7 @@ dependencies = [
     "pymupdf>=1.26",          # AGPL-3.0（ADR-0002）
     "pikepdf>=9",             # MPL-2.0
     "PySide6-Essentials>=6.8", # LGPL-3.0，動態連結（ADR-0002）
+    "fonttools>=4.50",         # MIT；模式 A 字形檢查、模式 B 子集化（ADR-0018）
 ]
 
 [project.scripts]
@@ -24,7 +25,6 @@ dev = [
     "jsonschema>=4.23",
     "reportlab>=4.2",
     "pypdfium2>=4.30",
-    "fonttools>=4.50",
 ]
 build = [
     "pyinstaller>=6.10",

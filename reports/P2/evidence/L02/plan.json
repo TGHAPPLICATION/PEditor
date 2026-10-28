@@ -1,0 +1,53 @@
+{
+  "plan_id": "f995357fb96b7549",
+  "document_id": "b231824a01dc71b7",
+  "preconditions": {
+    "sha256": "0e744136f8cab0d1129de4dc8d338e836e93c416f8d98a7c6321bae88703884b",
+    "revision": 0
+  },
+  "target": {
+    "span_id": "span:t:r0:p0:s12.0:o4:f:g422583724675:c7-9",
+    "page_index": 0,
+    "selected_text": "北區",
+    "change": {
+      "target_ids": [
+        "t:r0:p0:s12.0:o4:f:g422583724675"
+      ],
+      "glyph_range": [
+        [
+          7,
+          9
+        ]
+      ],
+      "old_text": "北區",
+      "new_text": "旋轉"
+    }
+  },
+  "new_text": "旋轉",
+  "policy": "prefer_a",
+  "mode": "A",
+  "font_policy": "keep_original",
+  "allowed_change_mask": [
+    154.0,
+    84.08,
+    182.0,
+    105.46
+  ],
+  "geometry": {
+    "baseline_start": [
+      156.0,
+      100.0
+    ],
+    "baseline_end": [
+      180.0,
+      100.0
+    ],
+    "font_size": 12.0,
+    "pdfium_width_residual_pt": 0.0
+  },
+  "resource_changes": [],
+  "font_changes": [],
+  "warnings": [],
+  "unsupported_reasons": [],
+  "ready": true
+}

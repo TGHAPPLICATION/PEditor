@@ -1,0 +1,36 @@
+{
+  "output_hash": "09e48376d8776d39f8bbf3ee501c815bae57dd4c53c931efad917400afb89308",
+  "validation_report": {
+    "sha256": "09e48376d8776d39f8bbf3ee501c815bae57dd4c53c931efad917400afb89308",
+    "qpdf_baseline": 0,
+    "qpdf_output": 0,
+    "qpdf_new_problems": [],
+    "incremental": false,
+    "unreachable_objects": 0,
+    "mupdf_repaired": false,
+    "failures": [],
+    "ok": true,
+    "content_changes": [
+      {
+        "page_index": 0,
+        "stream_order": 0,
+        "kind": "replace",
+        "before_ops": [
+          3,
+          4
+        ],
+        "after_ops": [
+          3,
+          4
+        ],
+        "before": [
+          "[ (Hel) -20 (lo W) 15 (orld) ] TJ"
+        ],
+        "after": [
+          "[ (Hi) -20 -1334 ( W) 15 (orld) ] TJ"
+        ]
+      }
+    ],
+    "resource_changes": []
+  }
+}

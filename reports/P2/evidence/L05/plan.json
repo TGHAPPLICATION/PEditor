@@ -1,0 +1,68 @@
+{
+  "plan_id": "0b235dc24ef277b8",
+  "document_id": "28c5e11cace4888e",
+  "preconditions": {
+    "sha256": "1f45125c32db8ed096289a45bd7bd0fc96f3c5d8ba71afc907370bef4522e8d6",
+    "revision": 0
+  },
+  "target": {
+    "span_id": "span:t:r0:p0:s2.0:o22:f:gc387a6c400f0:c3-5",
+    "page_index": 0,
+    "selected_text": "測試",
+    "change": {
+      "target_ids": [
+        "t:r0:p0:s2.0:o22:f:gc387a6c400f0"
+      ],
+      "glyph_range": [
+        [
+          3,
+          5
+        ]
+      ],
+      "old_text": "測試",
+      "new_text": "範例"
+    }
+  },
+  "new_text": "範例",
+  "policy": "prefer_a",
+  "mode": "B",
+  "font_policy": "replace_with_packaged",
+  "allowed_change_mask": [
+    106.1,
+    90.09,
+    134.1,
+    111.33
+  ],
+  "geometry": {
+    "baseline_start": [
+      108.1,
+      105.901
+    ],
+    "baseline_end": [
+      132.1,
+      105.901
+    ],
+    "font_size": 12.0,
+    "pdfium_width_residual_pt": 0.0
+  },
+  "resource_changes": [
+    {
+      "page_index": 0,
+      "kind": "Font",
+      "added": "/PEditorB1",
+      "font": "NotoSansTC-Regular"
+    }
+  ],
+  "font_changes": [
+    {
+      "from": "CAAAAA+NotoSerifTC-Regular",
+      "to": "NotoSansTC-Regular",
+      "text": "範例"
+    }
+  ],
+  "warnings": [
+    "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）"
+  ],
+  "unsupported_reasons": [],
+  "ready": true
+}

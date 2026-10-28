@@ -125,6 +125,37 @@ class DocumentService:
             document_id, "render_page", {"page_index": page_index, "dpi": dpi}, None
         )
 
+    def find_text(self, document_id: str, page_index: int, text: str, occurrence: int = 0):
+        """以內容尋找文字，回傳 span_id（不是 bbox 定位；ADR-0018 §1）。"""
+        params = {"page_index": page_index, "text": text, "occurrence": occurrence}
+        return self._doc_call(document_id, "find_text", params, None)["span_id"]
+
+    def plan_text_edit(
+        self,
+        document_id: str,
+        target_id: str,
+        new_text: str,
+        policy: str = "prefer_a",
+        expected_revision: int | None = None,
+        editable_region: list[float] | None = None,
+    ):
+        params = {"target_id": target_id, "new_text": new_text, "policy": policy}
+        if editable_region is not None:
+            params["editable_region"] = editable_region
+        return self._doc_call(document_id, "plan_text_edit", params, expected_revision)
+
+    def apply_edit(self, document_id: str, plan_id: str, expected_revision: int):
+        """套用 ready 的計畫。worker 重啟後工作文件回到原檔（P3 才有 command log），
+        revision 不符即回 REVISION_CONFLICT，不會套用到錯的版本。"""
+        return self._doc_call(document_id, "apply_edit", {"plan_id": plan_id}, expected_revision)
+
+    def export_document(
+        self, document_id: str, destination: str | os.PathLike, expected_revision: int
+    ):
+        """完整重寫並驗證後寫出新檔；目的檔已存在時回 SAVE_FAILED（交易式覆寫屬 P3）。"""
+        params = {"destination": os.fspath(destination)}
+        return self._doc_call(document_id, "export_document", params, expected_revision)
+
     def close_document(self, document_id: str) -> None:
         doc = self._docs.pop(document_id, None)
         if doc is not None and doc.worker_id is not None and self._worker is not None:

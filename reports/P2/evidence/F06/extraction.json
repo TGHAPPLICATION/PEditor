@@ -1,0 +1,14 @@
+{
+  "mupdf": {
+    "new_text_found": true,
+    "old_count_before": 1,
+    "old_count_after": 0,
+    "after_text": "F06 \n藥事院所名冊（合成） \n本名冊為測試用合成資料，不對應任何實際機構。 \n甲院所位於北區，乙院所位於南區。 \n各院所聯絡窗口另以內部清單管理。 \n"
+  },
+  "pdfium": {
+    "new_text_found": true,
+    "old_count_before": 1,
+    "old_count_after": 0,
+    "after_text": "F06\n藥事院所名冊（合成）\n本名冊為測試用合成資料，不對應任何實際機構。\n甲院所位於北區，乙院所位於南區。\n各院所聯絡窗口另以內部清單管理。"
+  }
+}

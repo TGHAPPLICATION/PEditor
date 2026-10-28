@@ -11,6 +11,8 @@ FIXTURES = ROOT / "tests" / "fixtures"
 
 # 測試一律以 offscreen 執行，不需實體顯示器（CI 與本機一致）
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+# 模式 B 字型（ADR-0008：不入庫，由 scripts/fetch_fonts.py 取得；worker 子行程繼承此設定）
+os.environ.setdefault("PEDITOR_MODE_B_FONT", str(FIXTURES / "fonts" / "NotoSansTC-Regular.otf"))
 
 
 @pytest.fixture(scope="session")

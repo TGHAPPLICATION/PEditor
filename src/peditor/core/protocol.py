@@ -40,7 +40,17 @@ ERROR_CODES = frozenset(
 PROTOCOL_ERROR_CODES = frozenset({"INVALID_REQUEST", "WORKER_FAILED"})
 
 OPERATIONS = frozenset(
-    {"open_document", "inspect_page", "assess_editability", "render_page", "close_document"}
+    {
+        "open_document",
+        "inspect_page",
+        "assess_editability",
+        "render_page",
+        "find_text",
+        "plan_text_edit",
+        "apply_edit",
+        "export_document",
+        "close_document",
+    }
 )
 
 

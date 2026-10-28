@@ -48,6 +48,28 @@ class Worker:
             return self.analyzer.render_page(
                 document, params.get("page_index"), params.get("dpi", 150)
             )
+        if operation == "find_text":
+            from peditor.worker import span
+
+            text, occurrence = params.get("text"), params.get("occurrence", 0)
+            if not isinstance(text, str) or not isinstance(occurrence, int) or occurrence < 0:
+                raise ProtocolError("INVALID_REQUEST", "搜尋參數錯誤")
+            page_index = self.analyzer._check_index(document, params.get("page_index"))
+            return {"span_id": span.find(document, page_index, text, occurrence).span_id}
+        if operation == "plan_text_edit":
+            from peditor.worker import edit
+
+            return edit.plan_text_edit(document, params)
+        if operation == "apply_edit":
+            from peditor.worker import edit
+
+            return edit.apply_edit(
+                document, params.get("plan_id"), message.get("expected_revision")
+            )
+        if operation == "export_document":
+            from peditor.worker import export
+
+            return export.export_document(document, params.get("destination"))
         if operation == "close_document":
             self.documents.pop(document.document_id).close()
             return {}
