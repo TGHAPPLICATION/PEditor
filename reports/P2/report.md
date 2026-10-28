@@ -155,7 +155,7 @@ macos-15 272 passed，P0 檢查腳本（含 smoke build）PASS。attempt 1 的 m
 
 | # | 內容 | 影響 | 需誰確認 |
 | --- | --- | --- | --- |
-| U1 | 分支 commit 依序為 S3 步驟 1–7、9，**沒有步驟 8 的 commit**；repo 內也找不到步驟 8 的定義 | 若步驟 8 原有規劃的工作，可能未完成 | 工程師確認步驟 8 是否被合併、取消或漏做 |
+| U1 | 分支 commit 依序為 S3 步驟 1–7、9，**沒有步驟 8 的 commit**；repo 內也找不到步驟 8 的定義 | 若步驟 8 原有規劃的工作，可能未完成 | **已處理**（工程師 2026-10-28 確認步驟 8 取消，無未完成工作） |
 | U2 | P2 引入編輯與另存路徑（worker 寫出檔案、修改工作文件），`THREAT_MODEL.md` 未隨之更新（CLAUDE.md：架構變更時更新） | 威脅模型未反映 T3 完整性控制與 worker 寫檔權限 | **已處理**（工程師 2026-10-28 決定合併前更新）：`THREAT_MODEL.md` 已更新，見 §8 |
 | U3 | 3 個測試直接比對兩次 `working_bytes()` 的位元組（`test_edit_multi.py:106`、`test_edit_text.py::test_rejections_leave_files_unchanged`、`test_p2_scan_regressions.py:88`），存檔跨秒時 /ID 不同而失敗 | CI 偶發失敗（本段已發生 1 次）；另 `tests/security/test_worker_limits.py::test_basic_timeout_and_cancel`（依實際時間判定）在本機整套測試負載下失敗 1 次，單獨重跑 3 次與整套重跑皆通過，未修改 | 工程師決定：比對時排除 /ID，或產品存檔改用固定 /ID（會改變輸出）；時間性測試是否放寬須另以 ADR 決定，本段未動 |
 | U4 | triage 確認屬實但未修的正確性缺陷（§8 末項）：TRIAGE 建議 P2 處理的 f006、f018、f023、f015（f007 已隨 U6 修正）；建議 P3 的 f003（無回滾）、f017（部分輸出）；P7 的 f022、f024 | f003：唯一呼叫端 CLI 在失敗時中止、不匯出，目前無實際後果，P3 引入 UI／多次編輯後會暴露 | 工程師決定哪些排入 P2 收尾 |
@@ -168,7 +168,7 @@ macos-15 272 passed，P0 檢查腳本（含 smoke build）PASS。attempt 1 的 m
 - CI：run 40442075176（commit `c0196b6`）attempt 2 雙平台 272 passed；獨立核對補強後 run 40458762159（commit `1b44d3b`）雙平台 273 passed；U6 實作後 run 40479995390（commit `3167433`）雙平台 275 passed（見 §11）
 - **關卡結果：PASS（附條件）**（範圍：repo 內 18 份支援＋3 份拒絕 fixture、E01–E04；G2-01～G2-22 均有測試證據，
   G2-02 比對方式經工程師接受（U7），G2-17 原附條件已隨 U6 解除；盲測、macOS 實機、§8.3 效能 NOT RUN 並註明原因）
-- **下一段可開始：待定**：須由工程師確認 U1（U2、U6、U7 已處理）；U3、U4、U5 可於 P3 開工前決定。
+- **下一段可開始：合併後可開始**：U1、U2、U6、U7 已處理；U3、U4、U5 可於 P3 開工前決定。
 
 ## 11. 獨立核對紀錄
 
