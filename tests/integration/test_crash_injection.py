@@ -131,15 +131,30 @@ def test_temp_hash_mismatch_rejected(tmp_path):
     assert target.read_bytes() == EXISTING and _temps(tmp_path) == []
 
 
-def test_worker_killed_during_export_preserves_destination(manifest_rows, tmp_path):
-    """worker 在另存途中被終止（逾時）：主行程回錯誤碼，刪除暫存檔，目的檔不變。"""
+# worker 寫出一半暫存檔後異常結束（不經 Python 清理）
+_CRASHING_WORKER = """
+import os, sys
+from peditor.worker import export, server
+
+def crash(document, destination):
+    with open(destination, "xb") as fh:
+        fh.write(b"%PDF-1.4 partial")
+        fh.flush()
+    os._exit(1)
+
+export.export_document = crash
+sys.exit(server.main())
+"""
+
+
+def test_worker_crash_during_export_preserves_destination(tmp_path):
+    """worker 在寫暫存檔途中異常結束：主行程回 WORKER_FAILED，刪除暫存檔，目的檔不變。"""
     target = tmp_path / "dest.pdf"
     target.write_bytes(EXISTING)
-    with DocumentService() as service:
+    with DocumentService(command=[sys.executable, "-P", "-c", _CRASHING_WORKER]) as service:
         doc = service.open_document(FILES / "T01.pdf")["document_id"]
         token = service.destination_token(target, overwrite=True)
-        service.timeout = 0.001  # 另存一定超過：worker 在處理中被終止
         with pytest.raises(ServiceError) as exc:
             service.export_document(doc, token, 0)
-        assert exc.value.code == "RESOURCE_LIMIT"
+        assert exc.value.code == "WORKER_FAILED"
     assert target.read_bytes() == EXISTING and _temps(tmp_path) == []
