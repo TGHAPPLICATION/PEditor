@@ -1,9 +1,11 @@
 """儲存交易的中斷注入與磁碟空間不足（G3-03、G3-06；ADR-0020 §3）。"""
 
 import hashlib
+import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -65,6 +67,18 @@ def test_stale_temp_removed_on_next_save(manifest_rows, tmp_path, monkeypatch, s
     finally:
         service.close_document(doc)
     assert not stale.exists() and other.read_bytes() == b"not ours"
+
+
+def test_stale_temp_threshold(tmp_path):
+    """只刪超過 10 分鐘的暫存檔：其他執行中的寫入（剛建立的暫存檔）不受影響（ADR-0020 §3.3）。"""
+    old = tmp_path / ".~peditor-00000000000000aa.tmp.pdf"
+    fresh = tmp_path / ".~peditor-00000000000000bb.tmp.pdf"
+    for path in (old, fresh):
+        path.write_bytes(b"content")
+    stamp = time.time() - transaction.STALE_TEMP_S - 60
+    os.utime(old, (stamp, stamp))
+    transaction._remove_stale(str(tmp_path))
+    assert not old.exists() and fresh.exists()
 
 
 @pytest.mark.parametrize("stage", ["write", "verify", "rename"])

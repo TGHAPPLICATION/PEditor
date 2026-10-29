@@ -61,7 +61,7 @@
       "access_level": "local",
       "threat_match": "T5 resource exhaustion (bounded by the 30 s timeout and worker restart)",
       "outcome": "fixed",
-      "outcome_note": "visual_check caps render pixels at VISUAL_MAX_PIXELS=12 MP; _outside_pixels compares outside-mask segments as bytes, skips mask pixels and stops once the count exceeds the limit",
+      "outcome_note": "visual_check renders at most VISUAL_MAX_PIXELS=12 MP (zoom reduced until MuPDF's rounded-up pixmap fits); _outside_pixels compares outside-mask segments as bytes, never reads mask pixels and stops once the count exceeds the limit",
       "regression_tests": "tests/security/test_p3_scan_regressions.py"
     },
     {
@@ -110,7 +110,7 @@
       "refute_reasons": [
         "implausible_trigger"
       ],
-      "exclusion_rule": "13",
+      "exclusion_rule": "16",
       "first_links": [
         "src/peditor/core/drafts.py:44",
         "src/peditor/core/service.py:342"
@@ -269,7 +269,7 @@
         "intentional_behavior",
         "not_actionable"
       ],
-      "exclusion_rule": "12",
+      "exclusion_rule": "3",
       "first_links": [
         "src/peditor/core/service.py:192"
       ],
@@ -350,7 +350,7 @@
         "intentional_behavior",
         "not_actionable"
       ],
-      "exclusion_rule": "13",
+      "exclusion_rule": "3",
       "first_links": [
         "src/peditor/core/service.py:240"
       ],

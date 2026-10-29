@@ -216,8 +216,7 @@ def visual_check(document: analyzer.Document, data: bytes, pages: set[int]) -> l
             pymupdf.open(stream=data, filetype="pdf") as new:  # fmt: skip
         for page_index in sorted(pages):
             rect = new[page_index].rect
-            area = max(rect.width * rect.height, 1)
-            zoom = min(VISUAL_DPI / 72, math.sqrt(VISUAL_MAX_PIXELS / area))
+            zoom = _visual_zoom(rect.width, rect.height)
             before = old[page_index].get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False,
                                                 colorspace=pymupdf.csRGB)  # fmt: skip
             after = new[page_index].get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False,
@@ -233,6 +232,14 @@ def visual_check(document: analyzer.Document, data: bytes, pages: set[int]) -> l
             if outside > limit:
                 failed.append({"page_index": page_index, "over_outside": outside})
     return failed
+
+
+def _visual_zoom(width: float, height: float) -> float:
+    """150 DPI，但渲染像素（MuPDF 向外取整）不超過 VISUAL_MAX_PIXELS。"""
+    zoom = min(VISUAL_DPI / 72, math.sqrt(VISUAL_MAX_PIXELS / max(width * height, 1)))
+    while (math.ceil(width * zoom) + 1) * (math.ceil(height * zoom) + 1) > VISUAL_MAX_PIXELS:
+        zoom *= 0.999
+    return zoom
 
 
 def _mask_pixels(to_view, region) -> tuple[int, int, int, int]:

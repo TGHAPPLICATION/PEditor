@@ -1,6 +1,6 @@
 {
   "target": "src/peditor（P3 新增與修改的程式）",
-  "scanned_at": "2026-10-29T07:30:00+00:00",
+  "scanned_at": "2026-10-29T06:44:19+00:00",
   "focus_areas": [
     "Save transaction in the main process (export/transaction.py, service.destination_token/export_document, cli.py)",
     "Worker-side export validation and write (worker/export.py text_check/visual_check/export_document, edit.apply_edit applied list)",

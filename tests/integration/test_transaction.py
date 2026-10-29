@@ -199,6 +199,9 @@ def test_100_save_cycles(manifest_rows, tmp_path, service):
     with pymupdf.open(paths[0]) as mu:  # 偶數次替換後回到原文
         assert row["original_text"] in mu[0].get_text()
         assert mu.page_count == 1 and not mu.is_repaired
+    with pymupdf.open(paths[1]) as mu:  # 第 99 次輸出為新文字
+        assert row["new_text"] in mu[0].get_text()
+        assert mu.page_count == 1 and not mu.is_repaired
     assert _temps(tmp_path) == []
 
 

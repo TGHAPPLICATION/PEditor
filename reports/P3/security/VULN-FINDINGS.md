@@ -1,6 +1,6 @@
 # VULN-FINDINGS（P3 靜態掃描）
 
-- 技能：vuln-scan (defending-code-reference-harness@d3bea6b) --no-score，依 .claude/skills/vuln-scan/SKILL.md 手動執行；掃描時間：2026-10-29T07:30:00+00:00；範圍：P3 新增／修改的 `src/` 程式，4 個焦點區域
+- 技能：vuln-scan (defending-code-reference-harness@d3bea6b) --no-score，依 .claude/skills/vuln-scan/SKILL.md 手動執行；掃描時間：2026-10-29T06:44:19+00:00；範圍：P3 新增／修改的 `src/` 程式，4 個焦點區域
 - 合計 15 項（HIGH 0／MEDIUM 0／LOW 15，低信心 4）。這些是**未經驗證的靜態候選**，驗證結果見 `TRIAGE.md`。
 - worker 端寫入、讀回與部分檔清理路徑：掃描子代理人未發現問題（category=none，不列入）。
 

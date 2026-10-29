@@ -21,7 +21,7 @@ f010（worker 收原始路徑）、R3-1（復原後 target_id 改變）。
   editable_region）與規劃時的 `base_revision`；不存文件位元組。
 - 撤銷：worker 由開檔時的原始位元組重播 log 前 n−1 筆。重做：在目前狀態上重播第 n 筆。
 - 重播每筆時，worker 先把文件 revision 設回該筆的 `base_revision`（target_id 含 revision），重新規劃並套用；
-  規劃不是 ready 或套用失敗即整次重播復原，回 `VALIDATION_FAILED`。
+  任一筆失敗即整次重播復原到重播前狀態。規劃不是 ready 時回 `VALIDATION_FAILED`；規劃或套用本身拋出的錯誤以原錯誤碼回傳。
 - revision 單調遞增：apply、undo、redo 都回 `目前 revision + 1`，不會回到舊數字。
 - 新的 apply 會截斷尚未重做的部分（標準 undo 堆疊）。log 不設上限，spec 要求至少 50 次。
 - worker 重啟後，主行程以 SHA-256 確認原檔未變，再重播 log 到目前位置並沿用目前 revision；
