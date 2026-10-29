@@ -1,0 +1,439 @@
+{
+  "triage_context": {
+    "mode": "interactive (P1 interview answers reused for P3, same product and trust boundary; engineer asked to continue 2026-10-29)",
+    "environment": "Offline single-user desktop app (no network services). PDF files are untrusted (external sources). The PDF worker subprocess may be compromised by a malicious PDF, so its output is untrusted to the main process. Operator CLI flags and environment variables are trusted, but the contents of the operator's working directory (e.g. extracted attachments) are untrusted. Local files written by the app itself in the user's app-data directory (drafts) can be corrupted by crashes/disk errors; other same-user processes are not a security boundary.",
+    "threat_model": [
+      "Malicious PDF executes code on the user's host (THREAT_MODEL T1)",
+      "Original file corruption or leakage of document content/paths (T3, T9, T13)",
+      "Resource exhaustion making the app or host unusable (T5; full limits planned for P7)"
+    ],
+    "scoring": "Derived HIGH/MEDIUM/LOW from preconditions",
+    "noise_tolerance": "recall",
+    "votes_per_finding": 2,
+    "repo": ".",
+    "votes_note": "2 votes; a 3rd tie-break vote only where the first two split (none split in P3)"
+  },
+  "summary": {
+    "input_count": 15,
+    "duplicates": 0,
+    "false_positives": 14,
+    "true_positives": 1,
+    "needs_manual_test": 0,
+    "by_severity": {
+      "HIGH": 0,
+      "MEDIUM": 0,
+      "LOW": 1
+    }
+  },
+  "triage_completed": "2026-10-29",
+  "findings": [
+    {
+      "id": "f015",
+      "scanner_id": "F-015",
+      "source": "reports/P3/security/VULN-FINDINGS.json#14 (json)",
+      "title": "Pure-Python pixel loop over up to 50 MP per edited page lets a crafted PDF make Save exceed the 30 s timeout",
+      "file": "src/peditor/worker/export.py",
+      "line": 249,
+      "category": "algorithmic complexity",
+      "verdict": "true_positive",
+      "confidence": 6.0,
+      "claimed_severity": "LOW",
+      "rationale": "export_document always runs visual_check on edited pages (export.py:279); zoom keeps large pages near MAX_RENDER_PIXELS=50 MP instead of refusing them (export.py:218), and _outside_pixels walks every x of every differing row in pure Python with a generator per pixel, even inside the mask (249-260). No page-size or font-size limit on this path (analyzer.py:354, 393 only limits render_page). A crafted huge page with huge editable text costs 10^7-5*10^7 iterations, beyond REQUEST_TIMEOUT_S=30, so Save always fails for that document. Same class as P2 f014.",
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 0,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [],
+      "exclusion_rule": null,
+      "first_links": [
+        "src/peditor/worker/export.py:279"
+      ],
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; single-maintainer repo",
+      "verify_verdict": "exploitable",
+      "severity": "LOW",
+      "severity_label": "LOW",
+      "severity_alignment": 0,
+      "preconditions": [
+        "User opens an attacker-crafted PDF with a very large page (~3400 pt or more square) and an editable text run at a very large font size",
+        "User edits that run and saves (export always runs visual_check on edited pages)"
+      ],
+      "access_level": "local",
+      "threat_match": "T5 resource exhaustion (bounded by the 30 s timeout and worker restart)",
+      "outcome": "fixed",
+      "outcome_note": "visual_check caps render pixels at VISUAL_MAX_PIXELS=12 MP; _outside_pixels compares outside-mask segments as bytes, skips mask pixels and stops once the count exceeds the limit",
+      "regression_tests": "tests/security/test_p3_scan_regressions.py"
+    },
+    {
+      "id": "f001",
+      "scanner_id": "F-001",
+      "source": "reports/P3/security/VULN-FINDINGS.json#0 (json)",
+      "title": "Draft JSON gets no schema check: a malformed draft crashes list_drafts on every launch and leaves recover_draft half-done",
+      "file": "src/peditor/core/drafts.py",
+      "line": 65,
+      "category": "input-validation / type-confusion",
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "claimed_severity": "LOW",
+      "rationale": "Drafts are written only by the app via temp file + fsync + os.replace (drafts.py:41-56); crash or disk corruption yields invalid JSON, which load/purge already handle (drafts.py:61-67, 95-101). Valid JSON missing keys needs a same-user process (not a boundary). No product code constructs DraftStore or calls list_drafts/recover_draft yet (P4 UI). Mechanism is real: robustness defect, not security.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "exclusion_rule": "12",
+      "first_links": [
+        "none found"
+      ],
+      "owner_hint": "component: src/peditor/core/; no CODEOWNERS; single-maintainer repo"
+    },
+    {
+      "id": "f002",
+      "scanner_id": "F-002",
+      "source": "reports/P3/security/VULN-FINDINGS.json#1 (json)",
+      "title": "The 7-day expiry never triggers when saved_at is NaN, Infinity, or in the future",
+      "file": "src/peditor/core/drafts.py",
+      "line": 105,
+      "category": "retention-bypass",
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "claimed_severity": "LOW",
+      "rationale": "saved_at is only written as self._now() (time.time(), finite) at drafts.py:44; no PDF or worker input reaches it. NaN/Infinity needs corruption producing exactly those tokens in valid JSON or a same-user process; a future timestamp only comes from the user's own clock skew and still expires once real time catches up. Rejecting non-finite values is hardening only.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "src/peditor/core/drafts.py:44",
+        "src/peditor/core/service.py:342"
+      ],
+      "owner_hint": "component: src/peditor/core/; no CODEOWNERS; single-maintainer repo"
+    },
+    {
+      "id": "f003",
+      "scanner_id": "F-003",
+      "source": "reports/P3/security/VULN-FINDINGS.json#2 (json)",
+      "title": "list() reports the draft_id written inside the file, not the filename, so discard or recover can act on a different draft",
+      "file": "src/peditor/core/drafts.py",
+      "line": 80,
+      "category": "integrity / retention",
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "claimed_severity": "LOW",
+      "rationale": "The only writer DraftStore.save writes the same draft_id into the file and its name, atomically (drafts.py:41-53). Corruption cannot plausibly yield valid JSON with a different well-formed id; other same-user processes are out of scope. discard only deletes regex-validated files in the drafts folder, recover re-checks the source SHA-256 (service.py:257).",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "exclusion_rule": "12",
+      "first_links": [
+        "src/peditor/core/service.py:248"
+      ],
+      "owner_hint": "component: src/peditor/core/; no CODEOWNERS; single-maintainer repo"
+    },
+    {
+      "id": "f004",
+      "scanner_id": "F-004",
+      "source": "reports/P3/security/VULN-FINDINGS.json#3 (json)",
+      "title": "recover_draft opens the raw path stored in the draft file before any validation",
+      "file": "src/peditor/core/service.py",
+      "line": 255,
+      "category": "path-injection / untrusted-input",
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "claimed_severity": "LOW",
+      "rationale": "draft['path'] comes only from app-written files in the user's own %LOCALAPPDATA%\\PEditor\\drafts (drafts.py:21-28, 41-56), never from PDF or worker output. Planting a UNC path requires same-user write access, which is not a boundary; recovery also needs the user's choice and the same user can open any path via open_document. Path validation is hardening only.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "none found"
+      ],
+      "owner_hint": "component: src/peditor/core/; no CODEOWNERS; single-maintainer repo"
+    },
+    {
+      "id": "f005",
+      "scanner_id": "F-005",
+      "source": "reports/P3/security/VULN-FINDINGS.json#4 (json)",
+      "title": "Main process takes revision numbers and plan ids from the worker without checking them, and updates the log before reading new_revision",
+      "file": "src/peditor/core/service.py",
+      "line": 177,
+      "category": "trust boundary / state desync",
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "claimed_severity": "LOW",
+      "rationale": "Worker-supplied revisions and plan ids only flow back to the worker as replay/expected_revision parameters (service.py:190, 202, 265, 355). A compromised worker already creates target IDs, enforces expected_revision and writes the exported bytes, so faking revision numbers grants nothing; file paths and the source SHA check stay in the main process (service.py:218-232, 351). The missing-key path is a local desync with no security impact.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger",
+        "not_actionable"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "src/peditor/cli.py:101"
+      ],
+      "owner_hint": "component: src/peditor/core/; no CODEOWNERS; single-maintainer repo"
+    },
+    {
+      "id": "f006",
+      "scanner_id": "F-006",
+      "source": "reports/P3/security/VULN-FINDINGS.json#5 (json)",
+      "title": "Command log keeps a reference to the caller's editable_region list",
+      "file": "src/peditor/core/service.py",
+      "line": 164,
+      "category": "integrity",
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "claimed_severity": "LOW",
+      "rationale": "service.py:164 does store the caller's list by reference into the log (167-168, 180) replayed by undo/redo. The only caller passes the trusted operator CLI value args.region and never mutates it (cli.py:95-96); neither the PDF nor the worker can reach a main-process object. Missing defensive copy only.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "src/peditor/cli.py:95"
+      ],
+      "owner_hint": "component: src/peditor/core/; no CODEOWNERS; single-maintainer repo"
+    },
+    {
+      "id": "f007",
+      "scanner_id": "F-007",
+      "source": "reports/P3/security/VULN-FINDINGS.json#6 (json)",
+      "title": "apply_edit, undo and redo report failure after the edit is committed when saving the draft fails",
+      "file": "src/peditor/core/service.py",
+      "line": 334,
+      "category": "error handling / state consistency",
+      "verdict": "false_positive",
+      "confidence": 7.5,
+      "claimed_severity": "LOW",
+      "rationale": "_advance commits then _save_draft can re-raise OSError (service.py:331-342, drafts.py:54-56), but the only production caller uses DocumentService() with drafts=None so _save_draft returns early (service.py:337). The trigger is a local disk failure an attacker cannot cause; the result is a misreported failure with consistent state, not a false success. Robustness defect.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "exclusion_rule": "2",
+      "first_links": [
+        "src/peditor/cli.py:101"
+      ],
+      "owner_hint": "component: src/peditor/core/; no CODEOWNERS; single-maintainer repo"
+    },
+    {
+      "id": "f008",
+      "scanner_id": "F-008",
+      "source": "reports/P3/security/VULN-FINDINGS.json#7 (json)",
+      "title": "Undo and worker-restart restore replay the whole log in one request with a fixed 30 s timeout, so edits can become unsaveable",
+      "file": "src/peditor/core/service.py",
+      "line": 355,
+      "category": "algorithmic complexity / integrity",
+      "verdict": "false_positive",
+      "confidence": 7.0,
+      "claimed_severity": "LOW",
+      "rationale": "Undo, restart restore and draft recovery replay the whole log in one request under the 30 s timeout, as ADR-0020 §1 specifies and accepts (cost proportional to step count). The amplification is the number of edits the user makes, not attacker-controlled; per-step cost is already bounded by the same timeout. Impact is availability of unsaved edits to the same untrusted file; the close_document in the restore except path can mask the original error. Robustness bug worth fixing.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "intentional_behavior",
+        "not_actionable"
+      ],
+      "exclusion_rule": "12",
+      "first_links": [
+        "src/peditor/core/service.py:192"
+      ],
+      "owner_hint": "component: src/peditor/core/; no CODEOWNERS; single-maintainer repo"
+    },
+    {
+      "id": "f009",
+      "scanner_id": "F-009",
+      "source": "reports/P3/security/VULN-FINDINGS.json#8 (json)",
+      "title": "No-overwrite rule is enforced only by an earlier check; os.replace always clobbers the destination",
+      "file": "src/peditor/export/transaction.py",
+      "line": 98,
+      "category": "toctou",
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "claimed_severity": "LOW",
+      "rationale": "A few-statement window remains between the final _check (transaction.py:95, 115) and os.replace (98). Only the user or a compromised worker could create the destination in that window; the worker only knows the temp path and could write the destination directly anyway, so the race grants nothing. The source is protected by is_same_file (transaction.py:83, service.py:232). Theoretical TOCTOU.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "exclusion_rule": "16",
+      "first_links": [
+        "src/peditor/core/service.py:240"
+      ],
+      "owner_hint": "component: src/peditor/export/; no CODEOWNERS; single-maintainer repo"
+    },
+    {
+      "id": "f010",
+      "scanner_id": "F-010",
+      "source": "reports/P3/security/VULN-FINDINGS.json#9 (json)",
+      "title": "Raw OSError with the full path escapes the save transaction; fsync failure after replace reported as failure",
+      "file": "src/peditor/export/transaction.py",
+      "line": 47,
+      "category": "information disclosure / error handling",
+      "verdict": "false_positive",
+      "confidence": 7.0,
+      "claimed_severity": "LOW",
+      "rationale": "Raw OSError from sha256_file (transaction.py:47/52, 93) and _fsync_dir (152-154) does escape the ProtocolError-only handlers (service.py:219, 241) and the CLI's ServiceError handler (cli.py:103). It only shows the operator's own destination/temp path on their own terminal; failure is still failure and the temp is removed (102-104). Post-replace fsync failure is POSIX-only and not attacker-triggerable. Conflicts with the CLAUDE.md no-full-path rule: conformance bug.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger",
+        "not_actionable"
+      ],
+      "exclusion_rule": "12",
+      "first_links": [
+        "src/peditor/cli.py:102",
+        "src/peditor/cli.py:91"
+      ],
+      "owner_hint": "component: src/peditor/export/; no CODEOWNERS; single-maintainer repo"
+    },
+    {
+      "id": "f011",
+      "scanner_id": "F-011",
+      "source": "reports/P3/security/VULN-FINDINGS.json#10 (json)",
+      "title": "A temp file with the full document can stay in the user's folder indefinitely when cleanup fails",
+      "file": "src/peditor/export/transaction.py",
+      "line": 124,
+      "category": "data leakage / partial output",
+      "verdict": "false_positive",
+      "confidence": 6.5,
+      "claimed_severity": "LOW",
+      "rationale": "commit removes the temp on every exception (transaction.py:102-104) and worker timeouts/crashes kill and wait before cleanup (service.py:91-97). Leftovers need a main-process crash or an outside lock, the documented ADR-0020 §3 trade-off (next save into the folder deletes temps older than 10 minutes). The file is the user's own export in the folder they chose; no new exposure.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "intentional_behavior",
+        "not_actionable"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "src/peditor/core/service.py:240"
+      ],
+      "owner_hint": "component: src/peditor/export/; no CODEOWNERS; single-maintainer repo"
+    },
+    {
+      "id": "f012",
+      "scanner_id": "F-012",
+      "source": "reports/P3/security/VULN-FINDINGS.json#11 (json)",
+      "title": "Overwrite by rename replaces the destination's mode/ACL with the temp file's defaults",
+      "file": "src/peditor/export/transaction.py",
+      "line": 98,
+      "category": "permission regression",
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "claimed_severity": "LOW",
+      "rationale": "os.replace (transaction.py:98) does replace the destination's mode/ACL with the temp's defaults. Overwrite happens only on the operator's explicit choice; a PDF or worker gains nothing (the worker already has the user's rights). The only exposure is to other local accounts, which THREAT_MODEL.md §5 deprioritizes. Missing metadata preservation only.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "src/peditor/core/service.py:240"
+      ],
+      "owner_hint": "component: src/peditor/export/; no CODEOWNERS; single-maintainer repo"
+    },
+    {
+      "id": "f013",
+      "scanner_id": "F-013",
+      "source": "reports/P3/security/VULN-FINDINGS.json#12 (json)",
+      "title": "Visual-check mask defaults to glyph boxes that an embedded font can inflate",
+      "file": "src/peditor/worker/edit.py",
+      "line": 298,
+      "category": "validation bypass",
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "claimed_severity": "LOW",
+      "rationale": "Same weakness as P2 f013 (default allowed_change_mask too wide; dropped under rule 13). The mask is only used by the worker's own visual_check, a fidelity guard inside the untrusted worker, not a security boundary; the PDF author already controls the embedded font and everything rendered, and the user previews before saving. The pixel tolerance is spec §8.2.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "duplicate"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "src/peditor/worker/edit.py:79"
+      ],
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; single-maintainer repo"
+    },
+    {
+      "id": "f014",
+      "scanner_id": "F-014",
+      "source": "reports/P3/security/VULN-FINDINGS.json#13 (json)",
+      "title": "text_check is a whole-page substring test, so text already elsewhere on the page satisfies it",
+      "file": "src/peditor/worker/export.py",
+      "line": 198,
+      "category": "validation bypass",
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "claimed_severity": "LOW",
+      "rationale": "text_check implements exactly ADR-0020 §4 (whole-page, whitespace removed, with the overlap and empty-text skips). Plan-time encoding builds codes whose ToUnicode maps back to the new text (fonts.py:102-128 mode A, fontb.py:134 mode B), so a region-clipped check would pass the same edits and miss the same glyph/ToUnicode mismatches; it runs inside the untrusted worker. Changes outside edit regions are caught by visual_check.",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "intentional_behavior"
+      ],
+      "exclusion_rule": "3",
+      "first_links": [
+        "src/peditor/worker/export.py:278",
+        "src/peditor/worker/server.py:77"
+      ],
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; single-maintainer repo"
+    }
+  ]
+}

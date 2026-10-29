@@ -21,7 +21,7 @@ import pikepdf
 import pymupdf
 
 from peditor.core.geometry import bbox_of
-from peditor.core.limits import MAX_OBJECT_WALK, MAX_RENDER_PIXELS
+from peditor.core.limits import MAX_OBJECT_WALK
 from peditor.core.protocol import ProtocolError
 from peditor.worker import analyzer
 
@@ -30,6 +30,8 @@ VISUAL_DPI = 150
 CHANNEL_TOL = 8
 VISUAL_OUTSIDE_LIMIT = 0.0001
 VISUAL_MARGIN_PT = 2.0
+# 視覺驗證的渲染像素上限：大頁面降低 DPI，比對工作量有界（P3 triage f015；A2 於 150 DPI 約 8.7 MP）
+VISUAL_MAX_PIXELS = 12_000_000
 
 
 def qpdf_problems(data: bytes) -> list[str] | None:
@@ -215,7 +217,7 @@ def visual_check(document: analyzer.Document, data: bytes, pages: set[int]) -> l
         for page_index in sorted(pages):
             rect = new[page_index].rect
             area = max(rect.width * rect.height, 1)
-            zoom = min(VISUAL_DPI / 72, math.sqrt(MAX_RENDER_PIXELS / area))
+            zoom = min(VISUAL_DPI / 72, math.sqrt(VISUAL_MAX_PIXELS / area))
             before = old[page_index].get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False,
                                                 colorspace=pymupdf.csRGB)  # fmt: skip
             after = new[page_index].get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False,
@@ -226,8 +228,9 @@ def visual_check(document: analyzer.Document, data: bytes, pages: set[int]) -> l
             to_view = analyzer.page_geometry(document.pike.pages[page_index]).page_to_view(zoom)
             masks = [_mask_pixels(to_view, a["mask"]) for a in document.applied
                      if a["page_index"] == page_index]  # fmt: skip
-            outside = _outside_pixels(before, after, masks)
-            if outside > VISUAL_OUTSIDE_LIMIT * before.width * before.height:
+            limit = int(VISUAL_OUTSIDE_LIMIT * before.width * before.height)
+            outside = _outside_pixels(before, after, masks, limit)
+            if outside > limit:
                 failed.append({"page_index": page_index, "over_outside": outside})
     return failed
 
@@ -241,24 +244,42 @@ def _mask_pixels(to_view, region) -> tuple[int, int, int, int]:
     return math.floor(vx0), math.floor(vy0), math.ceil(vx1), math.ceil(vy1)
 
 
-def _outside_pixels(before: pymupdf.Pixmap, after: pymupdf.Pixmap, masks) -> int:
-    """遮罩外差異超過門檻的像素數；只逐點檢查內容不同的列。"""
+def _outside_pixels(before: pymupdf.Pixmap, after: pymupdf.Pixmap, masks, limit: int) -> int:
+    """遮罩外差異超過門檻的像素數，超過 limit 即停止（P3 triage f015）。
+
+    逐列先整段比對遮罩外的區段，只有內容不同的區段才逐點檢查；遮罩內的像素不走訪。
+    """
     width, stride = before.width, before.stride
     a, b = before.samples, after.samples
     count = 0
     for y in range(before.height):
-        row = slice(y * stride, y * stride + width * 3)
-        if a[row] == b[row]:
+        base = y * stride
+        if a[base : base + width * 3] == b[base : base + width * 3]:
             continue
         spans = [(m[0], m[2]) for m in masks if m[1] <= y < m[3]]
-        base = y * stride
-        for x in range(width):
-            if any(x0 <= x < x1 for x0, x1 in spans):
+        for x0, x1 in _outside_segments(width, spans):
+            lo, hi = base + x0 * 3, base + x1 * 3
+            if a[lo:hi] == b[lo:hi]:
                 continue
-            i = base + x * 3
-            peak = max(abs(a[i] - b[i]), abs(a[i + 1] - b[i + 1]), abs(a[i + 2] - b[i + 2]))
-            count += peak > CHANNEL_TOL
+            for i in range(lo, hi, 3):
+                peak = max(abs(a[i] - b[i]), abs(a[i + 1] - b[i + 1]), abs(a[i + 2] - b[i + 2]))
+                if peak > CHANNEL_TOL:
+                    count += 1
+                    if count > limit:
+                        return count
     return count
+
+
+def _outside_segments(width: int, spans) -> list[tuple[int, int]]:
+    """[0, width) 扣掉遮罩區段後的區段。"""
+    out, x = [], 0
+    for x0, x1 in sorted((max(0, s), min(width, e)) for s, e in spans if e > 0 and s < width):
+        if x0 > x:
+            out.append((x, x0))
+        x = max(x, x1)
+    if x < width:
+        out.append((x, width))
+    return out
 
 
 def export_document(document: analyzer.Document, destination) -> dict:
