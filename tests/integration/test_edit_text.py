@@ -3,6 +3,7 @@
 
 import csv
 import hashlib
+import re
 from pathlib import Path
 
 import pikepdf
@@ -20,6 +21,11 @@ FILES = FIXTURES / "files"
 MODE_A = {"T01", "T02", "T08", "F01", "F04", "L02", "L03"}
 MODE_B = {"T03", "T04", "T05", "T06", "T07", "F02", "F06", "F07", "L01", "L04", "L05"}
 ORIGIN_TOL = 0.01  # pt
+
+
+def _without_id(data: bytes) -> bytes:
+    """trailer /ID 第二元素每次存檔不同（跨秒時）；比對位元組時排除（P2 U3）。"""
+    return re.sub(rb"/ID\s*\[\s*<[0-9A-Fa-f]*>\s*<[0-9A-Fa-f]*>\s*\]", b"", data)
 
 
 def _manifest():
@@ -318,7 +324,9 @@ def test_rejections_leave_files_unchanged(fid, policy):
         plan = _plan(document, rows[fid]["original_text"], rows[fid]["new_text"],
                      rows[fid]["editable_region_pt"], policy=policy)  # fmt: skip
         assert plan["unsupported_reasons"] == ["GLYPH_MISSING"] and plan["mode"] is None
-        assert document.revision == 0 and document.working_bytes() == working
+        assert document.revision == 0 and _without_id(document.working_bytes()) == _without_id(
+            working
+        )
     finally:
         document.close()
     assert hashlib.sha256(path.read_bytes()).hexdigest() == digest == rows[fid]["sha256"]

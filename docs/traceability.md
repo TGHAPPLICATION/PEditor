@@ -75,14 +75,15 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 
 | 需求 ID | spec | 需求 | 預定 test ID | fixture | 狀態 |
 | --- | --- | --- | --- | --- | --- |
-| G3-01 | G3 | 50 次操作 undo／redo 等價 | `tests/integration/test_transaction.py::test_50_undo_redo_equivalent` | T01 | PLANNED |
-| G3-02 | G3 | 儲存重開後目標正確 | `tests/integration/test_transaction.py::test_reopen_after_save` | T01 | PLANNED |
-| G3-03 | G3 | 寫入／驗證／rename 前注入中斷，原檔與既有目的檔完整 | `tests/integration/test_crash_injection.py::test_interrupt_each_stage` | T01 | PLANNED |
-| G3-04 | G3 | 100 次另存循環無毀損 | `tests/integration/test_transaction.py::test_100_save_cycles` | T01 | PLANNED |
-| G3-05 | G3 | 損壞與外部修改回傳明確錯誤（REVISION_CONFLICT） | `tests/integration/test_transaction.py::test_external_modification_detected` | T01 | PLANNED |
-| G3-06 | P3 | 空間不足不破壞既有目的檔 | `tests/integration/test_crash_injection.py::test_disk_full_preserves_destination` | T01 | PLANNED |
-| G3-07 | P3 | 復原草稿由使用者選擇開啟、敏感暫存有保留期限 | `tests/integration/test_drafts.py::test_draft_opt_in_and_expiry` | — | PLANNED |
-| G3-08 | §7 | 失敗不更新 revision、不落地部分輸出 | `tests/integration/test_transaction.py::test_failure_no_partial_output` | F03 | PLANNED |
+| G3-01 | G3 | 50 次操作 undo／redo 等價（command log 重播，ADR-0020 §1） | `tests/integration/test_transaction.py::test_50_undo_redo_equivalent`（50 步逐步撤銷到原檔再逐步重做，每步內容指紋相同）、`::test_replay_failure_restores_state`、`::test_service_undo_redo_and_truncation`、`::test_worker_restart_replays_log` | 腳本產生（Helvetica 樣本）、T01 | PASS（CI run 40827373536 雙平台 299 passed） |
+| G3-02 | G3 | 儲存重開後目標正確 | `tests/integration/test_transaction.py::test_reopen_after_save` | T01 | PASS（CI run 40827373536 雙平台 299 passed） |
+| G3-03 | G3 | 寫入／驗證／rename 前注入中斷，原檔與既有目的檔完整 | `tests/integration/test_crash_injection.py::test_interrupt_each_stage`（子行程 os._exit，3 階段）、`::test_exception_at_stage_cleans_up`、`::test_worker_crash_during_export_preserves_destination`、`::test_stale_temp_removed_on_next_save`、`::test_stale_temp_threshold` | T01 | PASS（CI run 40827373536 雙平台 299 passed） |
+| G3-04 | G3 | 100 次另存循環無毀損 | `tests/integration/test_transaction.py::test_100_save_cycles`（以上一次輸出為來源，兩檔輪替覆寫） | T01 | PASS（CI run 40827373536 雙平台 299 passed） |
+| G3-05 | G3 | 損壞與外部修改回傳明確錯誤（REVISION_CONFLICT） | `tests/integration/test_transaction.py::test_external_modification_detected`、`::test_destination_rules`、`tests/integration/test_crash_injection.py::test_temp_hash_mismatch_rejected` | T01 | PASS（CI run 40827373536 雙平台 299 passed） |
+| G3-06 | P3 | 空間不足不破壞既有目的檔 | `tests/integration/test_crash_injection.py::test_disk_full_preserves_destination`、`tests/integration/test_transaction.py::test_failure_no_partial_output`（以模擬 ENOSPC 驗證；真實磁碟填滿 NOT RUN） | T01 | PASS（CI run 40827373536 雙平台 299 passed） |
+| G3-07 | P3 | 復原草稿由使用者選擇開啟、敏感暫存有保留期限（7 天，ADR-0020 §5） | `tests/integration/test_drafts.py::test_draft_opt_in_and_expiry`、`::test_draft_rejected_when_source_changed`、`::test_draft_expires_after_7_days`、`::test_draft_store_ignores_bad_ids_and_files`、`::test_draft_errors_carry_no_path_and_do_not_undo_edit` | T01 | PASS（CI run 40850680948 雙平台 306 passed） |
+| G3-08 | §7 | 失敗不更新 revision、不落地部分輸出（f003、f017、R3-1）；另存前文字與視覺驗證（ADR-0020 §4） | `tests/integration/test_transaction.py::test_failure_no_partial_output`、`::test_product_checks_detect_problems`、`tests/integration/test_crash_injection.py::test_os_errors_carry_no_path`、`::test_fsync_failure_after_replace_is_warning`（錯誤不含路徑，P3 U4） | T01、F04 | PASS（CI run 40850680948 雙平台 306 passed） |
+| G3-09 | §7、§8.1、P3 安全掃描 | P3 triage 確認 1 項之回歸（`reports/P3/security/TRIAGE.md`）：f015 另存前視覺驗證的渲染像素不超過 12 MP，遮罩內像素不逐點讀取、區外超標即停止 | `tests/security/test_p3_scan_regressions.py::test_f015_visual_check_render_budget`（修正前渲染 50,013,184 像素而失敗）、`::test_f015_mask_pixels_not_visited`、`::test_f015_outside_count_matches_per_pixel_definition`（後兩項在修正前因函式介面不同而失敗） | 腳本產生（測試內） | PASS（CI run 40840198233 雙平台 303 passed） |
 
 ## G4：桌面文字編輯流程（P4，兩平台實機）
 

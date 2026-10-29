@@ -88,6 +88,7 @@ def edit_text(argv: list[str]) -> int:
     args.out.mkdir(parents=True, exist_ok=True)
     with DocumentService() as service:
         try:
+            token = service.destination_token(args.out / "output.pdf")  # 已存在即 SAVE_FAILED
             opened = service.open_document(args.pdf)
             document_id = opened["document_id"]
             span_id = service.find_text(document_id, args.page, args.find, args.occurrence)
@@ -98,9 +99,7 @@ def edit_text(argv: list[str]) -> int:
                 print("無法編輯：" + ",".join(plan["unsupported_reasons"]), file=sys.stderr)
                 return 3
             applied = service.apply_edit(document_id, plan["plan_id"], 0)
-            exported = service.export_document(
-                document_id, args.out / "output.pdf", applied["new_revision"]
-            )
+            exported = service.export_document(document_id, token, applied["new_revision"])
         except ServiceError as exc:
             print(f"編輯失敗：{exc.code}", file=sys.stderr)
             return 2

@@ -66,6 +66,11 @@ class Worker:
             return edit.apply_edit(
                 document, params.get("plan_id"), message.get("expected_revision")
             )
+        if operation == "replay":
+            from peditor.worker import edit
+
+            return edit.replay(document, params.get("commands"), params.get("revision"),
+                               bool(params.get("reset")))  # fmt: skip
         if operation == "export_document":
             from peditor.worker import export
 

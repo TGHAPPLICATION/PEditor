@@ -367,18 +367,57 @@ def apply_edit(document: analyzer.Document, plan_id, expected_revision) -> dict:
         element = document.pike.get_object(sync.element)
         if str(element.get("/ActualText")) != sync.old:
             raise ProtocolError("VALIDATION_FAILED", "內容與計畫不一致")
-        before, revision = document.working_bytes(), document.revision
-    _rewrite(document, pending)
-    if sync is not None:
-        element.ActualText = pikepdf.String(sync.new)
-    document.commit()
-    # 儲存後驗證（ADR-0017 修訂）：重新開啟後 /ActualText 須完全等於新內容的擷取文字，
-    # 否則回到修改前
-    if sync is not None and not tagged.synced(document.pike, pending.plan.target["page_index"],
-                                              sync.mcid):  # fmt: skip
-        document.reopen(before, revision)
-        raise ProtocolError("VALIDATION_FAILED", "/ActualText 與新內容不一致")
+    # 任一步失敗都以開啟自的位元組回滾：物件編號不變，target_id 仍有效（ADR-0020 §2；f003、R3-1）
+    current, revision = document.current, document.revision
+    try:
+        _rewrite(document, pending)
+        if sync is not None:
+            element.ActualText = pikepdf.String(sync.new)
+        document.commit()
+        # 儲存後驗證（ADR-0017 修訂）：重新開啟後 /ActualText 須完全等於新內容的擷取文字
+        if sync is not None and not tagged.synced(
+            document.pike, pending.plan.target["page_index"], sync.mcid
+        ):
+            raise ProtocolError("VALIDATION_FAILED", "/ActualText 與新內容不一致")
+    except BaseException:
+        document.reopen(current, revision)
+        raise
+    plan = pending.plan
+    document.applied.append({
+        "page_index": plan.target["page_index"], "mask": list(plan.allowed_change_mask),
+        "new_text": plan.new_text,
+    })  # fmt: skip
     return {"new_revision": document.revision, "command_id": secrets.token_hex(8)}
+
+
+def replay(document: analyzer.Document, commands, revision, reset) -> dict:
+    """依 command log 重新規劃並套用（undo／redo、worker 重啟後還原；ADR-0020 §1）。
+
+    reset 為真時先回到開檔時的原始位元組。每筆先把 revision 設回該筆規劃時的版本
+    （target_id 含 revision），全部成功後設為 revision；任一筆失敗即回到重播前的狀態。
+    """
+    if not isinstance(commands, list) or not isinstance(revision, int) or revision < 0:
+        raise ProtocolError("INVALID_REQUEST", "重播參數錯誤")
+    current, before, applied = document.current, document.revision, list(document.applied)
+    try:
+        if reset:
+            document.reopen(document.original, 0)
+            document.applied = []
+        for command in commands:
+            base = command.get("base_revision") if isinstance(command, dict) else None
+            if not isinstance(base, int) or not isinstance(command.get("params"), dict):
+                raise ProtocolError("INVALID_REQUEST", "重播參數錯誤")
+            document.reopen(document.current, base)
+            plan = plan_text_edit(document, command["params"])
+            if not plan["ready"]:
+                raise ProtocolError("VALIDATION_FAILED", "重播時計畫無法套用")
+            apply_edit(document, plan["plan_id"], base)
+        document.reopen(document.current, revision)
+    except BaseException:
+        document.reopen(current, before)
+        document.applied = applied
+        raise
+    return {"new_revision": document.revision}
 
 
 def _rewrite(document: analyzer.Document, pending: _Pending) -> None:

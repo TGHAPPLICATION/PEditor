@@ -52,6 +52,9 @@ class Document:
     runs: dict[int, tuple[list[TextRun], dict[str, int]]] = field(default_factory=dict)
     plans: dict[str, object] = field(default_factory=dict)  # plan_id → 待套用的計畫（worker 內部）
     original: bytes = b""  # 開啟時的檔案內容（另存驗證的 qpdf 基準與內容差異；spec §8.1、§8.2）
+    current: bytes = b""  # 目前工作文件開啟自的位元組（套用失敗時以此回滾；ADR-0020 §2）
+    # 已套用的編輯（page_index、allowed_change_mask、new_text），供另存前驗證（ADR-0020 §4）
+    applied: list[dict] = field(default_factory=list)
 
     @property
     def doc_reasons(self) -> list[str]:
@@ -80,6 +83,7 @@ class Document:
         self.close()
         self.pike = pikepdf.open(io.BytesIO(data))
         self.mu = pymupdf.open(stream=data, filetype="pdf")
+        self.current = data
         self.revision = revision
         self.pages.clear()
         self.runs.clear()
@@ -144,7 +148,7 @@ def open_document(path: str) -> Document:
         except LimitExceeded:  # 表單／書籤樹過大或有大量共享節點（P1 安全掃描 f009）
             reasons.append("RESOURCE_LIMIT")
     document = _doc(digest, page_count, flags, reasons)
-    document.pike, document.mu, document.original = pike, mu, data
+    document.pike, document.mu, document.original, document.current = pike, mu, data, data
     return document
 
 

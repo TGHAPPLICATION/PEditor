@@ -4,6 +4,7 @@
 """
 
 import io
+import re
 
 import pikepdf
 import pytest
@@ -13,6 +14,11 @@ from peditor.worker import analyzer, edit, span
 from peditor.worker.content import interpret
 
 ORIGIN_TOL = 0.01  # pt
+
+
+def _without_id(data: bytes) -> bytes:
+    """trailer /ID 第二元素每次存檔不同（跨秒時）；比對位元組時排除（P2 U3）。"""
+    return re.sub(rb"/ID\s*\[\s*<[0-9A-Fa-f]*>\s*<[0-9A-Fa-f]*>\s*\]", b"", data)
 
 
 def _sample(tmp_path, content: bytes, name="m.pdf"):
@@ -103,6 +109,8 @@ def test_multi_operator_rejections(tmp_path, content, reason):
         plan = edit.plan_text_edit(document, {"target_id": target.span_id, "new_text": "Howdy",
                                               "editable_region": [0, 0, 400, 200]})  # fmt: skip
         assert not plan["ready"] and reason in plan["unsupported_reasons"], plan
-        assert document.working_bytes() == working and document.revision == 0
+        assert (
+            _without_id(document.working_bytes()) == _without_id(working) and document.revision == 0
+        )
     finally:
         document.close()
