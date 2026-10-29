@@ -2,6 +2,7 @@
 
 草稿是開啟中文件的 command log（含新文字，屬敏感內容），存在使用者本機資料目錄，
 不放在文件旁。不自動開啟：只列出，由使用者選擇後才復原。保留 7 天，逾期即刪。
+檔案系統錯誤一律轉成不含路徑的 SAVE_FAILED（CLAUDE.md；P3 獨立核對 V6）。
 """
 
 from __future__ import annotations
@@ -13,6 +14,8 @@ import secrets
 import sys
 import time
 from pathlib import Path
+
+from peditor.core.protocol import ProtocolError
 
 RETENTION_S = 7 * 24 * 3600
 _NAME = re.compile(r"^[0-9a-f]{16}\.json$")
@@ -32,7 +35,10 @@ class DraftStore:
     def __init__(self, folder: str | os.PathLike | None = None, now=time.time) -> None:
         self.folder = Path(folder) if folder is not None else default_dir()
         self._now = now
-        self.folder.mkdir(parents=True, exist_ok=True)
+        try:
+            self.folder.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise ProtocolError("SAVE_FAILED", "無法使用復原草稿區") from exc
         self.purge()
 
     def new_id(self) -> str:
@@ -44,15 +50,23 @@ class DraftStore:
                 "position": position, "saved_at": self._now()}  # fmt: skip
         target = self._file(draft_id)
         temp = target.with_name(f".{target.name}.{secrets.token_hex(4)}.tmp")
-        fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except OSError as exc:
+            raise ProtocolError("SAVE_FAILED", "無法寫入復原草稿") from exc
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 json.dump(data, fh, ensure_ascii=False)
                 fh.flush()
                 os.fsync(fh.fileno())
             os.replace(temp, target)
-        except BaseException:
-            temp.unlink(missing_ok=True)
+        except BaseException as exc:
+            try:
+                temp.unlink(missing_ok=True)
+            except OSError:
+                pass
+            if isinstance(exc, OSError):
+                raise ProtocolError("SAVE_FAILED", "無法寫入復原草稿") from exc
             raise
 
     def load(self, draft_id: str) -> dict | None:
@@ -71,7 +85,7 @@ class DraftStore:
         """未逾期的草稿摘要（不含 command log 內容）；逾期或損壞的草稿一併刪除。"""
         self.purge()
         out = []
-        for name in sorted(os.listdir(self.folder)):
+        for name in sorted(self._names()):
             if not _NAME.match(name):
                 continue
             data = self.load(name[:-5])
@@ -84,10 +98,13 @@ class DraftStore:
 
     def discard(self, draft_id: str) -> None:
         if _NAME.match(f"{draft_id}.json"):
-            self._file(draft_id).unlink(missing_ok=True)
+            try:
+                self._file(draft_id).unlink(missing_ok=True)
+            except OSError as exc:
+                raise ProtocolError("SAVE_FAILED", "無法刪除復原草稿") from exc
 
     def purge(self) -> None:
-        for name in os.listdir(self.folder):
+        for name in self._names():
             path = self.folder / name
             if name.endswith(".tmp") and name.startswith("."):
                 self._remove_if_old(path)
@@ -98,7 +115,16 @@ class DraftStore:
                     self._remove_if_old(path)
                     continue
                 if not isinstance(data, dict) or self._expired(data):
-                    path.unlink(missing_ok=True)
+                    try:
+                        path.unlink(missing_ok=True)
+                    except OSError:
+                        pass  # 下次列出或建立草稿區時再試
+
+    def _names(self) -> list[str]:
+        try:
+            return os.listdir(self.folder)
+        except OSError as exc:
+            raise ProtocolError("SAVE_FAILED", "無法讀取復原草稿區") from exc
 
     def _expired(self, data: dict) -> bool:
         saved = data.get("saved_at")

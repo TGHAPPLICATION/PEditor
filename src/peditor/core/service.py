@@ -179,8 +179,7 @@ class DocumentService:
         del doc.log[doc.position :]  # 新操作截斷可重做的部分
         doc.log.append(entry)
         doc.position += 1
-        self._advance(doc, result["new_revision"])
-        return result
+        return self._advance(doc, result)
 
     def undo(self, document_id: str, expected_revision: int) -> dict:
         """撤銷一筆：由原檔重播前 position−1 筆（ADR-0020 §1）。"""
@@ -191,8 +190,7 @@ class DocumentService:
                   "reset": True}  # fmt: skip
         result = self._doc_call(document_id, "replay", params, expected_revision)
         doc.position -= 1
-        self._advance(doc, result["new_revision"])
-        return result
+        return self._advance(doc, result)
 
     def redo(self, document_id: str, expected_revision: int) -> dict:
         """重做一筆：在目前狀態上重播第 position 筆。"""
@@ -203,8 +201,7 @@ class DocumentService:
                   "reset": False}  # fmt: skip
         result = self._doc_call(document_id, "replay", params, expected_revision)
         doc.position += 1
-        self._advance(doc, result["new_revision"])
-        return result
+        return self._advance(doc, result)
 
     def history(self, document_id: str) -> dict:
         doc = self._require(document_id, None)
@@ -218,6 +215,8 @@ class DocumentService:
             dest = transaction.destination(path, overwrite)
         except ProtocolError as exc:
             raise ServiceError(exc.code, exc.message, exc.retryable) from None
+        except OSError:  # 不讓含路徑的系統錯誤外流（CLAUDE.md）
+            raise ServiceError("SAVE_FAILED", "無法存取目的地") from None
         token = uuid.uuid4().hex
         self._tokens[token] = dest
         return token
@@ -240,16 +239,18 @@ class DocumentService:
             result = transaction.commit(dest, doc.path, doc.sha256, write)
         except ProtocolError as exc:
             raise ServiceError(exc.code, exc.message, exc.retryable) from None
+        except OSError:
+            raise ServiceError("SAVE_FAILED", "另存失敗") from None
         del self._tokens[destination_token]  # token 只用一次；再存須重新取得（目的檔狀態已改變）
         return result
 
     # --- 復原草稿（ADR-0020 §5） --------------------------------------
     def list_drafts(self) -> list[dict]:
-        return self.drafts.list() if self.drafts is not None else []
+        return self._drafts_call(self.drafts.list) if self.drafts is not None else []
 
     def recover_draft(self, draft_id: str) -> dict[str, Any]:
         """使用者選擇後才復原：開啟原檔、確認 SHA-256 與草稿相同，再重播到草稿位置。"""
-        draft = self.drafts.load(draft_id) if self.drafts is not None else None
+        draft = self._drafts_call(self.drafts.load, draft_id) if self.drafts is not None else None
         if draft is None:
             raise ServiceError("INVALID_REQUEST", "草稿不存在或已逾期")
         opened = self.open_document(draft["path"])
@@ -270,21 +271,28 @@ class DocumentService:
                 raise
             doc.revision = result["new_revision"]
         doc.log, doc.position = log, position
+        result = {**opened, "revision": doc.revision}
         if self.drafts is not None:  # 改由新開啟的文件接手；舊草稿刪除
-            self.drafts.discard(draft_id)
-            self._save_draft(doc)
-        return {**opened, "revision": doc.revision}
+            warning = self._save_draft(doc)
+            if warning is None:
+                self._drafts_call(self.drafts.discard, draft_id)
+            else:  # 新草稿沒寫成：保留舊草稿
+                result["warnings"] = [warning]
+        return result
 
     def discard_draft(self, draft_id: str) -> None:
         if self.drafts is not None:
-            self.drafts.discard(draft_id)
+            self._drafts_call(self.drafts.discard, draft_id)
 
     def close_document(self, document_id: str) -> None:
         doc = self._docs.pop(document_id, None)
         if doc is None:
             return
         if doc.draft_id is not None and self.drafts is not None:
-            self.drafts.discard(doc.draft_id)
+            try:
+                self.drafts.discard(doc.draft_id)
+            except ProtocolError:
+                pass  # 刪不掉的草稿於 7 天後由 purge 刪除
         if doc.worker_id is not None and self._worker is not None:
             try:
                 self._call("close_document", document_id=doc.worker_id)
@@ -328,18 +336,31 @@ class DocumentService:
             raise ServiceError("REVISION_CONFLICT", "文件版本不符", retryable=True)
         return doc
 
-    def _advance(self, doc: _Doc, revision: int) -> None:
-        doc.revision = revision
+    def _advance(self, doc: _Doc, result: dict) -> dict:
+        """編輯已在 worker 生效：更新版本；草稿寫不成只加警告，不回報失敗（P3 triage f007）。"""
+        doc.revision = result["new_revision"]
         doc.plans.clear()  # 計畫只對規劃時的版本有效
-        self._save_draft(doc)
+        warning = self._save_draft(doc)
+        return {**result, "warnings": [warning]} if warning else result
 
-    def _save_draft(self, doc: _Doc) -> None:
+    def _save_draft(self, doc: _Doc) -> str | None:
+        """寫入或刪除草稿；失敗時回傳警告文字（不含路徑）。"""
         if self.drafts is None or doc.draft_id is None:
-            return
-        if doc.position == 0:  # 沒有已套用的編輯：不留草稿
-            self.drafts.discard(doc.draft_id)
-            return
-        self.drafts.save(doc.draft_id, doc.path, doc.sha256, doc.log, doc.position)
+            return None
+        try:
+            if doc.position == 0:  # 沒有已套用的編輯：不留草稿
+                self.drafts.discard(doc.draft_id)
+            else:
+                self.drafts.save(doc.draft_id, doc.path, doc.sha256, doc.log, doc.position)
+        except ProtocolError as exc:
+            return f"復原草稿未更新：{exc.message}"
+        return None
+
+    def _drafts_call(self, func, *args):
+        try:
+            return func(*args)
+        except ProtocolError as exc:
+            raise ServiceError(exc.code, exc.message, exc.retryable) from None
 
     def _doc_call(self, document_id: str, operation: str, params: dict, expected_revision):
         doc = self._docs.get(document_id)

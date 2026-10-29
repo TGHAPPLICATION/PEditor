@@ -5,6 +5,7 @@
 """
 
 import io
+import re
 import time
 
 import pikepdf
@@ -15,6 +16,11 @@ from peditor.worker.content import interpret
 
 FAST = 10.0  # 秒
 REGION = [0, 0, 400, 200]
+
+
+def _without_id(data: bytes) -> bytes:
+    """trailer /ID 第二元素每次存檔不同（跨秒時）；比對位元組時排除（P2 U3）。"""
+    return re.sub(rb"/ID\s*\[\s*<[0-9A-Fa-f]*>\s*<[0-9A-Fa-f]*>\s*\]", b"", data)
 
 
 def _pdf(content: bytes, pages: int = 1) -> tuple[pikepdf.Pdf, pikepdf.Stream]:
@@ -85,7 +91,9 @@ def test_f002_shared_content_stream_rejected(tmp_path, share):
     try:
         working = document.working_bytes()
         assert not plan["ready"] and "SHARED_RESOURCE_UNSAFE" in plan["unsupported_reasons"], plan
-        assert document.working_bytes() == working and document.revision == 0
+        assert (
+            _without_id(document.working_bytes()) == _without_id(working) and document.revision == 0
+        )
     finally:
         document.close()
 

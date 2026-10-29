@@ -172,3 +172,50 @@ def test_worker_crash_during_export_preserves_destination(tmp_path):
             service.export_document(doc, token, 0)
         assert exc.value.code == "WORKER_FAILED"
     assert target.read_bytes() == EXISTING and _temps(tmp_path) == []
+
+
+def test_os_errors_carry_no_path(tmp_path, monkeypatch, service):
+    """U4／f010：讀不到目的檔、暫存檔不見，都回不含路徑的 SAVE_FAILED（CLAUDE.md）。"""
+    locked = tmp_path / "locked.pdf"
+    locked.write_bytes(EXISTING)
+    original = transaction.sha256_file
+
+    def deny(path):
+        if path == str(locked.resolve()):
+            raise PermissionError(13, "Permission denied", path)
+        return original(path)
+
+    monkeypatch.setattr(transaction, "sha256_file", deny)
+    with pytest.raises(ServiceError) as exc:
+        service.destination_token(locked, overwrite=True)
+    assert exc.value.code == "SAVE_FAILED" and str(tmp_path) not in str(exc.value)
+    monkeypatch.undo()
+
+    source = tmp_path / "src.pdf"
+    source.write_bytes(b"source")
+    dest = transaction.destination(tmp_path / "dest.pdf", overwrite=False)
+    with pytest.raises(ProtocolError) as perr:  # worker 回報成功但沒有建立暫存檔
+        transaction.commit(dest, str(source), hashlib.sha256(b"source").hexdigest(),
+                           lambda temp: {"output_hash": "0" * 64})  # fmt: skip
+    assert perr.value.code == "SAVE_FAILED" and str(tmp_path) not in perr.value.message
+
+
+def test_fsync_failure_after_replace_is_warning(tmp_path, monkeypatch):
+    """目的檔已取代後的目錄同步失敗只加警告，不回報另存失敗（f010）。"""
+    source = tmp_path / "src.pdf"
+    source.write_bytes(b"source")
+    dest = transaction.destination(tmp_path / "dest.pdf", overwrite=False)
+    payload = b"%PDF-1.4 new"
+
+    def write(temp: str) -> dict:
+        with open(temp, "xb") as fh:
+            fh.write(payload)
+        return {"output_hash": hashlib.sha256(payload).hexdigest()}
+
+    def broken_fsync(folder):
+        raise OSError(5, "I/O error", folder)
+
+    monkeypatch.setattr(transaction, "_fsync_dir", broken_fsync)
+    result = transaction.commit(dest, str(source), hashlib.sha256(b"source").hexdigest(), write)
+    assert (tmp_path / "dest.pdf").read_bytes() == payload
+    assert result["warnings"] and str(tmp_path) not in result["warnings"][0]

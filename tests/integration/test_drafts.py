@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from peditor.core import drafts
+from peditor.core.protocol import ProtocolError
 from peditor.core.service import DocumentService, ServiceError
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
@@ -109,3 +110,29 @@ def test_draft_store_ignores_bad_ids_and_files(tmp_path):
     assert store.list() == []
     (tmp_path / "aaaaaaaaaaaaaaaa.json").write_text(json.dumps([1]), encoding="utf-8")
     assert store.list() == []
+
+
+def test_draft_errors_carry_no_path_and_do_not_undo_edit(manifest_rows, tmp_path, monkeypatch):
+    """U4／f007：草稿區不可用回不含路徑的 SAVE_FAILED；寫草稿失敗時編輯照常生效，只加警告。"""
+    blocker = tmp_path / "not-a-folder"
+    blocker.write_bytes(b"x")
+    with pytest.raises(ProtocolError) as exc:
+        drafts.DraftStore(blocker / "drafts")
+    assert exc.value.code == "SAVE_FAILED" and str(tmp_path) not in exc.value.message
+
+    store = drafts.DraftStore(tmp_path / "drafts")
+
+    def failing_save(*args, **kwargs):
+        raise ProtocolError("SAVE_FAILED", "無法寫入復原草稿")
+
+    monkeypatch.setattr(store, "save", failing_save)
+    row = _row(manifest_rows, "T01")
+    with DocumentService(drafts=store) as service:
+        doc = service.open_document(FILES / "T01.pdf")["document_id"]
+        span_id = service.find_text(doc, 0, row["original_text"])
+        region = [float(v) for v in row["editable_region_pt"].split(",")]
+        plan = service.plan_text_edit(doc, span_id, row["new_text"], "prefer_a", 0, region)
+        result = service.apply_edit(doc, plan["plan_id"], 0)
+        assert result["new_revision"] == 1 and result["warnings"]
+        assert service.history(doc) == {"revision": 1, "undo": 1, "redo": 0}
+        service.find_text(doc, 0, row["new_text"])

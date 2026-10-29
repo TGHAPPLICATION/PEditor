@@ -44,7 +44,11 @@ def file_state(path: str) -> FileState | None:
         return None
     except OSError as exc:
         raise ProtocolError("SAVE_FAILED", "無法讀取目的檔") from exc
-    return FileState(st.st_size, st.st_mtime_ns, sha256_file(path))
+    try:
+        digest = sha256_file(path)
+    except OSError as exc:  # 例如被其他程式以禁止讀取的方式鎖定；訊息不帶路徑（CLAUDE.md）
+        raise ProtocolError("SAVE_FAILED", "無法讀取目的檔") from exc
+    return FileState(st.st_size, st.st_mtime_ns, digest)
 
 
 def sha256_file(path: str) -> str:
@@ -90,7 +94,11 @@ def commit(dest: Destination, source_path: str, source_sha256: str,
         _stage("write")
         result = write(temp)
         _stage("verify")
-        if sha256_file(temp) != result.get("output_hash"):
+        try:
+            written = sha256_file(temp)
+        except OSError as exc:
+            raise ProtocolError("SAVE_FAILED", "無法讀取暫存檔") from exc
+        if written != result.get("output_hash"):
             raise ProtocolError("SAVE_FAILED", "暫存檔內容與驗證結果不符")
         _check(dest, source_path, source_sha256)
         _stage("rename")
@@ -98,10 +106,17 @@ def commit(dest: Destination, source_path: str, source_sha256: str,
             os.replace(temp, dest.path)
         except OSError as exc:
             raise ProtocolError("SAVE_FAILED", "無法取代目的檔") from exc
-        _fsync_dir(folder)
     except BaseException:
         _remove(temp)
         raise
+    # 已取代：之後的失敗不能回報為另存失敗，只加警告（P3 triage f010）
+    try:
+        _fsync_dir(folder)
+    except OSError:
+        result = {
+            **result,
+            "warnings": [*result.get("warnings", []), "目錄同步失敗，斷電時可能遺失本次儲存"],
+        }
     return result
 
 

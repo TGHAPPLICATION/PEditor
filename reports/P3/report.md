@@ -54,10 +54,10 @@ G3 各驗收條件：
 
 ```
 uv run ruff check . && uv run ruff format --check .   → exit 0
-uv run pytest -q                                        → exit 0，303 passed（Windows 實機，2026-10-29，獨立核對修正後）
+uv run pytest -q                                        → exit 0，306 passed（Windows 實機，2026-10-29，U4／U5 處理後）
 ```
 
-- P3 新增 28 項測試（G3-01～G3-08 共 25 項、G3-09 共 3 項）；P2 既有 275 項未修改、全數通過（`git diff main...p3-transaction -- tests/` 只有新增檔）。
+- P3 新增 31 項測試（G3-01～G3-08 共 28 項、G3-09 共 3 項）；P2 既有 275 項中，3 項依 U5 改為比對時排除 /ID（只改比對方式，期望不變），其餘未修改、全數通過。
 - CI：run [40827373536](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40827373536)（commit `b59be8b`）、
   run [40827748845](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40827748845)（commit `1440555`）雙平台 299 passed（安全修補前）；
   安全修補後 run [40832867432](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40832867432)（commit `6a09672`）雙平台 301 passed。獨立核對修正後見 §10。
@@ -123,8 +123,8 @@ uv run pytest -q                                        → exit 0，303 passed�
 | U1 | ADR-0003 停止條件：P3 結束時（最晚 11/16）須有 macOS 實機取得方案 | 沒有方案即觸發停止條件；G4、G7、G8 仍須實機 | 工程師決定借用或購入 |
 | U2 | 產品端視覺驗證用 MuPDF；ADR-0015 的 7 份渲染空白檔驗證無效。ADR-0015 第 40 行寫「P3（UI 預覽）前」處理，但 UI 預覽在 P4，判斷為筆誤 | 這 7 類檔案另存時沒有視覺防護；P4 預覽也會是空白 | 工程師確認延到 P4 預覽前另立 ADR 處理 |
 | U3 | undo、worker 重啟還原、草稿復原都以單一請求重播整個 log，受 30 秒逾時限制（triage f008，判為設計取捨）；還原失敗時 close_document 的錯誤會蓋過原錯誤 | 大檔多步時 undo 可能逾時並反覆失敗，未存的編輯存不出去 | 工程師決定是否 P4 前量測，再決定分段重播或「log＋快照」（需 ADR） |
-| U4 | triage 確認程式行為屬實但非安全問題：f001 草稿缺結構驗證、f007 寫草稿失敗時誤報失敗、f010 OSError 含完整路徑（違反 CLAUDE.md）、f006 editable_region 以參照保存、f009 不覆寫的 rename 非原子、f011 暫存檔刪除失敗、f012 覆寫後權限改變。獨立核對另指出草稿區 `mkdir`／`listdir`／`os.open` 的 OSError 同樣含完整路徑（V6） | f010 與草稿區 OSError 都與 CLAUDE.md 規則衝突；f001、f007 在 P4 啟用草稿前須處理 | 工程師決定含路徑的 OSError 是否於 P3 合併前一併包裝；其餘排入 P4／P7（TRIAGE.md 末節有建議） |
-| U5 | P2 U3（3 個測試比對兩次存檔位元組，跨秒 /ID 不同而偶發失敗）：我在 P3 S2 提出「測試排除 /ID」為預設，**本段未實作**，3 個測試未改 | CI 仍可能偶發失敗 | 工程師決定是否於合併前處理 |
+| U4 | triage 確認程式行為屬實但非安全問題：f001 草稿缺結構驗證、f007 寫草稿失敗時誤報失敗、f010 OSError 含完整路徑（違反 CLAUDE.md）、f006 editable_region 以參照保存、f009 不覆寫的 rename 非原子、f011 暫存檔刪除失敗、f012 覆寫後權限改變；獨立核對另指出草稿區 OSError 同樣含完整路徑（V6） | f001、f006 在 P4 啟用草稿／UI 前須處理 | **部分已處理**（工程師 2026-10-29 決定合併前修含路徑的錯誤）：交易與草稿區的 OSError 一律轉為不含路徑的 SAVE_FAILED；目的檔已取代後的目錄同步失敗改為警告；寫草稿失敗時編輯照常生效、結果加 `warnings`（同時修正 f007）。測試 `test_crash_injection.py::test_os_errors_carry_no_path`、`::test_fsync_failure_after_replace_is_warning`、`test_drafts.py::test_draft_errors_carry_no_path_and_do_not_undo_edit`（修正前三項皆失敗）。f001、f006 排入 P4；f009、f011、f012 排入 P7 |
+| U5 | P2 U3：3 個測試比對兩次存檔位元組，跨秒時 /ID 第二元素不同而偶發失敗 | CI 偶發失敗 | **已處理**（工程師 2026-10-29 決定合併前修）：`test_edit_multi.py`、`test_edit_text.py::test_rejections_leave_files_unchanged`、`test_p2_scan_regressions.py` 改為比對時以正規表示式移除 trailer `/ID [<…><…>]`；產品輸出不變。本機以 T01、F04、T05 各存兩次（相隔 1.1 秒）驗證：原始位元組不同、移除 /ID 後相同 |
 | U6 | P2 U4 中 f006、f018、f023、f015 依 S2 決定不在 P3 範圍 | 威脅模型 T4、T11 殘餘風險不變 | 已決定（2026-10-28），列此備查 |
 | U7 | spec §8.3 效能基準未量測（P2 U5 延續） | 規模決策與 U3 的重播成本都缺實測 | 工程師決定量測時點 |
 | U8 | Dependabot #10（setuptools，build 群組）延到 P7 | 只影響打包工具，不在產品執行期 | 已決定（2026-10-29） |
@@ -139,7 +139,7 @@ uv run pytest -q                                        → exit 0，303 passed�
   安全修補前 run 40827373536（commit `b59be8b`）、40827748845（commit `1440555`）雙平台 299 passed；
   獨立核對修正後 run [40840198233](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40840198233)（commit `ecf3baa`）windows-latest 303 passed、macos-15 303 passed。
 - **關卡結果：PASS（附條件）**（範圍：G3-01～G3-09 均有測試證據，本機 Windows 301 passed；真實磁碟填滿、macOS 實機、§8.3 效能 NOT RUN 並註明原因）
-- **下一段可開始：待定**：須由工程師確認 U1（macOS 實機方案）、U4（含路徑的 OSError 是否合併前修）、U5、U9、U10；U2、U3、U7、U11、U12 可於 P4 開工前決定。
+- **下一段可開始：待定**：須由工程師確認 U1（macOS 實機方案）、U9、U10；U4、U5 已處理；U2、U3、U7、U11、U12 可於 P4 開工前決定。
 
 ## 11. 獨立核對紀錄
 
