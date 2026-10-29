@@ -138,6 +138,7 @@ uv run pytest -q                                        → exit 0，306 passed�
 - CI：run [40832867432](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40832867432)（commit `6a09672`，安全修補後）windows-latest 301 passed、macos-15 301 passed；
   安全修補前 run 40827373536（commit `b59be8b`）、40827748845（commit `1440555`）雙平台 299 passed；
   獨立核對修正後 run [40840198233](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40840198233)（commit `ecf3baa`）windows-latest 303 passed、macos-15 303 passed。
+  U4／U5 處理後 run [40850680948](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40850680948)（commit `4c52303`）windows-latest 306 passed、macos-15 306 passed。
 - **關卡結果：PASS（附條件）**（範圍：G3-01～G3-09 均有測試證據，本機 Windows 301 passed；真實磁碟填滿、macOS 實機、§8.3 效能 NOT RUN 並註明原因）
 - **下一段可開始：待定**：須由工程師確認 U1（macOS 實機方案）、U9、U10；U4、U5 已處理；U2、U3、U7、U11、U12 可於 P4 開工前決定。
 
