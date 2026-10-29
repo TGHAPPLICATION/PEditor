@@ -83,7 +83,7 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | G3-06 | P3 | 空間不足不破壞既有目的檔 | `tests/integration/test_crash_injection.py::test_disk_full_preserves_destination`、`tests/integration/test_transaction.py::test_failure_no_partial_output`（以模擬 ENOSPC 驗證；真實磁碟填滿 NOT RUN） | T01 | PASS（CI run 40827373536 雙平台 299 passed） |
 | G3-07 | P3 | 復原草稿由使用者選擇開啟、敏感暫存有保留期限（7 天，ADR-0020 §5） | `tests/integration/test_drafts.py::test_draft_opt_in_and_expiry`、`::test_draft_rejected_when_source_changed`、`::test_draft_expires_after_7_days`、`::test_draft_store_ignores_bad_ids_and_files` | T01 | PASS（CI run 40827373536 雙平台 299 passed） |
 | G3-08 | §7 | 失敗不更新 revision、不落地部分輸出（f003、f017、R3-1）；另存前文字與視覺驗證（ADR-0020 §4） | `tests/integration/test_transaction.py::test_failure_no_partial_output`、`::test_product_checks_detect_problems` | T01、F04 | PASS（CI run 40827373536 雙平台 299 passed） |
-| G3-09 | §7、§8.1、P3 安全掃描 | P3 triage 確認 1 項之回歸（`reports/P3/security/TRIAGE.md`）：f015 另存前視覺驗證的渲染像素不超過 12 MP，遮罩內像素不逐點讀取、區外超標即停止 | `tests/security/test_p3_scan_regressions.py::test_f015_visual_check_render_budget`（修正前渲染 50,013,184 像素而失敗）、`::test_f015_mask_pixels_not_visited`、`::test_f015_outside_count_matches_per_pixel_definition`（後兩項在修正前因函式介面不同而失敗） | 腳本產生（測試內） | PASS（本機 Windows；CI 待補） |
+| G3-09 | §7、§8.1、P3 安全掃描 | P3 triage 確認 1 項之回歸（`reports/P3/security/TRIAGE.md`）：f015 另存前視覺驗證的渲染像素不超過 12 MP，遮罩內像素不逐點讀取、區外超標即停止 | `tests/security/test_p3_scan_regressions.py::test_f015_visual_check_render_budget`（修正前渲染 50,013,184 像素而失敗）、`::test_f015_mask_pixels_not_visited`、`::test_f015_outside_count_matches_per_pixel_definition`（後兩項在修正前因函式介面不同而失敗） | 腳本產生（測試內） | PASS（CI run 40840198233 雙平台 303 passed） |
 
 ## G4：桌面文字編輯流程（P4，兩平台實機）
 

@@ -136,7 +136,8 @@ uv run pytest -q                                        → exit 0，303 passed�
 ## 10. 關卡結果
 
 - CI：run [40832867432](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40832867432)（commit `6a09672`，安全修補後）windows-latest 301 passed、macos-15 301 passed；
-  安全修補前 run 40827373536（commit `1440555`）雙平台 299 passed。
+  安全修補前 run 40827373536（commit `b59be8b`）、40827748845（commit `1440555`）雙平台 299 passed；
+  獨立核對修正後 run [40840198233](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40840198233)（commit `ecf3baa`）windows-latest 303 passed、macos-15 303 passed。
 - **關卡結果：PASS（附條件）**（範圍：G3-01～G3-09 均有測試證據，本機 Windows 301 passed；真實磁碟填滿、macOS 實機、§8.3 效能 NOT RUN 並註明原因）
 - **下一段可開始：待定**：須由工程師確認 U1（macOS 實機方案）、U4（含路徑的 OSError 是否合併前修）、U5、U9、U10；U2、U3、U7、U11、U12 可於 P4 開工前決定。
 
@@ -161,4 +162,4 @@ uv run pytest -q                                        → exit 0，303 passed�
 | V11 | 文字驗證為整頁子字串、T01 視覺驗證無效未在 §6 說明 | §6 補註 |
 | V12 | VULN-FINDINGS 時間戳晚於 commit；traceability G3-06 fixture 欄；22／166 ms 無證據；T10 標 mitigated 依據不足 | 時間戳改為檔案實際寫入時間 06:44:19Z；G3-06 改 T01；§6 註明臨時腳本量測未入庫；T10 改回 partially_mitigated |
 
-修正後本機 303 passed；CI 見 §10。
+修正後本機 303 passed；CI run 40840198233（commit `ecf3baa`）雙平台 303 passed。
