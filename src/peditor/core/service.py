@@ -1,7 +1,10 @@
 """DocumentService：主行程端的 typed API，所有 PDF 解析都轉交 worker 子行程（ADR-0004、spec §7）。
 
 主行程不匯入 PyMuPDF／pikepdf（G1-01）。worker 逾時、崩潰或被取消時終止並在下次請求時重啟，
-已開啟的文件依原路徑重新開啟，並以 SHA-256 確認檔案未被外部修改。
+已開啟的文件依原路徑重新開啟，以 SHA-256 確認檔案未被外部修改，再重播 command log 回到目前版本。
+
+P3（ADR-0020）：command log 與 undo／redo 在此；另存以 destination_token 經
+`peditor.export.transaction` 交易寫出；傳入 DraftStore 時保存復原草稿。
 """
 
 from __future__ import annotations
@@ -12,9 +15,10 @@ import subprocess
 import sys
 import threading
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
+from peditor.core.drafts import DraftStore
 from peditor.core.limits import REQUEST_TIMEOUT_S
 from peditor.core.protocol import (
     MAX_MESSAGE_BYTES,
@@ -23,6 +27,7 @@ from peditor.core.protocol import (
     decode,
     encode,
 )
+from peditor.export import transaction
 
 
 class ServiceError(Exception):
@@ -45,6 +50,13 @@ class _Doc:
     path: str
     sha256: str
     worker_id: str | None
+    revision: int = 0
+    # command log：每筆 {"params": plan_text_edit 參數, "base_revision": 規劃時的 revision}
+    # （ADR-0020 §1）
+    log: list[dict] = field(default_factory=list)
+    position: int = 0  # 已套用的筆數；log[position:] 為可重做
+    plans: dict[str, dict] = field(default_factory=dict)  # plan_id → 尚未套用的 log 項目
+    draft_id: str | None = None
 
 
 class _WorkerProcess:
@@ -93,12 +105,17 @@ class _WorkerProcess:
 
 class DocumentService:
     def __init__(
-        self, timeout: float = REQUEST_TIMEOUT_S, command: list[str] | None = None
+        self,
+        timeout: float = REQUEST_TIMEOUT_S,
+        command: list[str] | None = None,
+        drafts: DraftStore | None = None,
     ) -> None:
         self.timeout = timeout
         self.command = command or worker_command()
+        self.drafts = drafts  # None：不保存復原草稿（CLI、測試預設；ADR-0020 §5）
         self._worker: _WorkerProcess | None = None
         self._docs: dict[str, _Doc] = {}
+        self._tokens: dict[str, transaction.Destination] = {}
         self._lock = threading.Lock()  # 每次只處理一個請求（每份文件串行修改，spec §7）
         self._state = threading.Lock()
         self._inflight: str | None = None
@@ -109,7 +126,10 @@ class DocumentService:
         path = os.fspath(path)
         result = self._call("open_document", params={"path": path})
         document_id = result["document_id"]
-        self._docs[document_id] = _Doc(path, result["sha256"], document_id)
+        doc = _Doc(path, result["sha256"], document_id, revision=result["revision"])
+        if self.drafts is not None:
+            doc.draft_id = self.drafts.new_id()
+        self._docs[document_id] = doc
         return result
 
     def inspect_page(self, document_id: str, page_index: int, expected_revision: int | None = None):
@@ -142,23 +162,130 @@ class DocumentService:
         params = {"target_id": target_id, "new_text": new_text, "policy": policy}
         if editable_region is not None:
             params["editable_region"] = editable_region
-        return self._doc_call(document_id, "plan_text_edit", params, expected_revision)
+        plan = self._doc_call(document_id, "plan_text_edit", params, expected_revision)
+        if plan.get("ready"):
+            self._docs[document_id].plans[plan["plan_id"]] = {
+                "params": params, "base_revision": plan["preconditions"]["revision"]
+            }  # fmt: skip
+        return plan
 
     def apply_edit(self, document_id: str, plan_id: str, expected_revision: int):
-        """套用 ready 的計畫。worker 重啟後工作文件回到原檔（P3 才有 command log），
-        revision 不符即回 REVISION_CONFLICT，不會套用到錯的版本。"""
-        return self._doc_call(document_id, "apply_edit", {"plan_id": plan_id}, expected_revision)
+        """套用 ready 的計畫並記入 command log；revision 不符即回 REVISION_CONFLICT。"""
+        result = self._doc_call(document_id, "apply_edit", {"plan_id": plan_id}, expected_revision)
+        doc = self._docs[document_id]
+        entry = doc.plans.get(plan_id)
+        if entry is None:  # worker 套用成功卻沒有對應計畫：log 不完整，重播會失準
+            raise ServiceError("VALIDATION_FAILED", "計畫紀錄不一致")
+        del doc.log[doc.position :]  # 新操作截斷可重做的部分
+        doc.log.append(entry)
+        doc.position += 1
+        self._advance(doc, result["new_revision"])
+        return result
 
-    def export_document(
-        self, document_id: str, destination: str | os.PathLike, expected_revision: int
-    ):
-        """完整重寫並驗證後寫出新檔；目的檔已存在時回 SAVE_FAILED（交易式覆寫屬 P3）。"""
-        params = {"destination": os.fspath(destination)}
-        return self._doc_call(document_id, "export_document", params, expected_revision)
+    def undo(self, document_id: str, expected_revision: int) -> dict:
+        """撤銷一筆：由原檔重播前 position−1 筆（ADR-0020 §1）。"""
+        doc = self._require(document_id, expected_revision)
+        if doc.position == 0:
+            raise ServiceError("INVALID_REQUEST", "沒有可撤銷的操作")
+        params = {"commands": doc.log[: doc.position - 1], "revision": doc.revision + 1,
+                  "reset": True}  # fmt: skip
+        result = self._doc_call(document_id, "replay", params, expected_revision)
+        doc.position -= 1
+        self._advance(doc, result["new_revision"])
+        return result
+
+    def redo(self, document_id: str, expected_revision: int) -> dict:
+        """重做一筆：在目前狀態上重播第 position 筆。"""
+        doc = self._require(document_id, expected_revision)
+        if doc.position == len(doc.log):
+            raise ServiceError("INVALID_REQUEST", "沒有可重做的操作")
+        params = {"commands": [doc.log[doc.position]], "revision": doc.revision + 1,
+                  "reset": False}  # fmt: skip
+        result = self._doc_call(document_id, "replay", params, expected_revision)
+        doc.position += 1
+        self._advance(doc, result["new_revision"])
+        return result
+
+    def history(self, document_id: str) -> dict:
+        doc = self._require(document_id, None)
+        return {"revision": doc.revision, "undo": doc.position,
+                "redo": len(doc.log) - doc.position}  # fmt: skip
+
+    def destination_token(self, path: str | os.PathLike, overwrite: bool = False) -> str:
+        """另存目的地的 token（spec §7 destination_token；ADR-0020 §3）。
+        目的檔已存在而 overwrite 為否時回 SAVE_FAILED。"""
+        try:
+            dest = transaction.destination(path, overwrite)
+        except ProtocolError as exc:
+            raise ServiceError(exc.code, exc.message, exc.retryable) from None
+        token = uuid.uuid4().hex
+        self._tokens[token] = dest
+        return token
+
+    def export_document(self, document_id: str, destination_token: str, expected_revision: int):
+        """交易式另存：worker 寫入同目錄暫存檔並驗證，主行程核對後原子取代目的檔。
+        原檔或目的檔在取得 token 後被修改：REVISION_CONFLICT；目的檔是原檔：INVALID_REQUEST。"""
+        doc = self._require(document_id, expected_revision)
+        dest = self._tokens.get(destination_token) if isinstance(destination_token, str) else None
+        if dest is None:
+            raise ServiceError("INVALID_REQUEST", "目的地 token 無效")
+        if any(transaction.is_same_file(dest.path, d.path) for d in self._docs.values()):
+            raise ServiceError("INVALID_REQUEST", "不可覆寫已開啟文件的原檔")
+
+        def write(temp: str) -> dict:
+            return self._doc_call(document_id, "export_document", {"destination": temp},
+                                  expected_revision)  # fmt: skip
+
+        try:
+            result = transaction.commit(dest, doc.path, doc.sha256, write)
+        except ProtocolError as exc:
+            raise ServiceError(exc.code, exc.message, exc.retryable) from None
+        del self._tokens[destination_token]  # token 只用一次；再存須重新取得（目的檔狀態已改變）
+        return result
+
+    # --- 復原草稿（ADR-0020 §5） --------------------------------------
+    def list_drafts(self) -> list[dict]:
+        return self.drafts.list() if self.drafts is not None else []
+
+    def recover_draft(self, draft_id: str) -> dict[str, Any]:
+        """使用者選擇後才復原：開啟原檔、確認 SHA-256 與草稿相同，再重播到草稿位置。"""
+        draft = self.drafts.load(draft_id) if self.drafts is not None else None
+        if draft is None:
+            raise ServiceError("INVALID_REQUEST", "草稿不存在或已逾期")
+        opened = self.open_document(draft["path"])
+        document_id = opened["document_id"]
+        if opened["sha256"] != draft["sha256"]:
+            self.close_document(document_id)
+            raise ServiceError("REVISION_CONFLICT", "原檔已與草稿不同")
+        doc = self._docs[document_id]
+        log, position = draft["log"], draft["position"]
+        if position:
+            # revision 須大於 log 中任何規劃時版本，之後的 target_id 才不會與舊版本混淆
+            revision = max(e["base_revision"] for e in log) + 1
+            params = {"commands": log[:position], "revision": revision, "reset": False}
+            try:
+                result = self._doc_call(document_id, "replay", params, 0)
+            except ServiceError:
+                self.close_document(document_id)
+                raise
+            doc.revision = result["new_revision"]
+        doc.log, doc.position = log, position
+        if self.drafts is not None:  # 改由新開啟的文件接手；舊草稿刪除
+            self.drafts.discard(draft_id)
+            self._save_draft(doc)
+        return {**opened, "revision": doc.revision}
+
+    def discard_draft(self, draft_id: str) -> None:
+        if self.drafts is not None:
+            self.drafts.discard(draft_id)
 
     def close_document(self, document_id: str) -> None:
         doc = self._docs.pop(document_id, None)
-        if doc is not None and doc.worker_id is not None and self._worker is not None:
+        if doc is None:
+            return
+        if doc.draft_id is not None and self.drafts is not None:
+            self.drafts.discard(doc.draft_id)
+        if doc.worker_id is not None and self._worker is not None:
             try:
                 self._call("close_document", document_id=doc.worker_id)
             except ServiceError:
@@ -193,17 +320,47 @@ class DocumentService:
         self.close()
 
     # --- 內部 ----------------------------------------------------------
+    def _require(self, document_id: str, expected_revision: int | None) -> _Doc:
+        doc = self._docs.get(document_id)
+        if doc is None:
+            raise ServiceError("INVALID_REQUEST", "文件未開啟")
+        if expected_revision is not None and expected_revision != doc.revision:
+            raise ServiceError("REVISION_CONFLICT", "文件版本不符", retryable=True)
+        return doc
+
+    def _advance(self, doc: _Doc, revision: int) -> None:
+        doc.revision = revision
+        doc.plans.clear()  # 計畫只對規劃時的版本有效
+        self._save_draft(doc)
+
+    def _save_draft(self, doc: _Doc) -> None:
+        if self.drafts is None or doc.draft_id is None:
+            return
+        if doc.position == 0:  # 沒有已套用的編輯：不留草稿
+            self.drafts.discard(doc.draft_id)
+            return
+        self.drafts.save(doc.draft_id, doc.path, doc.sha256, doc.log, doc.position)
+
     def _doc_call(self, document_id: str, operation: str, params: dict, expected_revision):
         doc = self._docs.get(document_id)
         if doc is None:
             raise ServiceError("INVALID_REQUEST", "文件未開啟")
         self._ensure_worker()  # worker 已結束時先重啟，才能判斷文件是否需重開
-        if doc.worker_id is None:  # worker 重啟過：依原路徑重開並確認未被外部修改
+        if doc.worker_id is None:  # worker 重啟過：依原路徑重開、確認未被外部修改、重播 log
             reopened = self._call("open_document", params={"path": doc.path})
             if reopened["sha256"] != doc.sha256:
                 self._call("close_document", document_id=reopened["document_id"])
                 raise ServiceError("REVISION_CONFLICT", "檔案已被外部修改")
+            if doc.revision != reopened["revision"]:
+                restore = {"commands": doc.log[: doc.position], "revision": doc.revision,
+                           "reset": False}  # fmt: skip
+                try:
+                    self._call("replay", document_id=reopened["document_id"], params=restore)
+                except ServiceError:
+                    self._call("close_document", document_id=reopened["document_id"])
+                    raise
             doc.worker_id = reopened["document_id"]
+            doc.plans.clear()  # worker 端計畫已隨重啟消失
         return self._call(operation, document_id=doc.worker_id, params=params,
                           expected_revision=expected_revision)  # fmt: skip
 

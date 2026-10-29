@@ -48,6 +48,7 @@ OPERATIONS = frozenset(
         "find_text",
         "plan_text_edit",
         "apply_edit",
+        "replay",  # undo／redo 與 worker 重啟後還原（ADR-0020 §1）
         "export_document",
         "close_document",
     }
