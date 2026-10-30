@@ -38,6 +38,10 @@ P3 報告 §9 U2：ADR-0015 的 7 份 fixture 以 MuPDF 渲染為空白，P4 預
 - 快捷鍵：Qt 標準鍵（QKeySequence.StandardKey），Windows 為 Ctrl、macOS 為 Cmd。
 - 復原草稿：UI 啟用；啟動時列出未逾期草稿由使用者選擇復原或捨棄。先修正 P3 triage f001（草稿結構驗證）、
   f006（保存參數副本）；啟動時清除先前中斷留下的另存暫存檔（P3 U9，路徑記錄在本機資料目錄）。
+- 例外（2026-10-30，工程師於 P4 報告 U8 決定）：啟動時的本機儲存接線 `ui/app.py::prepare_storage` 不經 DocumentService，
+  直接建立 `DraftStore`、設定 `transaction.registry` 並呼叫 `transaction.cleanup_recorded()`。理由：這是行程啟動設定，
+  發生在任何文件開啟前，只涉及本程式自己的資料目錄與暫存檔，不碰使用者 PDF。其餘 UI 程式仍只呼叫 DocumentService 公開 API；
+  點擊判定的座標換算另匯入 `core.geometry`（純計算）。測試：`tests/gui/test_startup.py`。
 
 ### 3. macOS 驗收範圍
 

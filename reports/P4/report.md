@@ -54,10 +54,10 @@ G4 驗收條件：
 
 ```
 uv run ruff check . && uv run ruff format --check .   → exit 0
-uv run pytest -q                                        → exit 0，350 passed（Windows 製作機 offscreen，2026-10-30，U7 修正後）
+uv run pytest -q                                        → exit 0，352 passed（Windows 製作機 offscreen，2026-10-30，U8 處理後）
 ```
 
-- P4 新增 44 項測試（含 U7 的 1 項，見下）。`tests/gui/` 22 項：`test_e2e.py` 15 項、`test_paths.py` 3 項（參數化）、`test_ime.py`、`test_shortcuts.py`、`test_responsiveness.py`、`test_fonts.py` 各 1 項。
+- P4 新增 46 項測試（含 U7 的 1 項、U8 的 2 項，見下）。`tests/gui/` 22 項：`test_e2e.py` 15 項、`test_paths.py` 3 項（參數化）、`test_ime.py`、`test_shortcuts.py`、`test_responsiveness.py`、`test_fonts.py` 各 1 項。
   U2 補測試 21 項（G4-08、G4-09）：`test_preview.py` 3 項、`test_drafts.py` 15 項（結構驗證 14 組＋復原失敗）、`test_crash_injection.py` 2 項、`test_transaction.py` 1 項；
   既有檔案只在末尾新增測試（`test_crash_injection.py` 另加 `import json`）。P3 既有 306 項未修改、全數通過。
 - U2 補測試的反向驗證（暫時把修正改回舊行為後執行，再以 `git checkout` 還原）：拿掉 `_valid`→結構驗證 12／14 組失敗（另 2 組是 saved_at 的 NaN 與未來時間，由 `_expired` 負責，未改動）；
@@ -68,6 +68,7 @@ uv run pytest -q                                        → exit 0，350 passed�
   U7 修正後 run [41001063910](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41001063910)（commit `c234632`）windows-latest 350 passed、macos-15 350 passed。
   同分支的 run 40994200432 是推送時 commit 尚未建立所觸發，內容為 P3 合併點 `0ecf673`，不是 P4 證據。
 - U7 修正（`app.py` 新增 `TextInput`，記錄 IME 組字狀態；`request_preview` 組字中不規劃）與測試 `test_ime.py::test_enter_during_preedit_not_planned`。反向驗證：拿掉組字檢查後該測試失敗（規劃了空字串 `['']`）。
+- U8 處理：`run()` 的啟動接線抽成 `app.py::prepare_storage()`（行為不變），ADR-0021 §2 註明例外；測試 `tests/gui/test_startup.py` 2 項（草稿區與紀錄位置設定、清除上次暫存檔；草稿區不可用時仍啟動並清除）。反向驗證（以備份檔還原）：拿掉清除或拿掉紀錄位置設定，2 項皆失敗。
 - 實作時發現並修正：`drafts.py` 的 `_valid()`（P3 triage f001）插在 `DraftStore` 類別中間，使 `_remove_if_old`、`_file` 變成 `_valid` 內的巢狀函式；
   修正前 5 項失敗（`test_drafts.py` 4 項、`test_flow_recover_draft_after_crash`）。
 - `test_ui_not_blocked` 的反向驗證（臨時檔，未入庫）：`JobRunner.submit` 改為同步執行時，失敗點是 `window.busy` 斷言，不是計時斷言（獨立核對 V3）；另在睡眠工作期間於主執行緒插入 250 ms 工作，計時斷言失敗（最大間隔 260 ms > 100 ms），確認計時量測有效。量測的是 worker `_sleep` 期間的事件迴圈；主執行緒自身的工作（`_previewed` 解碼 PNG、`load_page` 顯示頁面）耗時未量測。
@@ -84,7 +85,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 
 ## 6. 資料完整性與資源／出站紀錄
 
-- **UI 不碰 PDF**：`src/peditor/ui/` 不匯入 PyMuPDF／pikepdf，G1-01 測試持續通過。但不是「只用 DocumentService」：`app.py:38` 匯入 `core.geometry`（點擊判定座標換算）；`app.py:518-526` 的 `run()` 直接建立 `DraftStore`、設定 `transaction.registry` 並呼叫 `transaction.cleanup_recorded()`，繞過 DocumentService，與 ADR-0021 §2 的字面不一致；這段啟動接線沒有測試（§9 U8）。
+- **UI 不碰 PDF**：`src/peditor/ui/` 不匯入 PyMuPDF／pikepdf，G1-01 測試持續通過。但不是「只用 DocumentService」：`app.py:38` 匯入 `core.geometry`（點擊判定座標換算）；啟動時的 `prepare_storage()` 直接建立 `DraftStore`、設定 `transaction.registry` 並呼叫 `transaction.cleanup_recorded()`，不經 DocumentService；已在 ADR-0021 §2 註明為例外，測試 `tests/gui/test_startup.py`（§9 U8）。
 - **預覽不提交**：`preview_edit` 回滾到套用前的位元組與 applied 清單，revision 不變；副作用是同文件其他未套用計畫會失效（ADR-0021 後果）。
 - **暫存檔清除（P3 U9）**：交易建立暫存檔時記錄到本機資料目錄的 `pending-temps.json`，完成或已刪除即移除紀錄；
   UI 啟動時刪除紀錄中符合 `.~peditor-*.tmp.pdf` 命名的檔案。紀錄失敗不影響另存（G4-09）。
@@ -126,7 +127,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | U4 | `preview_edit` 會讓同文件其他未套用計畫失效；UI 一次只有一個計畫，目前沒有影響 | 未來多計畫 UI 須注意 | 備查 |
 | U5 | `THREAT_MODEL.md` 未納入 `pending-temps.json` 與 `preview_edit` | 威脅模型與實作不一致 | 工程師決定是否在 P4 合併前更新 |
 | U7 | 組字中（preedit 進行中）按 Enter：offscreen 下 `returnPressed` 仍觸發，修正前會送出空字串規劃（獨立核對 V6 延伸）；`app.py` 原註解「組字中不觸發 returnPressed」不是 Qt 保證的行為 | 實機輸入法若不攔截 Enter，會以組字前內容規劃 | **已處理**（工程師 2026-10-30 決定合併前修）：`TextInput` 追蹤組字狀態，組字中按 Enter 或「預覽」不規劃；測試 `test_enter_during_preedit_not_planned`（修正前失敗）。實機輸入法行為仍待 U1 驗收 |
-| U8 | `run()` 繞過 DocumentService 直接操作 `DraftStore`、`transaction.registry`（獨立核對 V2），啟動接線無測試 | 與 ADR-0021 §2 字面不一致 | 工程師決定：收進 DocumentService，或在 ADR-0021 註明例外並補啟動接線測試 |
+| U8 | `run()` 繞過 DocumentService 直接操作 `DraftStore`、`transaction.registry`（獨立核對 V2），啟動接線無測試 | 與 ADR-0021 §2 字面不一致 | **已處理**（工程師 2026-10-30 決定在 ADR 註明例外並補測試）：抽成 `prepare_storage()`，ADR-0021 §2 新增例外說明；`tests/gui/test_startup.py` 2 項 |
 | U9 | 多份草稿時一次只詢問第一份（獨立核對 V11） | 其他草稿要到下次啟動才處理；逾期前未處理即刪除 | 工程師決定是否改為列出全部 |
 | U6 | P3 延續：U3（重播 30 秒逾時）、U7（§8.3 效能）、U10（影像雜湊解讀）、U11（逾時路徑無測試）、U12（服務層 undo 失敗無測試） | 同 P3 報告 | 同 P3 報告 |
 
@@ -135,7 +136,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 - CI：run [41001063910](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41001063910)（commit `c234632`，U7 修正後）windows-latest 350 passed、macos-15 350 passed；run 40998022034（commit `ecc067b`）雙平台 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
 - **關卡結果：BLOCKED**。G4-01～G4-09 都有自動測試，本機與 CI 雙平台通過；但 G4 要求兩平台實機，Windows 實機人工驗收尚未執行（U1），
   U2 已補測試。
-- **下一段可開始：否**。條件：Windows 實機驗收完成（含 G4-03 檔案對話框與實機輸入法組字中按 Enter）；工程師決定 U8。macOS 依 ADR-0021 §3 附條件。
+- **下一段可開始：否**。條件：Windows 實機驗收完成（含 G4-03 檔案對話框與實機輸入法組字中按 Enter）。macOS 依 ADR-0021 §3 附條件。
 
 ## 11. 獨立核對紀錄
 
@@ -146,7 +147,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | # | 出入 | 處理 |
 | --- | --- | --- |
 | V1（should-fix） | 報告引用的 CI run 40994221324 是 `28d89b5`，不含 G4-08、G4-09 的 21 項 | §1、§3、§4、§10 與 traceability 改引 run 40998022034（`ecc067b`，雙平台 349 passed） |
-| V2（should-fix） | §6「UI 只匯入 DocumentService 與 Qt」不準確；`run()` 繞過 DocumentService，啟動接線無測試 | §6 改寫；§9 U8 |
+| V2（should-fix） | §6「UI 只匯入 DocumentService 與 Qt」不準確；`run()` 繞過 DocumentService，啟動接線無測試 | §6 改寫；§9 U8，ADR-0021 註明例外並補測試 |
 | V3（should-fix） | JobRunner 同步化的反向驗證失敗在 busy 斷言，未證明計時斷言有效；主執行緒工作未量測 | 另做反向驗證（主執行緒插入 250 ms，計時斷言失敗）；§4 註明 |
 | V4（should-fix） | G4-03 實機「不需」是自行判斷，檔案對話框未驗證 | 改為 Windows／macOS NOT RUN，§7 註明 |
 | V5 | conftest 不是「移動」 | §4 改寫 |

@@ -514,6 +514,21 @@ class MainWindow(QMainWindow):
         super().closeEvent(event)
 
 
+def prepare_storage():
+    """啟動時的本機儲存接線（ADR-0021 §2 例外：不經 DocumentService）：建立復原草稿區、
+    設定暫存檔紀錄位置並清除上次中斷留下的另存暫存檔（P3 U9）。回傳 DraftStore，不可用時回 None。"""
+    from peditor.core.drafts import DraftStore, default_dir
+    from peditor.export import transaction
+
+    try:
+        drafts = DraftStore()  # 同時建立本機資料目錄
+    except Exception:  # noqa: BLE001 — 草稿區不可用時照常編輯，只是不保存草稿
+        drafts = None
+    transaction.registry = str(default_dir().parent / "pending-temps.json")
+    transaction.cleanup_recorded()
+    return drafts
+
+
 def run(*, smoke: bool = False, versions: dict[str, str] | None = None) -> int:
     app = QApplication.instance() or QApplication(sys.argv[:1])
     app.setApplicationName("PEditor")
@@ -525,16 +540,7 @@ def run(*, smoke: bool = False, versions: dict[str, str] | None = None) -> int:
         if code == 0:
             print(SMOKE_MARKER, json.dumps(versions or {}, ensure_ascii=False), flush=True)
         return code
-    from peditor.core.drafts import DraftStore, default_dir
-    from peditor.export import transaction
-
-    try:
-        drafts = DraftStore()  # 同時建立本機資料目錄
-    except Exception:  # noqa: BLE001 — 草稿區不可用時照常編輯，只是不保存草稿
-        drafts = None
-    transaction.registry = str(default_dir().parent / "pending-temps.json")
-    transaction.cleanup_recorded()  # 上次中斷留下的另存暫存檔（P3 U9）
-    with DocumentService(drafts=drafts) as service:
+    with DocumentService(drafts=prepare_storage()) as service:
         window = MainWindow(service)
         window.show()
         QTimer.singleShot(0, window.offer_drafts)
