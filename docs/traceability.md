@@ -96,6 +96,8 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | G4-05 | G4 | 不可編輯物件顯示原因 | `tests/gui/test_e2e.py::test_reason_shown_for_uneditable` | F05、U01 | PASS（本機 Windows offscreen）、CI run 40994221324 雙平台 328 passed |
 | G4-07 | G4 | 中文字型正確顯示（UI 與預覽） | `tests/gui/test_fonts.py::test_cjk_font_rendering`（頁面與前後對照預覽；offscreen 無系統字型，UI 元件字形限實機人工） | T05；實機 B02 | 預覽：PASS（本機 Windows offscreen）、CI run 40994221324 雙平台 328 passed；UI：實機 NOT RUN |
 | G4-06 | P4 | Ctrl／Cmd 快捷鍵；worker 不阻塞 UI（≤100 ms） | `tests/gui/test_shortcuts.py::test_platform_shortcuts`、`tests/gui/test_responsiveness.py::test_ui_not_blocked` | F04 | PASS（本機 Windows offscreen）、CI run 40994221324 雙平台 328 passed；macOS Cmd 實機 NOT RUN |
+| G4-08 | §7、ADR-0021 §1／§2 | 預覽：PREVIEW_UNRELIABLE 恰標出 ADR-0015 的 7 份；preview_edit 不提交（revision、內容不變，原計畫可套用）、其他未套用計畫失效、無效 plan_id 回 INVALID_REQUEST | `tests/integration/test_preview.py::test_preview_unreliable_exactly_mupdf_blank`、`::test_preview_edit_does_not_commit`、`::test_preview_edit_invalidates_other_plans_and_rejects_bad_ids` | 全部 available fixture、F04 | PASS（本機 Windows） |
+| G4-09 | ADR-0021 §2、P3 U4／U9 | 草稿結構驗證（f001）、復原失敗關閉文件、參數副本（f006）、中斷暫存檔紀錄與啟動清除（U9） | `tests/integration/test_drafts.py::test_draft_structure_validated`（14 組）、`::test_recover_failure_closes_document`、`tests/integration/test_transaction.py::test_plan_params_copied`、`tests/integration/test_crash_injection.py::test_temp_recorded_while_writing`、`::test_cleanup_recorded_removes_only_own_temps` | T01、F04、測試內樣本 | PASS（本機 Windows） |
 
 ## G5：圖片替換（P5）
 

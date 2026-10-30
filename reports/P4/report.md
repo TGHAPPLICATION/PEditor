@@ -37,6 +37,8 @@ fixture hash（前 12 碼）：T01 `65a4ebca20fe`、T05 `3704edfda119`、F02 `66
 | G4-06 | `tests/gui/test_shortcuts.py::test_platform_shortcuts`：開啟／另存／復原／重做為 Qt 標準鍵、修飾鍵為 ControlModifier（Qt 在 macOS 對應 Cmd）、原生顯示 Windows `Ctrl+`／macOS `⌘`；以按鍵實際觸發 undo、redo | F04 | PASS | Windows NOT RUN；macOS Cmd NOT RUN |
 | G4-06 | `tests/gui/test_responsiveness.py::test_ui_not_blocked`：worker 睡 1.5 秒期間，10 ms 計時器的最大間隔 ≤100 ms、送出工作 ≤100 ms | F04 | PASS | — |
 | G4-07 | `tests/gui/test_fonts.py::test_cjk_font_rendering`：頁面原中文字形有畫出（文字框內有深色像素）；兩個不同中文新字串的「修改後」預覽圖不同（排除空白與同一缺字框）；介面拿到的文字未改碼 | T05 | 預覽 PASS | UI 元件中文字形 NOT RUN（offscreen 沒有系統字型，見 §7） |
+| G4-08 | `tests/integration/test_preview.py`（3 項）：全部 available fixture（排除加密、損壞）逐頁分析，帶 PREVIEW_UNRELIABLE 的恰為 ADR-0015 的 7 份；worker 層 preview_edit 前後圖不同、revision／內容指紋／applied 不變、之後同一 plan_id 可套用；其他未套用計畫失效；無效 plan_id 回 INVALID_REQUEST | 全部 available、F04 | PASS | — |
+| G4-09 | `test_drafts.py::test_draft_structure_validated`（14 組）、`::test_recover_failure_closes_document`、`test_transaction.py::test_plan_params_copied`、`test_crash_injection.py::test_temp_recorded_while_writing`、`::test_cleanup_recorded_removes_only_own_temps` | T01、F04、測試內樣本 | PASS | — |
 
 G4 驗收條件：
 
@@ -52,11 +54,15 @@ G4 驗收條件：
 
 ```
 uv run ruff check . && uv run ruff format --check .   → exit 0
-uv run pytest -q                                        → exit 0，328 passed（Windows 製作機 offscreen，2026-10-30）
+uv run pytest -q                                        → exit 0，349 passed（Windows 製作機 offscreen，2026-10-30，U2 補測試後）
 ```
 
-- P4 新增 22 項測試，都在 `tests/gui/`：`test_e2e.py` 15 項、`test_paths.py` 3 項（參數化）、`test_ime.py`、`test_shortcuts.py`、`test_responsiveness.py`、`test_fonts.py` 各 1 項。
-  P3 既有 306 項未修改、全數通過。`make_window` fixture 由 `test_e2e.py` 移到 `tests/gui/conftest.py`，內容不變。
+- P4 新增 43 項測試。`tests/gui/` 22 項：`test_e2e.py` 15 項、`test_paths.py` 3 項（參數化）、`test_ime.py`、`test_shortcuts.py`、`test_responsiveness.py`、`test_fonts.py` 各 1 項。
+  U2 補測試 21 項（G4-08、G4-09）：`test_preview.py` 3 項、`test_drafts.py` 15 項（結構驗證 14 組＋復原失敗）、`test_crash_injection.py` 2 項、`test_transaction.py` 1 項；
+  既有檔案只在末尾新增測試（`test_crash_injection.py` 另加 `import json`）。P3 既有 306 項未修改、全數通過。
+- U2 補測試的反向驗證（暫時把修正改回舊行為後執行，再以 `git checkout` 還原）：拿掉 `_valid`→結構驗證 12／14 組失敗（另 2 組是 saved_at 的 NaN 與未來時間，由 `_expired` 負責，未改動）；
+  editable_region 不存副本→`test_plan_params_copied` 失敗；復原只捕 ServiceError→`test_recover_failure_closes_document` 失敗；
+  不寫暫存紀錄→`test_temp_recorded_while_writing` 失敗；清除時不檢查命名→`test_cleanup_recorded_removes_only_own_temps` 失敗；preview_edit 不回滾→`test_preview_edit_does_not_commit` 失敗。`make_window` fixture 由 `test_e2e.py` 移到 `tests/gui/conftest.py`，內容不變。
 - CI：run [40994221324](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40994221324)（commit `28d89b5`）windows-latest 328 passed、macos-15 328 passed。
   同分支的 run 40994200432 是推送時 commit 尚未建立所觸發，內容為 P3 合併點 `0ecf673`，不是 P4 證據。
 - 實作時發現並修正：`drafts.py` 的 `_valid()`（P3 triage f001）插在 `DraftStore` 類別中間，使 `_remove_if_old`、`_file` 變成 `_valid` 內的巢狀函式；
@@ -77,7 +83,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 - **UI 不碰 PDF**：`src/peditor/ui/` 只匯入 DocumentService 與 Qt；G1-01 測試持續通過。
 - **預覽不提交**：`preview_edit` 回滾到套用前的位元組與 applied 清單，revision 不變；副作用是同文件其他未套用計畫會失效（ADR-0021 後果）。
 - **暫存檔清除（P3 U9）**：交易建立暫存檔時記錄到本機資料目錄的 `pending-temps.json`，完成或已刪除即移除紀錄；
-  UI 啟動時刪除紀錄中符合 `.~peditor-*.tmp.pdf` 命名的檔案。紀錄失敗不影響另存。**這部分沒有自動測試**（§9 U2）。
+  UI 啟動時刪除紀錄中符合 `.~peditor-*.tmp.pdf` 命名的檔案。紀錄失敗不影響另存（G4-09）。
 - **復原草稿**：UI 啟用；啟動時列出未逾期草稿，由使用者選擇復原或捨棄。草稿結構驗證（f001）：draft_id、path、sha256、log、position、
   每筆 params 與 base_revision 型別不符即視為損壞並刪除；saved_at 非有限數或晚於現在 60 秒以上視為無效。
   復原時任何例外都關閉開啟一半的文件（`except BaseException`）。
@@ -108,7 +114,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | # | 內容 | 影響 | 需誰確認 |
 | --- | --- | --- | --- |
 | U1 | Windows 實機人工驗收（IME、快捷鍵、中文 UI 字型、E2E）尚未執行；macOS 實機依 ADR-0021 NOT RUN | G4 要求「兩平台實機」，目前只有 offscreen 證據 | 工程師安排 Windows 實機驗收；macOS 依 P3 U1 |
-| U2 | 下列行為改動沒有直接測試，違反 CLAUDE.md「每個行為變更都要有對應 test ID」：`transaction.cleanup_recorded`／`_record`（P3 U9）；`cid_not_in_charset` 恰好標出 7 份（ADR-0021 §1 的說法，只有 T01 的正例，沒有反例與完整清單）；`_valid` 各欄位的拒絕情況（f001）；editable_region 副本（f006）；復原失敗時關閉文件（BaseException）；`preview_edit` 的 worker 層行為（revision 不變、其他計畫失效、無效 plan_id） | 這些行為沒有回歸保護 | 工程師決定合併前補測試或延後 |
+| U2 | 第一版報告時下列行為改動沒有直接測試：暫存紀錄與啟動清除（P3 U9）；PREVIEW_UNRELIABLE 恰標出 7 份；`_valid`（f001）；editable_region 副本（f006）；復原失敗關閉文件；preview_edit 的 worker 層行為 | — | **已處理**（工程師 2026-10-30 決定合併前補）：G4-08、G4-09 共 21 項，反向驗證見 §4 |
 | U3 | G4-02 只在 Qt 層模擬組字；實機輸入法在組字中按 Enter 由輸入法處理，offscreen 無法驗證 | IME 證據不完整 | 實機驗收（U1） |
 | U4 | `preview_edit` 會讓同文件其他未套用計畫失效；UI 一次只有一個計畫，目前沒有影響 | 未來多計畫 UI 須注意 | 備查 |
 | U5 | `THREAT_MODEL.md` 未納入 `pending-temps.json` 與 `preview_edit` | 威脅模型與實作不一致 | 工程師決定是否在 P4 合併前更新 |
@@ -118,8 +124,8 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 
 - CI：run [40994221324](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40994221324)（commit `28d89b5`）windows-latest 328 passed、macos-15 328 passed。
 - **關卡結果：BLOCKED**。G4-01～G4-07 都有自動測試，本機與 CI 雙平台通過；但 G4 要求兩平台實機，Windows 實機人工驗收尚未執行（U1），
-  另有未測的行為改動（U2）。
-- **下一段可開始：否**。條件：Windows 實機驗收完成；U2 補測試或由工程師決定延後；獨立核對完成。macOS 依 ADR-0021 §3 附條件。
+  U2 已補測試。
+- **下一段可開始：否**。條件：Windows 實機驗收完成；獨立核對完成。macOS 依 ADR-0021 §3 附條件。
 
 ## 11. 獨立核對紀錄
 

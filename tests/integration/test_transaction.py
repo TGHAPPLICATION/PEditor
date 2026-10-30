@@ -323,3 +323,19 @@ def test_product_checks_detect_problems(manifest_rows):
         assert export.text_check(document, data) == [{"page_index": 0, "edit_index": 0}]
     finally:
         document.close()
+
+
+def test_plan_params_copied(manifest_rows, service):
+    """P3 triage f006：editable_region 存副本，呼叫端之後改動不影響 command log（重播依此規劃）。"""
+    row = _row(manifest_rows, "F04")
+    doc = service.open_document(FILES / "F04.pdf")["document_id"]
+    try:
+        region = _region(row["editable_region_pt"])
+        expected = list(region)
+        span_id = service.find_text(doc, 0, row["original_text"])
+        plan = service.plan_text_edit(doc, span_id, row["new_text"], "prefer_a", 0, region)
+        region[:] = [0.0, 0.0, 1.0, 1.0]
+        service.apply_edit(doc, plan["plan_id"], 0)
+        assert service._docs[doc].log[0]["params"]["editable_region"] == expected
+    finally:
+        service.close_document(doc)
