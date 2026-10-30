@@ -5,7 +5,7 @@
 
 ## 1. 階段／commit／日期
 
-- 階段：P4　分支：`p4-desktop-ui`　commit：`28d89b5`（實作與 G4 測試）、`ecc067b`（U2 補測試，G4-08、G4-09）、`2aafaf3`（核對出入處理）、`c234632`（U7 修正）、`77a6348`（U8）、`b9a383e`（U9）、`efc3ddf`（U5，THREAT_MODEL）、`cb40fdf`（第二輪核對出入處理，見 §11）、`f601f84`（實機驗收清單，第三輪核對）、`5d4a5df`（U11）　日期：2026-10-30
+- 階段：P4　分支：`p4-desktop-ui`　commit：`28d89b5`（實作與 G4 測試）、`ecc067b`（U2 補測試，G4-08、G4-09）、`2aafaf3`（核對出入處理）、`c234632`（U7 修正）、`77a6348`（U8）、`b9a383e`（U9）、`efc3ddf`（U5，THREAT_MODEL）、`cb40fdf`（第二輪核對出入處理，見 §11）、`f601f84`（實機驗收清單，第三輪核對）、`5d4a5df`（U11）、`51c3c0d`（U11 第四輪核對補修）　日期：2026-10-30
 - 撰寫：Claude Code；審查：待工程師；獨立核對：2026-10-30 四輪（第一輪 `ecc067b`、第二輪 `efc3ddf` 針對 U5、第三輪 `00f8a7d` 針對實機驗收清單、第四輪 `90dcf84` 針對 U11），結論皆「有出入」，處理見 §11
 - 輸入：spec v1.1 P4／G4／§7／§9、ADR-0001～0021、manifest、P3 報告 §9 延續項目（U2、U4 f001／f006、U9）、`docs/traceability.md` 預登記的 G4-01～G4-07
 - S1／S2 工程師決定（2026-10-29，ADR-0021）：預覽維持 MuPDF，偵測 CID 不在 charset 時提示 `PREVIEW_UNRELIABLE`；
@@ -25,7 +25,7 @@
 ## 3. 需求 → test ID → fixture／hash → 結果
 
 fixture hash（前 12 碼）：T01 `65a4ebca20fe`、T05 `3704edfda119`、F02 `661ad2572758`、F04 `6dda72bbbb80`、F05 `6ba509976fbf`、U01 `29d8728efbee`。
-「本機」＝Windows 製作機 offscreen；「CI」＝run 41017277282（commit `5d4a5df`）雙平台 357 passed，涵蓋 G4-01～G4-09、U7～U9、U11 與第二輪核對 W1（§4）。實機欄另列。
+「本機」＝Windows 製作機 offscreen；「CI」＝run 41022660909（commit `51c3c0d`）雙平台 359 passed，涵蓋 G4-01～G4-09、U7～U9、U11（含第四輪補修）與第二輪核對 W1（§4）。實機欄另列。
 
 | 需求 ID | test ID | fixture | 本機／CI | 實機 |
 | --- | --- | --- | --- | --- |
@@ -73,7 +73,7 @@ uv run pytest -q                                        → exit 0，359 passed�
   U8 處理後 CI run [41004289165](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41004289165)（commit `77a6348`）雙平台 352 passed；U9 修正後 run [41005065222](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41005065222)（commit `b9a383e`）windows-latest 354 passed、macos-15 354 passed。
 - 第二輪核對 W1 修正：`transaction._recorded()` 另捕捉 `RecursionError`（巢狀過深的 `pending-temps.json` 原會使啟動與另存中斷）；測試 `test_crash_injection.py::test_cleanup_recorded_malformed_registry`（巢狀過深、非清單、刪除失敗保留）。反向驗證（以備份檔還原）：拿掉 `RecursionError` 後該測試失敗（json decoder RecursionError）。CI run [41011809272](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41011809272)（commit `cb40fdf`）windows-latest 355 passed、macos-15 355 passed。
 - U11 修正：`MainWindow.closeEvent` 在背景工作進行中先 `service.cancel()`，`JobRunner.shutdown(wait=True)` 等背景執行緒結束，再 `close_document` 刪除草稿。測試 `test_drafts_ui.py::test_close_window_discards_draft`、`::test_close_window_while_busy`（worker `_sleep` 20 秒中關閉，10 秒內完成）。反向驗證（以備份檔還原）：拿掉 `close_document`→前者失敗（草稿仍在）；拿掉取消→後者失敗（等了 20 秒）。CI run [41017277282](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41017277282)（commit `5d4a5df`）windows-latest 357 passed、macos-15 357 passed。
-- U11 第四輪核對補修（§11 Y1、Y2）：`JobRunner.shutdown(cancel)` 不再接受新工作、取消排隊中的工作，對執行中的工作每 50 ms 重試 cancel 直到結束（多段呼叫的工作在兩段之間 cancel 打不中，原本會凍結主執行緒到整個工作完成），再以 `QCoreApplication.sendPostedEvents` 收下已完成工作的結果，之後才 `close_document`（原本關閉後才送達的開檔／復原結果會留下文件與草稿，並因對已關閉的執行緒池送工作而丟 RuntimeError）。測試 `::test_close_window_while_busy_between_calls`（工作先在 Python 端 0.5 秒再送 20 秒請求）、`::test_close_window_delivers_finished_result`。反向驗證（以備份檔還原）：只取消一次→前者失敗（等了 20 秒）；拿掉 `sendPostedEvents`→後者失敗（service 仍有 1 份文件）。
+- U11 第四輪核對補修（§11 Y1、Y2）：`JobRunner.shutdown(cancel)` 不再接受新工作、取消排隊中的工作，對執行中的工作每 50 ms 重試 cancel 直到結束（多段呼叫的工作在兩段之間 cancel 打不中，原本會凍結主執行緒到整個工作完成），再以 `QCoreApplication.sendPostedEvents` 收下已完成工作的結果，之後才 `close_document`（原本關閉後才送達的開檔／復原結果會留下文件與草稿，並因對已關閉的執行緒池送工作而丟 RuntimeError）。測試 `::test_close_window_while_busy_between_calls`（工作先在 Python 端 0.5 秒再送 20 秒請求）、`::test_close_window_delivers_finished_result`。反向驗證（以備份檔還原）：只取消一次→前者失敗（等了 20 秒）；拿掉 `sendPostedEvents`→後者失敗（service 仍有 1 份文件）。CI run [41022660909](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41022660909)（commit `51c3c0d`）windows-latest 359 passed、macos-15 359 passed。
 - 實作時發現並修正：`drafts.py` 的 `_valid()`（P3 triage f001）插在 `DraftStore` 類別中間，使 `_remove_if_old`、`_file` 變成 `_valid` 內的巢狀函式；
   修正前 5 項失敗（`test_drafts.py` 4 項、`test_flow_recover_draft_after_crash`）。
 - `test_ui_not_blocked` 的反向驗證（臨時檔，未入庫）：`JobRunner.submit` 改為同步執行時，失敗點是 `window.busy` 斷言，不是計時斷言（獨立核對 V3）；另在睡眠工作期間於主執行緒插入 250 ms 工作，計時斷言失敗（最大間隔 260 ms > 100 ms），確認計時量測有效。量測的是 worker `_sleep` 期間的事件迴圈；主執行緒自身的工作（`_previewed` 解碼 PNG、`load_page` 顯示頁面）耗時未量測。
@@ -144,7 +144,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 
 ## 10. 關卡結果
 
-- CI：run [41017277282](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41017277282)（commit `5d4a5df`，U11 修正後）windows-latest 357 passed、macos-15 357 passed；run [41011809272](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41011809272)（commit `cb40fdf`，第二輪核對處理後）windows-latest 355 passed、macos-15 355 passed；run 41010683123（commit `efc3ddf`，U5，只改文件）雙平台 354 passed；run [41005065222](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41005065222)（commit `b9a383e`，U9 修正後）windows-latest 354 passed、macos-15 354 passed；run 41004289165（`77a6348`）352 passed；run 41001063910（commit `c234632`，U7 修正後）雙平台 350 passed；run 40998022034（commit `ecc067b`）雙平台 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
+- CI：run [41022660909](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41022660909)（commit `51c3c0d`，U11 第四輪補修後）windows-latest 359 passed、macos-15 359 passed；run [41017277282](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41017277282)（commit `5d4a5df`，U11 修正後）windows-latest 357 passed、macos-15 357 passed；run [41011809272](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41011809272)（commit `cb40fdf`，第二輪核對處理後）windows-latest 355 passed、macos-15 355 passed；run 41010683123（commit `efc3ddf`，U5，只改文件）雙平台 354 passed；run [41005065222](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41005065222)（commit `b9a383e`，U9 修正後）windows-latest 354 passed、macos-15 354 passed；run 41004289165（`77a6348`）352 passed；run 41001063910（commit `c234632`，U7 修正後）雙平台 350 passed；run 40998022034（commit `ecc067b`）雙平台 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
 - **關卡結果：BLOCKED**。G4-01～G4-09 都有自動測試，本機與 CI 雙平台通過；但 G4 要求兩平台實機，Windows 實機人工驗收尚未執行（U1），
   U2 已補測試。
 - **下一段可開始：否**。條件：Windows 實機驗收完成（含 G4-03 檔案對話框與實機輸入法組字中按 Enter）。macOS 依 ADR-0021 §3 附條件。
