@@ -2,6 +2,7 @@
 P4 U11：正常關閉視窗刪除草稿。"""
 
 import shutil
+import threading
 import time
 
 from PySide6.QtCore import Qt
@@ -116,11 +117,15 @@ def test_close_window_while_busy_between_calls(qtbot, make_window, monkeypatch):
     open_file(qtbot, window, FILES / "F04.pdf")
     service = window.service
 
+    began = threading.Event()
+
     def two_steps():
+        began.set()
         time.sleep(0.5)
         return service._send_raw("_sleep", {"seconds": 20})
 
     window._run(two_steps, lambda _: None)
+    qtbot.waitUntil(began.is_set)  # 工作已開始（尚未開始會被直接取消，驗不到重試）
     started = time.monotonic()
     window.close()
     assert time.monotonic() - started < 10
@@ -134,11 +139,15 @@ def test_close_window_delivers_finished_result(qtbot, make_window, tmp_path):
     service = window.service
     opened = service.open_document(str(FILES / "F04.pdf"))  # 視窗尚不知道這份文件
 
+    began = threading.Event()
+
     def late():
+        began.set()
         time.sleep(0.3)
         return opened
 
     window._run(late, window._opened)
+    qtbot.waitUntil(began.is_set)  # 工作已開始（尚未開始會被直接取消，驗不到晚到的結果）
     window.close()
     assert service._docs == {} and window.document_id is None
 
@@ -151,6 +160,8 @@ def test_close_window_does_not_offer_drafts(qtbot, make_window, tmp_path):
     asked = []
     window = make_window(DocumentService(drafts=drafts.DraftStore(store_dir)),
                          ask_draft=lambda items: asked.append(items))  # fmt: skip
-    window._run(lambda: time.sleep(0.3), lambda _: window.offer_drafts())
+    began = threading.Event()
+    window._run(lambda: (began.set(), time.sleep(0.3)), lambda _: window.offer_drafts())
+    qtbot.waitUntil(began.is_set)  # 工作已開始（尚未開始會被直接取消，回呼不會執行）
     window.close()
     assert asked == []
