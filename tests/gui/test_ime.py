@@ -45,3 +45,30 @@ def test_preedit_not_committed(qtbot, make_window, monkeypatch):
     qtbot.keyClick(box, Qt.Key.Key_Return)
     wait(qtbot, window)
     assert planned == ["測試局"] and window.plan["ready"]
+
+
+def test_enter_during_preedit_not_planned(qtbot, make_window, monkeypatch):
+    """P4 U7：組字中按 Enter 或「預覽」不規劃（offscreen 下 Qt 仍會發出 returnPressed）。"""
+    window = make_window()
+    open_file(qtbot, window, FILES / "T01.pdf")
+    find(qtbot, window, "衛生局")
+    planned = []
+    original = window.service.plan_text_edit
+
+    def spy(doc, target_id, new_text, *args):
+        planned.append(new_text)
+        return original(doc, target_id, new_text, *args)
+
+    monkeypatch.setattr(window.service, "plan_text_edit", spy)
+    box = window.panel.new_text
+    box.clear()
+    compose(box, "ㄘㄜˋ")
+    qtbot.keyClick(box, Qt.Key.Key_Return)
+    qtbot.mouseClick(window.panel.preview_button, Qt.MouseButton.LeftButton)
+    wait(qtbot, window)
+    assert planned == [] and window.plan is None
+
+    commit(box, "測試局")  # 確認後即可規劃
+    qtbot.keyClick(box, Qt.Key.Key_Return)
+    wait(qtbot, window)
+    assert planned == ["測試局"] and window.plan["ready"]

@@ -90,7 +90,7 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | 需求 ID | spec | 需求 | 預定 test ID | fixture | 狀態 |
 | --- | --- | --- | --- | --- | --- |
 | G4-01 | G4 | 每平台至少 12 個 E2E 流程 | `tests/gui/test_e2e.py::test_flow_*`（12 項） | T01、F02、F04 | PASS（本機 Windows offscreen）、CI run 40998022034 雙平台 349 passed；實機 NOT RUN |
-| G4-02 | G4 | IME 組字中不提前送出 | `tests/gui/test_ime.py::test_preedit_not_committed`（以 QInputMethodEvent 模擬）+ 實機人工 | T01 | PASS（本機 Windows offscreen）、CI run 40998022034 雙平台 349 passed；實機 NOT RUN |
+| G4-02 | G4 | IME 組字中不提前送出 | `tests/gui/test_ime.py::test_preedit_not_committed`、`::test_enter_during_preedit_not_planned`（P4 U7；以 QInputMethodEvent 模擬）+ 實機人工 | T01 | PASS（本機 Windows offscreen）、CI run 40998022034 雙平台 349 passed；實機 NOT RUN |
 | G4-03 | G4 | 中文路徑、空白檔名、emoji 路徑 | `tests/gui/test_paths.py::test_unicode_paths`（3 組：開啟、編輯、另存、重開；繞過檔案對話框） | T01 | PASS（本機 Windows offscreen）、CI run 40998022034 雙平台 349 passed；檔案對話框實機 NOT RUN |
 | G4-04 | G4 | 取消不提交 | `tests/gui/test_e2e.py::test_cancel_does_not_commit` | F04（預登記 T01） | PASS（本機 Windows offscreen）、CI run 40998022034 雙平台 349 passed |
 | G4-05 | G4 | 不可編輯物件顯示原因 | `tests/gui/test_e2e.py::test_reason_shown_for_uneditable` | F05、U01 | PASS（本機 Windows offscreen）、CI run 40998022034 雙平台 349 passed |

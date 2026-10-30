@@ -120,6 +120,16 @@ class PageView(QGraphicsView):
         super().mousePressEvent(event)
 
 
+class TextInput(QLineEdit):
+    """記錄是否在 IME 組字中：Qt 不保證組字中按 Enter 不發出 returnPressed（P4 U7）。"""
+
+    composing = False
+
+    def inputMethodEvent(self, event) -> None:  # noqa: N802 — Qt 介面
+        self.composing = bool(event.preeditString())
+        super().inputMethodEvent(event)
+
+
 class EditPanel(QWidget):
     """側欄：選取內容、新文字輸入、計畫資訊、前後對照。
     只在按「預覽」或 Enter 時規劃（IME 組字中不送出）。"""
@@ -130,7 +140,7 @@ class EditPanel(QWidget):
         self.selected = QLabel("尚未選取文字")
         self.selected.setObjectName("selected")
         self.selected.setWordWrap(True)
-        self.new_text = QLineEdit()
+        self.new_text = TextInput()
         self.new_text.setObjectName("new_text")
         self.new_text.setPlaceholderText("輸入新文字")
         self.preview_button = QPushButton("預覽")
@@ -371,8 +381,8 @@ class MainWindow(QMainWindow):
         self._run(lambda: self.service.find_text(doc, index, text), found)
 
     def request_preview(self) -> None:
-        # 只取已提交的文字：IME 組字中的 preedit 不在 text() 內，也不觸發 returnPressed（G4-02）
-        if self.selection is None or self.busy:
+        # 只取已確認的文字：組字中（含組字中按 Enter）不規劃；preedit 不在 text() 內（G4-02、P4 U7）
+        if self.selection is None or self.busy or self.panel.new_text.composing:
             return
         doc, revision = self.document_id, self.revision
         target_id, new_text = self.selection["target_id"], self.panel.new_text.text()

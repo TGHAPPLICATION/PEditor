@@ -30,7 +30,7 @@ fixture hash（前 12 碼）：T01 `65a4ebca20fe`、T05 `3704edfda119`、F02 `66
 | 需求 ID | test ID | fixture | 本機／CI | 實機 |
 | --- | --- | --- | --- | --- |
 | G4-01 | `tests/gui/test_e2e.py::test_flow_*`（12 項：開檔與縮圖、點選、預覽前後對照不提交、套用、undo／redo、另存重開、覆寫既有目的檔、模式 B 字型替換、溢出說明、尋找文字跨段落選取、預覽不可靠提示、崩潰後復原草稿），另 `::test_source_never_modified` | T01、F02、F04 | PASS | Windows NOT RUN；macOS NOT RUN |
-| G4-02 | `tests/gui/test_ime.py::test_preedit_not_committed`：以 QInputMethodEvent 模擬注音組字，組字中文字不進入內容、不規劃；確認字不規劃；Enter 後只以已確認的「測試局」規劃一次。**未涵蓋組字中按 Enter**（§9 U7） | T01 | PASS | Windows NOT RUN；macOS NOT RUN |
+| G4-02 | `tests/gui/test_ime.py::test_preedit_not_committed`：以 QInputMethodEvent 模擬注音組字，組字中文字不進入內容、不規劃；確認字不規劃；Enter 後只以已確認的「測試局」規劃一次；`::test_enter_during_preedit_not_planned`：組字中按 Enter 或「預覽」不規劃，確認後才規劃（U7） | T01 | PASS | Windows NOT RUN；macOS NOT RUN |
 | G4-03 | `tests/gui/test_paths.py::test_unicode_paths`（3 組：中文目錄＋中文檔名、空白、emoji）：開啟、編輯、另存到同類路徑、重開見新文字 | T01 | PASS | Windows NOT RUN；macOS NOT RUN（測試以 `ask_save`／`open_path` 繞過原生檔案對話框，對話框選取這類路徑須實機） |
 | G4-04 | `test_e2e.py::test_cancel_does_not_commit`：長操作中取消回 CANCELLED，revision 與 history 皆為 0，worker 重啟後頁面為原文 | F04 | PASS | — |
 | G4-05 | `test_e2e.py::test_reason_shown_for_uneditable`：不可編輯目標顯示「無法編輯：<理由>」且不能預覽；U01 顯示無文字層 | F05、U01 | PASS | — |
@@ -54,10 +54,10 @@ G4 驗收條件：
 
 ```
 uv run ruff check . && uv run ruff format --check .   → exit 0
-uv run pytest -q                                        → exit 0，349 passed（Windows 製作機 offscreen，2026-10-30，U2 補測試後）
+uv run pytest -q                                        → exit 0，350 passed（Windows 製作機 offscreen，2026-10-30，U7 修正後）
 ```
 
-- P4 新增 43 項測試。`tests/gui/` 22 項：`test_e2e.py` 15 項、`test_paths.py` 3 項（參數化）、`test_ime.py`、`test_shortcuts.py`、`test_responsiveness.py`、`test_fonts.py` 各 1 項。
+- P4 新增 44 項測試（含 U7 的 1 項，見下）。`tests/gui/` 22 項：`test_e2e.py` 15 項、`test_paths.py` 3 項（參數化）、`test_ime.py`、`test_shortcuts.py`、`test_responsiveness.py`、`test_fonts.py` 各 1 項。
   U2 補測試 21 項（G4-08、G4-09）：`test_preview.py` 3 項、`test_drafts.py` 15 項（結構驗證 14 組＋復原失敗）、`test_crash_injection.py` 2 項、`test_transaction.py` 1 項；
   既有檔案只在末尾新增測試（`test_crash_injection.py` 另加 `import json`）。P3 既有 306 項未修改、全數通過。
 - U2 補測試的反向驗證（暫時把修正改回舊行為後執行，再以 `git checkout` 還原）：拿掉 `_valid`→結構驗證 12／14 組失敗（另 2 組是 saved_at 的 NaN 與未來時間，由 `_expired` 負責，未改動）；
@@ -66,6 +66,7 @@ uv run pytest -q                                        → exit 0，349 passed�
 - CI：run [40994221324](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40994221324)（commit `28d89b5`，不含 G4-08、G4-09）windows-latest 328 passed、macos-15 328 passed；
   run [40998022034](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40998022034)（commit `ecc067b`）windows-latest 349 passed、macos-15 349 passed。
   同分支的 run 40994200432 是推送時 commit 尚未建立所觸發，內容為 P3 合併點 `0ecf673`，不是 P4 證據。
+- U7 修正（`app.py` 新增 `TextInput`，記錄 IME 組字狀態；`request_preview` 組字中不規劃）與測試 `test_ime.py::test_enter_during_preedit_not_planned`。反向驗證：拿掉組字檢查後該測試失敗（規劃了空字串 `['']`）。
 - 實作時發現並修正：`drafts.py` 的 `_valid()`（P3 triage f001）插在 `DraftStore` 類別中間，使 `_remove_if_old`、`_file` 變成 `_valid` 內的巢狀函式；
   修正前 5 項失敗（`test_drafts.py` 4 項、`test_flow_recover_draft_after_crash`）。
 - `test_ui_not_blocked` 的反向驗證（臨時檔，未入庫）：`JobRunner.submit` 改為同步執行時，失敗點是 `window.busy` 斷言，不是計時斷言（獨立核對 V3）；另在睡眠工作期間於主執行緒插入 250 ms 工作，計時斷言失敗（最大間隔 260 ms > 100 ms），確認計時量測有效。量測的是 worker `_sleep` 期間的事件迴圈；主執行緒自身的工作（`_previewed` 解碼 PNG、`load_page` 顯示頁面）耗時未量測。
@@ -123,7 +124,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | U3 | G4-02 只在 Qt 層模擬組字；實機輸入法在組字中按 Enter 由輸入法處理，offscreen 無法驗證 | IME 證據不完整 | 實機驗收（U1） |
 | U4 | `preview_edit` 會讓同文件其他未套用計畫失效；UI 一次只有一個計畫，目前沒有影響 | 未來多計畫 UI 須注意 | 備查 |
 | U5 | `THREAT_MODEL.md` 未納入 `pending-temps.json` 與 `preview_edit` | 威脅模型與實作不一致 | 工程師決定是否在 P4 合併前更新 |
-| U7 | 組字中（preedit 進行中）按 Enter：offscreen 以 QInputMethodEvent 模擬後按 Enter，`returnPressed` 仍觸發，送出空字串規劃（獨立核對 V6 延伸、臨時測試，未入庫）。`app.py:374` 註解「組字中不觸發 returnPressed」不是 Qt 保證的行為，程式沒有自己的防護；實機輸入法通常先吃掉 Enter，但未驗證 | 實機上若輸入法不攔截 Enter，會以組字前的內容（可能是空字串）規劃 | 工程師決定：合併前在 UI 加防護（例如追蹤 preedit 狀態，組字中不規劃）並補測試，或待實機驗收確認 |
+| U7 | 組字中（preedit 進行中）按 Enter：offscreen 下 `returnPressed` 仍觸發，修正前會送出空字串規劃（獨立核對 V6 延伸）；`app.py` 原註解「組字中不觸發 returnPressed」不是 Qt 保證的行為 | 實機輸入法若不攔截 Enter，會以組字前內容規劃 | **已處理**（工程師 2026-10-30 決定合併前修）：`TextInput` 追蹤組字狀態，組字中按 Enter 或「預覽」不規劃；測試 `test_enter_during_preedit_not_planned`（修正前失敗）。實機輸入法行為仍待 U1 驗收 |
 | U8 | `run()` 繞過 DocumentService 直接操作 `DraftStore`、`transaction.registry`（獨立核對 V2），啟動接線無測試 | 與 ADR-0021 §2 字面不一致 | 工程師決定：收進 DocumentService，或在 ADR-0021 註明例外並補啟動接線測試 |
 | U9 | 多份草稿時一次只詢問第一份（獨立核對 V11） | 其他草稿要到下次啟動才處理；逾期前未處理即刪除 | 工程師決定是否改為列出全部 |
 | U6 | P3 延續：U3（重播 30 秒逾時）、U7（§8.3 效能）、U10（影像雜湊解讀）、U11（逾時路徑無測試）、U12（服務層 undo 失敗無測試） | 同 P3 報告 | 同 P3 報告 |
@@ -133,7 +134,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 - CI：run [40998022034](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40998022034)（commit `ecc067b`）windows-latest 349 passed、macos-15 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
 - **關卡結果：BLOCKED**。G4-01～G4-09 都有自動測試，本機與 CI 雙平台通過；但 G4 要求兩平台實機，Windows 實機人工驗收尚未執行（U1），
   U2 已補測試。
-- **下一段可開始：否**。條件：Windows 實機驗收完成（含 G4-03 檔案對話框與 U7 組字中 Enter）；工程師決定 U7、U8。macOS 依 ADR-0021 §3 附條件。
+- **下一段可開始：否**。條件：Windows 實機驗收完成（含 G4-03 檔案對話框與實機輸入法組字中按 Enter）；工程師決定 U8。macOS 依 ADR-0021 §3 附條件。
 
 ## 11. 獨立核對紀錄
 
@@ -148,7 +149,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | V3（should-fix） | JobRunner 同步化的反向驗證失敗在 busy 斷言，未證明計時斷言有效；主執行緒工作未量測 | 另做反向驗證（主執行緒插入 250 ms，計時斷言失敗）；§4 註明 |
 | V4（should-fix） | G4-03 實機「不需」是自行判斷，檔案對話框未驗證 | 改為 Windows／macOS NOT RUN，§7 註明 |
 | V5 | conftest 不是「移動」 | §4 改寫 |
-| V6 | IME 測試未涵蓋組字中按 Enter | 以臨時測試驗證，發現 offscreen 下仍會以空字串規劃；§3、§9 U7 |
+| V6 | IME 測試未涵蓋組字中按 Enter | 以臨時測試驗證，發現 offscreen 下仍會以空字串規劃；§9 U7，已修正並補測試 |
 | V7 | E2E 有捷徑（save_as、_run、select_target） | §7 註明 |
 | V8 | preview_edit 反向驗證的失敗型態 | §4 註明 |
 | V9 | traceability 未說明 G4-04／G4-06 fixture 由 T01 改 F04、G4-08 排除 2 份 | traceability 補註；§7 註明 43／45 份 |
