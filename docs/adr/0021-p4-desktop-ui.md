@@ -44,7 +44,7 @@ P3 報告 §9 U2：ADR-0015 的 7 份 fixture 以 MuPDF 渲染為空白，P4 預
   點擊判定的座標換算另匯入 `core.geometry`（純計算）。測試：`tests/gui/test_startup.py`。
 - 例外（2026-10-30，工程師於 P4 報告 U11 決定）：關閉視窗（`closeEvent`）時主執行緒會等待：`JobRunner.shutdown` 每 50 ms 重試取消直到執行中的工作結束，
   等待時間為目前這段 Python 端運算加上每次終止 worker 最多 5 秒；之後在主執行緒同步呼叫 `close_document`（刪除草稿，ADR-0020 §5），service 持有 worker 時會再送一個 IPC
-  （worker 已死則先重啟一個，啟動時間計入同一逾時），每次最多等請求逾時 30 秒（`REQUEST_TIMEOUT_S`），逾時後終止 worker 最多再 5 秒。
+  （worker 已死則先重啟一個；新 worker 的直譯器載入計入同一逾時，建立行程的呼叫本身不計入），每次最多等請求逾時 30 秒（`REQUEST_TIMEOUT_S`），逾時後終止 worker 最多再 5 秒。
   理由：關閉後不能留下開啟中的文件與草稿，結果晚到的工作也要先收下再關閉。關閉中送達的結果不再開啟對話框或排入新工作。
   測試：`tests/gui/test_drafts_ui.py` 的 `test_close_window_*`。
 
