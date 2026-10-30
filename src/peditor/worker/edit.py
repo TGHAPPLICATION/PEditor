@@ -16,7 +16,7 @@ from dataclasses import dataclass
 import pikepdf
 
 from peditor.core.editplan import EditPlan, SpanTarget, parse_target_id, validate_plan_params
-from peditor.core.geometry import apply, contains
+from peditor.core.geometry import apply, bbox_of, contains
 from peditor.core.limits import MAX_OBJECT_WALK
 from peditor.core.protocol import ProtocolError
 from peditor.worker import analyzer, fontb, span, tagged
@@ -57,6 +57,7 @@ class _Pending:
     text: str = ""  # 實際改動的新文字（模式 B 依此建子集字型）
     font_name: str | None = None  # 模式 B 新增的字型資源名稱
     sync: tagged.ActualTextSync | None = None  # 需同步的結構元素 /ActualText（ADR-0017）
+    params: dict | None = None  # 規劃參數（preview_edit 回滾後以此重新規劃）
 
 
 def _span_target(document: analyzer.Document, target_id: str) -> SpanTarget:
@@ -181,7 +182,7 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
             "element": list(sync.element),
         })  # fmt: skip
         plan.warnings.append("已同步更新結構樹 /ActualText（ADR-0017）")
-    return _store(document, plan, _Pending(plan, edits, change.new_text, font_name, sync))
+    return _store(document, plan, _Pending(plan, edits, change.new_text, font_name, sync, params))
 
 
 def _mode_b_blocker(policy: str, run: TextRun, text: str) -> tuple[str, ...] | None:
@@ -388,6 +389,37 @@ def apply_edit(document: analyzer.Document, plan_id, expected_revision) -> dict:
         "new_text": plan.new_text,
     })  # fmt: skip
     return {"new_revision": document.revision, "command_id": secrets.token_hex(8)}
+
+
+PREVIEW_DPI = 100
+
+
+def preview_edit(document: analyzer.Document, plan_id) -> dict:
+    """前後對照（spec §7 preview_edit、ADR-0021 §2）：套用計畫、渲染改動頁前後圖，
+    再以開啟自的位元組回滾，並以同一參數重新規劃、沿用原 plan_id。
+    revision 不變、不提交；同文件其他未套用計畫會失效。"""
+    pending = document.plans.get(plan_id) if isinstance(plan_id, str) else None
+    if pending is None or pending.params is None:
+        raise ProtocolError("INVALID_REQUEST", "計畫不存在或已失效")
+    page_index = pending.plan.target["page_index"]
+    current, revision, applied = document.current, document.revision, list(document.applied)
+    before = analyzer.render_page(document, page_index, PREVIEW_DPI)
+    try:
+        apply_edit(document, plan_id, revision)
+        after = analyzer.render_page(document, page_index, PREVIEW_DPI)
+    finally:
+        document.reopen(current, revision)
+        document.applied = applied
+    plan = plan_text_edit(document, pending.params)
+    if not plan["ready"]:
+        raise ProtocolError("VALIDATION_FAILED", "預覽後無法重新規劃")
+    document.plans[plan_id] = document.plans.pop(plan["plan_id"])
+    to_view = analyzer.page_geometry(document.pike.pages[page_index]).page_to_view(PREVIEW_DPI / 72)
+    x0, y0, x1, y1 = bbox_of(to_view, tuple(pending.plan.allowed_change_mask))
+    return {"page_index": page_index, "before": before, "after": after,
+            "box": [math.floor(x0), math.floor(y0), math.ceil(x1), math.ceil(y1)],
+            "mode": pending.plan.mode, "font_changes": pending.plan.font_changes,
+            "warnings": pending.plan.warnings}  # fmt: skip
 
 
 def replay(document: analyzer.Document, commands, revision, reset) -> dict:
