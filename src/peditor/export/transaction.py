@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import secrets
@@ -22,6 +23,8 @@ CHUNK = 1024 * 1024
 
 # crash injection（G3-03）：測試設為 callable，於各階段前被呼叫；產品不設定
 fault: Callable[[str], None] | None = None
+# 寫入中暫存檔的紀錄檔（UI 設定在本機資料目錄）：程式中斷後下次啟動時清除（P3 U9、ADR-0021）
+registry: str | None = None
 
 
 @dataclass(frozen=True)
@@ -90,6 +93,7 @@ def commit(dest: Destination, source_path: str, source_sha256: str,
     folder = os.path.dirname(dest.path)
     _remove_stale(folder)
     temp = os.path.join(folder, f".~peditor-{secrets.token_hex(8)}.tmp.pdf")
+    _record(temp, add=True)
     try:
         _stage("write")
         result = write(temp)
@@ -108,7 +112,10 @@ def commit(dest: Destination, source_path: str, source_sha256: str,
             raise ProtocolError("SAVE_FAILED", "無法取代目的檔") from exc
     except BaseException:
         _remove(temp)
+        if not os.path.exists(temp):
+            _record(temp, add=False)
         raise
+    _record(temp, add=False)
     # 已取代：之後的失敗不能回報為另存失敗，只加警告（P3 triage f010）
     try:
         _fsync_dir(folder)
@@ -159,6 +166,50 @@ def _remove_stale(folder: str) -> None:
                 os.remove(path)
         except OSError:
             continue
+
+
+def _recorded() -> list[str]:
+    try:
+        with open(registry, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError, TypeError, RecursionError):  # 巢狀過深的 JSON 亦視為損壞
+        return []
+    return [p for p in data if isinstance(p, str)] if isinstance(data, list) else []
+
+
+def _record(temp: str, add: bool) -> None:
+    """盡力而為：紀錄失敗不影響另存（暫存檔仍會由下次寫入同資料夾時清除）。"""
+    if registry is None:
+        return
+    paths = [p for p in _recorded() if p != temp] + ([temp] if add else [])
+    try:
+        with open(registry, "w", encoding="utf-8") as fh:
+            json.dump(paths, fh)
+    except OSError:
+        pass
+
+
+def cleanup_recorded() -> int:
+    """啟動時刪除上次中斷留下的暫存檔（只刪符合本程式命名的檔案），回傳刪除數。"""
+    if registry is None:
+        return 0
+    removed, kept = 0, []
+    for path in _recorded():
+        if not TEMP_PATTERN.match(os.path.basename(path)):
+            continue
+        try:
+            os.remove(path)
+            removed += 1
+        except FileNotFoundError:
+            pass
+        except OSError:
+            kept.append(path)
+    try:
+        with open(registry, "w", encoding="utf-8") as fh:
+            json.dump(kept, fh)
+    except OSError:
+        pass
+    return removed
 
 
 def _fsync_dir(folder: str) -> None:

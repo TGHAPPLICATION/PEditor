@@ -136,3 +136,57 @@ def test_draft_errors_carry_no_path_and_do_not_undo_edit(manifest_rows, tmp_path
         assert result["new_revision"] == 1 and result["warnings"]
         assert service.history(doc) == {"revision": 1, "undo": 1, "redo": 0}
         service.find_text(doc, 0, row["new_text"])
+
+
+def _good_draft(draft_id):
+    return {"draft_id": draft_id, "path": "x.pdf", "sha256": "0" * 64,
+            "log": [{"params": {}, "base_revision": 0}], "position": 1,
+            "saved_at": 1_000_000.0}  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    "change",
+    [{"draft_id": "fedcba9876543210"}, {"path": 1}, {"sha256": "g" * 64}, {"sha256": "0" * 63},
+     {"log": {}}, {"position": True}, {"position": 2}, {"position": -1},
+     {"log": [{"params": [], "base_revision": 0}]}, {"log": [{"params": {}, "base_revision": -1}]},
+     {"log": [{"params": {}, "base_revision": False}]}, {"log": ["x"]},
+     {"saved_at": float("nan")}, {"saved_at": 1_000_000.0 + 61}],
+)  # fmt: skip
+def test_draft_structure_validated(tmp_path, change):
+    """P3 triage f001：結構不符或時間無效的草稿視為損壞，不載入、不列出並刪除。"""
+    draft_id = "0123456789abcdef"
+    store = drafts.DraftStore(tmp_path, now=lambda: 1_000_000.0)
+    path = tmp_path / f"{draft_id}.json"
+    path.write_text(json.dumps(_good_draft(draft_id)), encoding="utf-8")
+    assert store.load(draft_id) is not None  # 對照：未改動的草稿有效
+    path.write_text(json.dumps({**_good_draft(draft_id), **change}), encoding="utf-8")
+    assert store.list() == [] and not path.exists()
+    path.write_text(json.dumps({**_good_draft(draft_id), **change}), encoding="utf-8")
+    assert store.load(draft_id) is None and not path.exists()
+
+
+def test_recover_failure_closes_document(manifest_rows, tmp_path, monkeypatch):
+    """重播時任何例外（不只 ServiceError）都關閉開啟一半的文件、草稿保留（P3 triage f001）。"""
+    row = _row(manifest_rows, "T01")
+    source = tmp_path / "src.pdf"
+    shutil.copyfile(FILES / "T01.pdf", source)
+    store = drafts.DraftStore(tmp_path / "drafts")
+    service = DocumentService(drafts=store)
+    try:
+        _edit(service, service.open_document(source)["document_id"], row)
+    finally:
+        service.close()
+    with DocumentService(drafts=store) as service:
+        draft_id = service.list_drafts()[0]["draft_id"]
+        original = service._doc_call
+
+        def failing(document_id, operation, *args):
+            if operation == "replay":
+                raise RuntimeError("boom")
+            return original(document_id, operation, *args)
+
+        monkeypatch.setattr(service, "_doc_call", failing)
+        with pytest.raises(RuntimeError):
+            service.recover_draft(draft_id)
+        assert service._docs == {}
+        assert [d["draft_id"] for d in service.list_drafts()] == [draft_id]

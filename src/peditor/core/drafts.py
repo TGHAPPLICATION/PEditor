@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import secrets
@@ -19,6 +20,7 @@ from peditor.core.protocol import ProtocolError
 
 RETENTION_S = 7 * 24 * 3600
 _NAME = re.compile(r"^[0-9a-f]{16}\.json$")
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
 def default_dir() -> Path:
@@ -76,7 +78,7 @@ class DraftStore:
             data = json.loads(self._file(draft_id).read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return None
-        if not isinstance(data, dict) or self._expired(data):
+        if not _valid(data, draft_id) or self._expired(data):  # 損壞或逾期：刪除（P3 triage f001）
             self.discard(draft_id)
             return None
         return data
@@ -114,7 +116,7 @@ class DraftStore:
                 except (OSError, ValueError):
                     self._remove_if_old(path)
                     continue
-                if not isinstance(data, dict) or self._expired(data):
+                if not _valid(data, name[:-5]) or self._expired(data):
                     try:
                         path.unlink(missing_ok=True)
                     except OSError:
@@ -128,7 +130,10 @@ class DraftStore:
 
     def _expired(self, data: dict) -> bool:
         saved = data.get("saved_at")
-        return not isinstance(saved, (int, float)) or self._now() - saved > RETENTION_S
+        if not isinstance(saved, (int, float)) or not math.isfinite(saved):
+            return True
+        age = self._now() - saved
+        return age > RETENTION_S or age < -60  # 未來時間（時鐘錯誤）視為無效，不得無限保留
 
     def _remove_if_old(self, path: Path) -> None:
         try:
@@ -139,3 +144,19 @@ class DraftStore:
 
     def _file(self, draft_id: str) -> Path:
         return self.folder / f"{draft_id}.json"
+
+
+def _valid(data, draft_id: str) -> bool:
+    """草稿結構（P3 triage f001）：不符即視為損壞。"""
+    if not isinstance(data, dict) or data.get("draft_id") != draft_id:
+        return False
+    log, position = data.get("log"), data.get("position")
+    if not (isinstance(data.get("path"), str) and isinstance(data.get("sha256"), str)
+            and _SHA256.match(data["sha256"]) and isinstance(log, list)
+            and isinstance(position, int) and not isinstance(position, bool)
+            and 0 <= position <= len(log)):  # fmt: skip
+        return False
+    return all(isinstance(e, dict) and isinstance(e.get("params"), dict)
+               and isinstance(e.get("base_revision"), int)
+               and not isinstance(e.get("base_revision"), bool) and e["base_revision"] >= 0
+               for e in log)  # fmt: skip
