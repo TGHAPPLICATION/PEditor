@@ -7,9 +7,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QCoreApplication, QObject, Signal
 
 from peditor.core.service import ServiceError
 
@@ -22,6 +22,8 @@ class JobRunner(QObject):
         super().__init__()
         self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="peditor-job")
         self._pending = 0
+        self._futures: set[Future] = set()
+        self._closed = False
         self._finished.connect(self._deliver)
 
     @property
@@ -30,6 +32,8 @@ class JobRunner(QObject):
 
     def submit(self, func: Callable[[], object], on_done: Callable[[object], None],
                on_error: Callable[[ServiceError], None]) -> None:  # fmt: skip
+        if self._closed:  # 視窗關閉後不再接受工作（P4 U11）
+            return
         self._pending += 1
         if self._pending == 1:
             self.busy_changed.emit(True)
@@ -44,7 +48,9 @@ class JobRunner(QObject):
             else:
                 self._finished.emit(on_done, result, None)
 
-        self._pool.submit(run)
+        future = self._pool.submit(run)
+        self._futures.add(future)
+        future.add_done_callback(self._futures.discard)
 
     def _deliver(self, callback, result, error) -> None:
         self._pending -= 1
@@ -54,5 +60,13 @@ class JobRunner(QObject):
             if self._pending == 0:
                 self.busy_changed.emit(False)
 
-    def shutdown(self, wait: bool = False) -> None:
-        self._pool.shutdown(wait=wait, cancel_futures=True)
+    def shutdown(self, cancel: Callable[[], object] | None = None) -> None:
+        """關閉（P4 U11）：不再接受工作、取消排隊中的工作；執行中的工作每 50 ms 呼叫一次 cancel
+        直到結束（多段呼叫的工作在兩段之間取消不到，須重試），再把已完成工作的結果送回主執行緒。"""
+        self._closed = True
+        self._pool.shutdown(wait=False, cancel_futures=True)
+        while running := [f for f in list(self._futures) if not f.done()]:
+            if cancel is not None:
+                cancel()
+            wait(running, timeout=0.05)
+        QCoreApplication.sendPostedEvents(self)

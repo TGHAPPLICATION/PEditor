@@ -106,3 +106,38 @@ def test_close_window_while_busy(qtbot, make_window, tmp_path, monkeypatch):
     window.close()
     assert time.monotonic() - started < 10
     assert store.list() == [] and window.document_id is None
+
+
+def test_close_window_while_busy_between_calls(qtbot, make_window, monkeypatch):
+    """U11：工作還在 Python 端（尚未送出請求）時關閉，cancel 打不中；
+    須重試到取消成功，不等長操作完成。"""
+    monkeypatch.setenv("PEDITOR_WORKER_TEST_HOOKS", "1")
+    window = make_window()
+    open_file(qtbot, window, FILES / "F04.pdf")
+    service = window.service
+
+    def two_steps():
+        time.sleep(0.5)
+        return service._send_raw("_sleep", {"seconds": 20})
+
+    window._run(two_steps, lambda _: None)
+    started = time.monotonic()
+    window.close()
+    assert time.monotonic() - started < 10
+    assert service._docs == {}
+
+
+def test_close_window_delivers_finished_result(qtbot, make_window, tmp_path):
+    """U11：關閉時已完成但結果尚未送回主執行緒的工作（例如開檔、復原草稿），先收下再關閉，不留文件與草稿。"""
+    store = drafts.DraftStore(tmp_path / "drafts")
+    window = make_window(DocumentService(drafts=store))
+    service = window.service
+    opened = service.open_document(str(FILES / "F04.pdf"))  # 視窗尚不知道這份文件
+
+    def late():
+        time.sleep(0.3)
+        return opened
+
+    window._run(late, window._opened)
+    window.close()
+    assert service._docs == {} and window.document_id is None
