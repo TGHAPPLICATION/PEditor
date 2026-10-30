@@ -117,7 +117,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 - CLAUDE.md 規定的 vuln-scan／triage 時點是 P1、P2、P3、P7，P4 沒有規定：**NOT RUN**。
 - 新增的攻擊面：worker 操作 `preview_edit`（只接受 plan_id，型別錯誤回 INVALID_REQUEST）；`cid_not_in_charset` 解析字型程式（例外一律回 False）；
   本機資料目錄的 `pending-temps.json`（啟動時讀取，只刪符合本程式命名的檔案）。
-- `THREAT_MODEL.md`：**未更新**。新增的暫存紀錄檔與 preview_edit 是否需列入，見 §9 U5。
+- `THREAT_MODEL.md`：已更新（U5）。§1 加 P4 段落；§3 編輯請求加 `preview_edit`、新增「暫存紀錄檔」入口；T3 殘餘改為啟動清除後的情況；T5 加 `preview_edit` 成本與 charset 偵測的字型解析；T11 加點擊判定與 preview_edit 回滾；新增 T14（`pending-temps.json` 遭竄改或洩漏資料夾路徑，low／mitigated）。
 
 ## 9. 不確定性與人工確認項目
 
@@ -127,7 +127,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | U2 | 第一版報告時下列行為改動沒有直接測試：暫存紀錄與啟動清除（P3 U9）；PREVIEW_UNRELIABLE 恰標出 7 份；`_valid`（f001）；editable_region 副本（f006）；復原失敗關閉文件；preview_edit 的 worker 層行為 | — | **已處理**（工程師 2026-10-30 決定合併前補）：G4-08、G4-09 共 21 項，反向驗證見 §4 |
 | U3 | G4-02 只在 Qt 層模擬組字；實機輸入法在組字中按 Enter 由輸入法處理，offscreen 無法驗證 | IME 證據不完整 | 實機驗收（U1） |
 | U4 | `preview_edit` 會讓同文件其他未套用計畫失效；UI 一次只有一個計畫，目前沒有影響 | 未來多計畫 UI 須注意 | 備查 |
-| U5 | `THREAT_MODEL.md` 未納入 `pending-temps.json` 與 `preview_edit` | 威脅模型與實作不一致 | 工程師決定是否在 P4 合併前更新 |
+| U5 | `THREAT_MODEL.md` 未納入 `pending-temps.json` 與 `preview_edit` | 威脅模型與實作不一致 | **已處理**（工程師 2026-10-30 決定更新）：見 §8；文件變更，無行為改動、無新測試 |
 | U7 | 組字中（preedit 進行中）按 Enter：offscreen 下 `returnPressed` 仍觸發，修正前會送出空字串規劃（獨立核對 V6 延伸）；`app.py` 原註解「組字中不觸發 returnPressed」不是 Qt 保證的行為 | 實機輸入法若不攔截 Enter，會以組字前內容規劃 | **已處理**（工程師 2026-10-30 決定合併前修）：`TextInput` 追蹤組字狀態，組字中按 Enter 或「預覽」不規劃；測試 `test_enter_during_preedit_not_planned`（修正前失敗）。實機輸入法行為仍待 U1 驗收 |
 | U8 | `run()` 繞過 DocumentService 直接操作 `DraftStore`、`transaction.registry`（獨立核對 V2），啟動接線無測試 | 與 ADR-0021 §2 字面不一致 | **已處理**（工程師 2026-10-30 決定在 ADR 註明例外並補測試）：抽成 `prepare_storage()`，ADR-0021 §2 新增例外說明；`tests/gui/test_startup.py` 2 項 |
 | U9 | 多份草稿時一次只詢問第一份（獨立核對 V11） | 其他草稿要到下次啟動才處理 | **已處理**（工程師 2026-10-30 決定改為全列）：`DraftDialog` 列出全部草稿、捨棄後再列出其餘；`tests/gui/test_drafts_ui.py` 2 項（修正前行為下失敗）。復原一份後其餘仍要到下次啟動才列出 |
