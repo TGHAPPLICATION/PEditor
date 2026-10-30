@@ -5,7 +5,7 @@
 
 ## 1. 階段／commit／日期
 
-- 階段：P4　分支：`p4-desktop-ui`　commit：`28d89b5`（實作與 G4 測試）、`ecc067b`（U2 補測試，G4-08、G4-09）、本報告核對修正 commit　日期：2026-10-30
+- 階段：P4　分支：`p4-desktop-ui`　commit：`28d89b5`（實作與 G4 測試）、`ecc067b`（U2 補測試，G4-08、G4-09）、`2aafaf3`（核對出入處理）、`c234632`（U7 修正）　日期：2026-10-30
 - 撰寫：Claude Code；審查：待工程師；獨立核對：2026-10-30 完成，結論「有出入」，處理見 §11
 - 輸入：spec v1.1 P4／G4／§7／§9、ADR-0001～0021、manifest、P3 報告 §9 延續項目（U2、U4 f001／f006、U9）、`docs/traceability.md` 預登記的 G4-01～G4-07
 - S1／S2 工程師決定（2026-10-29，ADR-0021）：預覽維持 MuPDF，偵測 CID 不在 charset 時提示 `PREVIEW_UNRELIABLE`；
@@ -25,7 +25,7 @@
 ## 3. 需求 → test ID → fixture／hash → 結果
 
 fixture hash（前 12 碼）：T01 `65a4ebca20fe`、T05 `3704edfda119`、F02 `661ad2572758`、F04 `6dda72bbbb80`、F05 `6ba509976fbf`、U01 `29d8728efbee`。
-「本機」＝Windows 製作機 offscreen；「CI」＝run 40998022034（commit `ecc067b`）雙平台 349 passed，涵蓋 G4-01～G4-09（§4）。實機欄另列。
+「本機」＝Windows 製作機 offscreen；「CI」＝run 41001063910（commit `c234632`）雙平台 350 passed，涵蓋 G4-01～G4-09 與 U7（§4）。實機欄另列。
 
 | 需求 ID | test ID | fixture | 本機／CI | 實機 |
 | --- | --- | --- | --- | --- |
@@ -64,7 +64,8 @@ uv run pytest -q                                        → exit 0，350 passed�
   editable_region 不存副本→`test_plan_params_copied` 失敗；復原只捕 ServiceError→`test_recover_failure_closes_document` 失敗；
   不寫暫存紀錄→`test_temp_recorded_while_writing` 失敗；清除時不檢查命名→`test_cleanup_recorded_removes_only_own_temps` 失敗；preview_edit 不回滾→`test_preview_edit_does_not_commit` 失敗。`tests/gui/conftest.py` 的 `make_window` fixture 與 `test_e2e.py` 同在 `28d89b5` 新增。
 - CI：run [40994221324](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40994221324)（commit `28d89b5`，不含 G4-08、G4-09）windows-latest 328 passed、macos-15 328 passed；
-  run [40998022034](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40998022034)（commit `ecc067b`）windows-latest 349 passed、macos-15 349 passed。
+  run [40998022034](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40998022034)（commit `ecc067b`）windows-latest 349 passed、macos-15 349 passed；
+  U7 修正後 run [41001063910](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41001063910)（commit `c234632`）windows-latest 350 passed、macos-15 350 passed。
   同分支的 run 40994200432 是推送時 commit 尚未建立所觸發，內容為 P3 合併點 `0ecf673`，不是 P4 證據。
 - U7 修正（`app.py` 新增 `TextInput`，記錄 IME 組字狀態；`request_preview` 組字中不規劃）與測試 `test_ime.py::test_enter_during_preedit_not_planned`。反向驗證：拿掉組字檢查後該測試失敗（規劃了空字串 `['']`）。
 - 實作時發現並修正：`drafts.py` 的 `_valid()`（P3 triage f001）插在 `DraftStore` 類別中間，使 `_remove_if_old`、`_file` 變成 `_valid` 內的巢狀函式；
@@ -131,7 +132,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 
 ## 10. 關卡結果
 
-- CI：run [40998022034](https://github.com/TGHAPPLICATION/PEditor/actions/runs/40998022034)（commit `ecc067b`）windows-latest 349 passed、macos-15 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
+- CI：run [41001063910](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41001063910)（commit `c234632`，U7 修正後）windows-latest 350 passed、macos-15 350 passed；run 40998022034（commit `ecc067b`）雙平台 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
 - **關卡結果：BLOCKED**。G4-01～G4-09 都有自動測試，本機與 CI 雙平台通過；但 G4 要求兩平台實機，Windows 實機人工驗收尚未執行（U1），
   U2 已補測試。
 - **下一段可開始：否**。條件：Windows 實機驗收完成（含 G4-03 檔案對話框與實機輸入法組字中按 Enter）；工程師決定 U8。macOS 依 ADR-0021 §3 附條件。
