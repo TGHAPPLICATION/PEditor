@@ -1,0 +1,71 @@
+"""P4 U9：復原草稿對話框列出全部未逾期草稿；捨棄後再列出其餘，復原一份後其餘保留。"""
+
+import shutil
+
+from PySide6.QtCore import Qt
+from test_e2e import FILES, apply, click_target, open_file, preview, wait
+
+from peditor.core import drafts
+from peditor.core.service import DocumentService
+from peditor.ui.app import DraftDialog
+
+SAMPLES = [
+    {"draft_id": "0123456789abcdef", "path": "/secret/folder/甲.pdf", "operations": 2,
+     "saved_at": 1_800_000_000.0},
+    {"draft_id": "fedcba9876543210", "path": "/secret/folder/乙 報告.pdf", "operations": 1,
+     "saved_at": 1_800_000_100.0},
+    {"draft_id": "00112233445566ff", "path": "/secret/folder/丙😀.pdf", "operations": 5,
+     "saved_at": 1_800_000_200.0},
+]  # fmt: skip
+
+
+def test_draft_dialog_lists_all(qtbot):
+    dialog = DraftDialog(SAMPLES)
+    qtbot.addWidget(dialog)
+    texts = [dialog.list.item(i).text() for i in range(dialog.list.count())]
+    assert len(texts) == 3
+    names = ("甲.pdf", "乙 報告.pdf", "丙😀.pdf")
+    for text, draft, name in zip(texts, SAMPLES, names, strict=True):
+        assert text.startswith(name) and f"{draft['operations']} 項編輯" in text
+        assert "secret" not in text  # 只顯示檔名，不含完整路徑
+
+    for row, action in ((1, "discard"), (2, "recover")):
+        dialog.choice = None
+        dialog.list.setCurrentRow(row)
+        qtbot.mouseClick(dialog.buttons[action], Qt.MouseButton.LeftButton)
+        assert dialog.choice == (action, SAMPLES[row]["draft_id"])
+    dialog.choice = None
+    qtbot.mouseClick(dialog.buttons["later"], Qt.MouseButton.LeftButton)
+    assert dialog.choice is None
+
+
+def _crash_with_edit(qtbot, make_window, store_dir, source):
+    window = make_window(DocumentService(drafts=drafts.DraftStore(store_dir)))
+    open_file(qtbot, window, source)
+    click_target(qtbot, window, "World")
+    preview(qtbot, window, "Hello Earth")
+    apply(qtbot, window)
+    window.service.close()  # 模擬異常結束：草稿留下
+
+
+def test_offer_drafts_lists_all_and_reoffers_after_discard(qtbot, make_window, tmp_path):
+    store_dir = tmp_path / "drafts"
+    sources = [tmp_path / "a.pdf", tmp_path / "b.pdf"]
+    for source in sources:
+        shutil.copyfile(FILES / "F04.pdf", source)
+        _crash_with_edit(qtbot, make_window, store_dir, source)
+
+    offered = []
+
+    def ask(items):
+        offered.append([d["draft_id"] for d in items])
+        action = "discard" if len(offered) == 1 else "recover"
+        return action, items[0]["draft_id"]
+
+    window = make_window(DocumentService(drafts=drafts.DraftStore(store_dir)), ask_draft=ask)
+    window.offer_drafts()
+    qtbot.waitUntil(lambda: window.document_id is not None, timeout=60_000)
+    wait(qtbot, window)
+    assert len(offered) == 2 and len(offered[0]) == 2  # 兩份都列出
+    assert offered[1] == [i for i in offered[0] if i != offered[0][0]]  # 捨棄後再列出其餘
+    assert any(t["text"] == "Hello Earth" for t in window.page["text_targets"])

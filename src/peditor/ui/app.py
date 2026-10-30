@@ -12,21 +12,22 @@ import os
 import sys
 from collections.abc import Callable
 
-from PySide6.QtCore import QRectF, Qt, QTimer, Signal
+from PySide6.QtCore import QDateTime, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPen, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QFileDialog,
     QGraphicsPixmapItem,
     QGraphicsRectItem,
     QGraphicsScene,
     QGraphicsView,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
-    QMessageBox,
     QProgressBar,
     QPushButton,
     QSplitter,
@@ -165,6 +166,48 @@ class EditPanel(QWidget):
                        self.find_button):  # fmt: skip
             layout.addWidget(widget)
         layout.addStretch(1)
+
+
+class DraftDialog(QDialog):
+    """列出全部未逾期草稿，由使用者選一份復原或捨棄（ADR-0020 §5、P4 U9）。
+    只顯示檔名，不顯示完整路徑。choice：("recover"|"discard", draft_id)，稍後再說為 None。"""
+
+    def __init__(self, drafts: list[dict], parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("復原草稿")
+        self.choice: tuple[str, str] | None = None
+        layout = QVBoxLayout(self)
+        layout.addWidget(
+            QLabel(f"找到 {len(drafts)} 份未儲存的編輯草稿，請選擇要復原或捨棄的草稿：")
+        )
+        self.list = QListWidget()
+        self.list.setObjectName("drafts")
+        for draft in drafts:
+            saved = QDateTime.fromSecsSinceEpoch(int(draft["saved_at"])).toString(
+                "yyyy-MM-dd HH:mm"
+            )
+            item = QListWidgetItem(
+                f"{os.path.basename(draft['path'])}　{draft['operations']} 項編輯　{saved}"
+            )
+            item.setData(Qt.ItemDataRole.UserRole, draft["draft_id"])
+            self.list.addItem(item)
+        self.list.setCurrentRow(0)
+        layout.addWidget(self.list)
+        self.buttons: dict[str, QPushButton] = {}
+        row = QHBoxLayout()
+        for action, text in (("recover", "復原"), ("discard", "捨棄"), ("later", "稍後再說")):
+            button = QPushButton(text)
+            button.setObjectName(action)
+            button.clicked.connect(lambda _=False, a=action: self._choose(a))
+            row.addWidget(button)
+            self.buttons[action] = button
+        layout.addLayout(row)
+
+    def _choose(self, action: str) -> None:
+        item = self.list.currentItem()
+        if action != "later" and item is not None:
+            self.choice = (action, item.data(Qt.ItemDataRole.UserRole))
+        self.accept()
 
 
 class MainWindow(QMainWindow):
@@ -482,9 +525,9 @@ class MainWindow(QMainWindow):
         if choice is None:
             return
         action, draft_id = choice
-        if action == "discard":
-            self._run(lambda: self.service.discard_draft(draft_id), lambda _: None)
-        elif action == "recover":
+        if action == "discard":  # 捨棄後再列出其餘草稿
+            self._run(lambda: self.service.discard_draft(draft_id), lambda _: self.offer_drafts())
+        elif action == "recover":  # 一次只開一份文件；其餘草稿保留，下次啟動再列出
             self._run(lambda: self.service.recover_draft(draft_id), self._recovered)
 
     def _recovered(self, result: dict) -> None:
@@ -501,13 +544,9 @@ class MainWindow(QMainWindow):
         return path or None
 
     def _dialog_draft(self, drafts: list[dict]) -> tuple[str, str] | None:
-        draft = drafts[0]
-        name = os.path.basename(draft["path"])
-        text = (f"找到「{name}」未儲存的 {draft['operations']} 項編輯，要復原嗎？\n"
-                "（選「否」會捨棄草稿）")  # fmt: skip
-        answer = QMessageBox.question(self, "復原草稿", text)
-        return ("recover" if answer == QMessageBox.StandardButton.Yes else "discard",
-                draft["draft_id"])  # fmt: skip
+        dialog = DraftDialog(drafts, self)
+        dialog.exec()
+        return dialog.choice
 
     def closeEvent(self, event) -> None:  # noqa: N802 — Qt 介面
         self.jobs.shutdown()
