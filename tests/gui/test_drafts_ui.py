@@ -1,6 +1,8 @@
-"""P4 U9：復原草稿對話框列出全部未逾期草稿；捨棄後再列出其餘，復原一份後其餘保留。"""
+"""P4 U9：復原草稿對話框列出全部未逾期草稿；捨棄後再列出其餘，復原一份後其餘保留。
+P4 U11：正常關閉視窗刪除草稿。"""
 
 import shutil
+import time
 
 from PySide6.QtCore import Qt
 from test_e2e import FILES, apply, click_target, open_file, preview, wait
@@ -69,3 +71,38 @@ def test_offer_drafts_lists_all_and_reoffers_after_discard(qtbot, make_window, t
     assert len(offered) == 2 and len(offered[0]) == 2  # 兩份都列出
     assert offered[1] == [i for i in offered[0] if i != offered[0][0]]  # 捨棄後再列出其餘
     assert any(t["text"] == "Hello Earth" for t in window.page["text_targets"])
+
+
+def test_close_window_discards_draft(qtbot, make_window, tmp_path):
+    """U11（ADR-0020 §5）：按視窗關閉＝正常 close_document，草稿刪除；異常結束才留下。"""
+    store = drafts.DraftStore(tmp_path / "drafts")
+    source = tmp_path / "a.pdf"
+    shutil.copyfile(FILES / "F04.pdf", source)
+    window = make_window(DocumentService(drafts=store))
+    open_file(qtbot, window, source)
+    click_target(qtbot, window, "World")
+    preview(qtbot, window, "Hello Earth")
+    apply(qtbot, window)
+    assert len(store.list()) == 1
+    window.close()
+    assert store.list() == [] and window.document_id is None
+
+
+def test_close_window_while_busy(qtbot, make_window, tmp_path, monkeypatch):
+    """U11：長操作進行中關閉視窗，先取消再關閉文件，不等操作完成；草稿刪除。"""
+    monkeypatch.setenv("PEDITOR_WORKER_TEST_HOOKS", "1")
+    store = drafts.DraftStore(tmp_path / "drafts")
+    source = tmp_path / "a.pdf"
+    shutil.copyfile(FILES / "F04.pdf", source)
+    window = make_window(DocumentService(drafts=store))
+    open_file(qtbot, window, source)
+    click_target(qtbot, window, "World")
+    preview(qtbot, window, "Hello Earth")
+    apply(qtbot, window)
+    service = window.service
+    window._run(lambda: service._send_raw("_sleep", {"seconds": 20}), lambda _: None)
+    qtbot.waitUntil(lambda: service.inflight_request is not None, timeout=60_000)
+    started = time.monotonic()
+    window.close()
+    assert time.monotonic() - started < 10
+    assert store.list() == [] and window.document_id is None

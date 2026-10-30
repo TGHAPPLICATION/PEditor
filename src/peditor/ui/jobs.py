@@ -54,5 +54,5 @@ class JobRunner(QObject):
             if self._pending == 0:
                 self.busy_changed.emit(False)
 
-    def shutdown(self) -> None:
-        self._pool.shutdown(wait=False, cancel_futures=True)
+    def shutdown(self, wait: bool = False) -> None:
+        self._pool.shutdown(wait=wait, cancel_futures=True)

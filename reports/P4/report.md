@@ -54,10 +54,10 @@ G4 驗收條件：
 
 ```
 uv run ruff check . && uv run ruff format --check .   → exit 0
-uv run pytest -q                                        → exit 0，355 passed（Windows 製作機 offscreen，2026-10-30，第二輪核對 W1 修正後）
+uv run pytest -q                                        → exit 0，357 passed（Windows 製作機 offscreen，2026-10-30，U11 修正後）
 ```
 
-- P4 新增 49 項測試（含 U7 的 1 項、U8 的 2 項、U9 的 2 項、第二輪核對 W1 的 1 項，見下）。`tests/gui/` 22 項：`test_e2e.py` 15 項、`test_paths.py` 3 項（參數化）、`test_ime.py`、`test_shortcuts.py`、`test_responsiveness.py`、`test_fonts.py` 各 1 項。
+- P4 新增 51 項測試（含 U7 的 1 項、U8 的 2 項、U9 的 2 項、第二輪核對 W1 的 1 項、U11 的 2 項，見下）。`tests/gui/` 22 項：`test_e2e.py` 15 項、`test_paths.py` 3 項（參數化）、`test_ime.py`、`test_shortcuts.py`、`test_responsiveness.py`、`test_fonts.py` 各 1 項。
   U2 補測試 21 項（G4-08、G4-09）：`test_preview.py` 3 項、`test_drafts.py` 15 項（結構驗證 14 組＋復原失敗）、`test_crash_injection.py` 2 項、`test_transaction.py` 1 項；
   既有檔案只在末尾新增測試（`test_crash_injection.py` 另加 `import json`）。P3 既有 306 項未修改、全數通過。
 - U2 補測試的反向驗證（暫時把修正改回舊行為後執行，再以 `git checkout` 還原）：拿掉 `_valid`→結構驗證 12／14 組失敗（另 2 組是 saved_at 的 NaN 與未來時間，由 `_expired` 負責，未改動）；
@@ -72,6 +72,7 @@ uv run pytest -q                                        → exit 0，355 passed�
 - U9 修正：新增 `DraftDialog`，列出全部未逾期草稿（檔名、編輯數、儲存時間，不含完整路徑），使用者選一份復原或捨棄；捨棄後再列出其餘；復原一份後其餘保留，下次啟動再列出（一次只開一份文件）。測試 `tests/gui/test_drafts_ui.py` 2 項。反向驗證（以備份檔還原）：捨棄後不再列出、只列第一份，各使對應測試失敗。
   U8 處理後 CI run [41004289165](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41004289165)（commit `77a6348`）雙平台 352 passed；U9 修正後 run [41005065222](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41005065222)（commit `b9a383e`）windows-latest 354 passed、macos-15 354 passed。
 - 第二輪核對 W1 修正：`transaction._recorded()` 另捕捉 `RecursionError`（巢狀過深的 `pending-temps.json` 原會使啟動與另存中斷）；測試 `test_crash_injection.py::test_cleanup_recorded_malformed_registry`（巢狀過深、非清單、刪除失敗保留）。反向驗證（以備份檔還原）：拿掉 `RecursionError` 後該測試失敗（json decoder RecursionError）。CI run [41011809272](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41011809272)（commit `cb40fdf`）windows-latest 355 passed、macos-15 355 passed。
+- U11 修正：`MainWindow.closeEvent` 在背景工作進行中先 `service.cancel()`，`JobRunner.shutdown(wait=True)` 等背景執行緒結束，再 `close_document` 刪除草稿。測試 `test_drafts_ui.py::test_close_window_discards_draft`、`::test_close_window_while_busy`（worker `_sleep` 20 秒中關閉，10 秒內完成）。反向驗證（以備份檔還原）：拿掉 `close_document`→前者失敗（草稿仍在）；拿掉取消→後者失敗（等了 20 秒）。
 - 實作時發現並修正：`drafts.py` 的 `_valid()`（P3 triage f001）插在 `DraftStore` 類別中間，使 `_remove_if_old`、`_file` 變成 `_valid` 內的巢狀函式；
   修正前 5 項失敗（`test_drafts.py` 4 項、`test_flow_recover_draft_after_crash`）。
 - `test_ui_not_blocked` 的反向驗證（臨時檔，未入庫）：`JobRunner.submit` 改為同步執行時，失敗點是 `window.busy` 斷言，不是計時斷言（獨立核對 V3）；另在睡眠工作期間於主執行緒插入 250 ms 工作，計時斷言失敗（最大間隔 260 ms > 100 ms），確認計時量測有效。量測的是 worker `_sleep` 期間的事件迴圈；主執行緒自身的工作（`_previewed` 解碼 PNG、`load_page` 顯示頁面）耗時未量測。
@@ -134,10 +135,10 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | U8 | `run()` 繞過 DocumentService 直接操作 `DraftStore`、`transaction.registry`（獨立核對 V2），啟動接線無測試 | 與 ADR-0021 §2 字面不一致 | **已處理**（工程師 2026-10-30 決定在 ADR 註明例外並補測試）：抽成 `prepare_storage()`，ADR-0021 §2 新增例外說明；`tests/gui/test_startup.py` 2 項 |
 | U9 | 多份草稿時一次只詢問第一份（獨立核對 V11） | 其他草稿要到下次啟動才處理 | **已處理**（工程師 2026-10-30 決定改為全列）：`DraftDialog` 列出全部草稿、捨棄後再列出其餘；`tests/gui/test_drafts_ui.py` 2 項（修正前行為下失敗）。復原一份後其餘仍要到下次啟動才列出 |
 | U10 | 多實例同時執行：啟動清除不檢查暫存檔年齡、沒有單一實例鎖；`_record` 讀改寫未加鎖（第二輪核對 W2） | 另一實例的另存失敗（原檔與目的檔不受影響）；並行時可能遺失紀錄而退回 P3 清除方式 | **列 P7**（工程師 2026-10-30 決定）；已記入 THREAT_MODEL T3、§8 |
-| U11 | 按視窗 ✕ 正常關閉時 UI 不呼叫 `close_document`（`closeEvent` 只停 JobRunner），草稿不刪，下次啟動仍列出（第三輪核對，offscreen 實測） | 與 ADR-0020 §5「正常 close_document 時刪除」及 THREAT_MODEL T13「正常關閉即刪」不一致；草稿（含新文字）多留最多 7 天 | 工程師決定修正（關閉時 close_document）或改 ADR；清單 W31 標已知不符 |
-| U12 | 快捷鍵：「重做」只綁第一組 Ctrl+Y（`setShortcut`），Ctrl+Shift+Z 無作用；套用後焦點在「尋找文字」欄，Ctrl+Z 由輸入欄處理而非文件復原；工具列提示不顯示快捷鍵 | 使用者可能以為復原失效 | 工程師決定是否改（`setShortcuts`、套用後移焦點、提示加快捷鍵）；清單 W10、W11、W24 標已知 |
-| U13 | 開啟 0 頁文件（加密 U02）後頁面區仍顯示前一份文件與目標框 | 使用者可能點選到已關閉文件的框 | 工程師決定是否修；清單 W06 記錄 |
-| U14 | G4-04 實際套用流程的取消，人工在實機來不及操作（套用約 0.15 秒） | G4-04 只有 offscreen 證據（worker 延遲模擬） | 工程師決定是否接受 |
+| U11 | 按視窗 ✕ 正常關閉時 UI 不呼叫 `close_document`（`closeEvent` 只停 JobRunner），草稿不刪，下次啟動仍列出（第三輪核對，offscreen 實測） | 與 ADR-0020 §5「正常 close_document 時刪除」及 THREAT_MODEL T13「正常關閉即刪」不一致；草稿（含新文字）多留最多 7 天 | **已處理**（工程師 2026-10-30 決定修）：`closeEvent` 先取消進行中的請求、等背景執行緒結束，再 `close_document`（刪草稿）；測試 `tests/gui/test_drafts_ui.py::test_close_window_discards_draft`、`::test_close_window_while_busy`（修正前／拿掉取消時失敗，§4）；清單 W31 改為依 ADR 判定 |
+| U12 | 快捷鍵：「重做」只綁第一組 Ctrl+Y（`setShortcut`），Ctrl+Shift+Z 無作用；套用後焦點在「尋找文字」欄，Ctrl+Z 由輸入欄處理而非文件復原；工具列提示不顯示快捷鍵 | 使用者可能以為復原失效 | **列 P7**（工程師 2026-10-30 決定）；清單 W10、W11、W24 標已知不符 |
+| U13 | 開啟 0 頁文件（加密 U02）後頁面區仍顯示前一份文件與目標框 | 使用者可能點選到已關閉文件的框 | **列 P7**（工程師 2026-10-30 決定）；清單 W06 記錄 |
+| U14 | G4-04 實際套用流程的取消，人工在實機來不及操作（套用約 0.15 秒） | G4-04 只有 offscreen 證據（worker 延遲模擬） | **列 P7**（工程師 2026-10-30 決定）；清單 W26 照實記錄 |
 | U6 | P3 延續：U3（重播 30 秒逾時）、U7（§8.3 效能）、U10（影像雜湊解讀）、U11（逾時路徑無測試）、U12（服務層 undo 失敗無測試） | 同 P3 報告 | 同 P3 報告 |
 
 ## 10. 關卡結果
@@ -184,7 +185,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | W10 | G4-08 只測 revision 0 的預覽回滾；provenance 未標 commit | 備查，未處理 |
 
 第三輪（2026-10-30，HEAD `00f8a7d`，針對 Windows 實機驗收清單）：未參與撰寫的 Claude 子代理人以 offscreen MainWindow、真的 worker 與 Windows PowerShell 5.1 實測清單各步驟（**不是實機證據**），結束時工作目錄乾淨。
-結論「清單無法照做」，處理如下（清單已重寫；產品行為不符的項目列 §9 U11–U14，未改產品碼）：
+結論「清單無法照做」，處理如下（清單已重寫；產品行為不符的項目列 §9 U11–U14：U11 已修正，U12–U14 列 P7）：
 
 | # | 出入 | 處理 |
 | --- | --- | --- |
@@ -193,7 +194,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | X3（must-fix） | 套用後焦點在輸入欄，Ctrl+Z 被吃掉；Ctrl+Shift+Z 未綁定 | W10 先點頁面；W11 以 Ctrl+Y 判定，Ctrl+Shift+Z 記錄；U12 |
 | X4（must-fix） | 拒絕覆寫原檔時 UI 實際顯示「操作無法執行」，且先出現原生取代確認 | W20 改寫 |
 | X5（must-fix） | 工具列提示不顯示快捷鍵 | W24 改為記錄；U12 |
-| X6（must-fix） | 按 ✕ 正常關閉不刪草稿，W31 無法依 ADR 判定 | W31 改寫並標已知不符；U11 |
+| X6（must-fix） | 按 ✕ 正常關閉不刪草稿，W31 無法依 ADR 判定 | U11 已修正並補測試；W31 依 ADR 判定 |
 | X7（must-fix） | W15 以 W17 確認結果，但 W17 是另一份文件 | W15 改為另存 T01 後以 Edge 確認 |
 | X8 | emoji 路徑在 5.1 無 BOM 腳本會壞；桌面可能被 OneDrive 重新導向 | 以 `ConvertFromUtf32` 組字、`GetFolderPath('Desktop')`，並註明直接貼到視窗 |
 | X9 | W27 指令放在表格內，`\|` 複製後失效 | 移到 code block；加等「已更新」與殘留行程檢查 |

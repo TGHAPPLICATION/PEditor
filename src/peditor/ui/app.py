@@ -549,7 +549,13 @@ class MainWindow(QMainWindow):
         return dialog.choice
 
     def closeEvent(self, event) -> None:  # noqa: N802 — Qt 介面
-        self.jobs.shutdown()
+        """正常關閉：取消進行中的請求、關閉文件並刪除其草稿（ADR-0020 §5，P4 U11）。"""
+        if self.jobs.busy:
+            self.service.cancel()
+        self.jobs.shutdown(wait=True)
+        if self.document_id is not None:
+            self.service.close_document(self.document_id)
+            self.document_id = None
         super().closeEvent(event)
 
 
