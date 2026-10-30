@@ -92,7 +92,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 - **預覽不提交**：`preview_edit` 回滾到套用前的位元組與 applied 清單，revision 不變；副作用是同文件其他未套用計畫會失效（ADR-0021 後果）。
 - **暫存檔清除（P3 U9）**：交易建立暫存檔時記錄到本機資料目錄的 `pending-temps.json`，完成或已刪除即移除紀錄；
   UI 啟動時刪除紀錄中符合 `.~peditor-*.tmp.pdf` 命名的檔案。紀錄失敗或紀錄檔損壞（含巢狀過深）不影響啟動與另存（G4-09）。CLI 不設紀錄檔。
-  殘餘：啟動清除不檢查年齡、沒有單一實例鎖，同時執行兩個 PEditor 時後啟動者會使前者寫入中的另存失敗（原檔與目的檔不受影響）；紀錄讀改寫未加鎖（§9 U10）。
+  殘餘：啟動清除不檢查年齡、沒有單一實例鎖，同時執行兩個 PEditor 時後啟動者會使前者寫入中的另存失敗（原檔與目的檔不受影響）；紀錄讀改寫未加鎖（§9 U10，列 P7）。
 - **復原草稿**：UI 啟用；啟動時列出全部未逾期草稿，由使用者選一份復原或捨棄；捨棄後再列出其餘，復原一份後其餘保留到下次啟動（§9 U9）；對話框只顯示檔名、不含完整路徑。草稿結構驗證（f001）：draft_id、path、sha256、log、position、
   每筆 params 與 base_revision 型別不符即視為損壞並刪除；saved_at 非有限數或晚於現在 60 秒以上視為無效。
   復原時任何例外都關閉開啟一半的文件（`except BaseException`）。
@@ -133,7 +133,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | U7 | 組字中（preedit 進行中）按 Enter：offscreen 下 `returnPressed` 仍觸發，修正前會送出空字串規劃（獨立核對 V6 延伸）；`app.py` 原註解「組字中不觸發 returnPressed」不是 Qt 保證的行為 | 實機輸入法若不攔截 Enter，會以組字前內容規劃 | **已處理**（工程師 2026-10-30 決定合併前修）：`TextInput` 追蹤組字狀態，組字中按 Enter 或「預覽」不規劃；測試 `test_enter_during_preedit_not_planned`（修正前失敗）。實機輸入法行為仍待 U1 驗收 |
 | U8 | `run()` 繞過 DocumentService 直接操作 `DraftStore`、`transaction.registry`（獨立核對 V2），啟動接線無測試 | 與 ADR-0021 §2 字面不一致 | **已處理**（工程師 2026-10-30 決定在 ADR 註明例外並補測試）：抽成 `prepare_storage()`，ADR-0021 §2 新增例外說明；`tests/gui/test_startup.py` 2 項 |
 | U9 | 多份草稿時一次只詢問第一份（獨立核對 V11） | 其他草稿要到下次啟動才處理 | **已處理**（工程師 2026-10-30 決定改為全列）：`DraftDialog` 列出全部草稿、捨棄後再列出其餘；`tests/gui/test_drafts_ui.py` 2 項（修正前行為下失敗）。復原一份後其餘仍要到下次啟動才列出 |
-| U10 | 多實例同時執行：啟動清除不檢查暫存檔年齡、沒有單一實例鎖；`_record` 讀改寫未加鎖（第二輪核對 W2） | 另一實例的另存失敗（原檔與目的檔不受影響）；並行時可能遺失紀錄而退回 P3 清除方式 | 工程師決定是否在 P4 修（單一實例鎖或年齡檢查），或列 P7；已記入 THREAT_MODEL T3、§8 |
+| U10 | 多實例同時執行：啟動清除不檢查暫存檔年齡、沒有單一實例鎖；`_record` 讀改寫未加鎖（第二輪核對 W2） | 另一實例的另存失敗（原檔與目的檔不受影響）；並行時可能遺失紀錄而退回 P3 清除方式 | **列 P7**（工程師 2026-10-30 決定）；已記入 THREAT_MODEL T3、§8 |
 | U6 | P3 延續：U3（重播 30 秒逾時）、U7（§8.3 效能）、U10（影像雜湊解讀）、U11（逾時路徑無測試）、U12（服務層 undo 失敗無測試） | 同 P3 報告 | 同 P3 報告 |
 
 ## 10. 關卡結果
@@ -169,7 +169,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | # | 出入 | 處理 |
 | --- | --- | --- |
 | W1（must-fix） | T14「JSON 錯誤一律視為空紀錄」不成立：巢狀過深的 `pending-temps.json` 使 `_recorded()` 丟出 RecursionError，啟動（`prepare_storage`）與另存（`_record`）中斷，每次啟動重現 | 程式修正（另捕捉 `RecursionError`）並補測試 `test_cleanup_recorded_malformed_registry`（修正前失敗，§4）；T14 改寫 |
-| W2（should-fix） | 啟動清除不檢查年齡、無單一實例鎖，多實例時會刪掉另一實例寫入中的暫存檔；`_record` 讀改寫未加鎖 | THREAT_MODEL T3 殘餘、§8 新增一列；§6、§9 U10，待工程師決定 |
+| W2（should-fix） | 啟動清除不檢查年齡、無單一實例鎖，多實例時會刪掉另一實例寫入中的暫存檔；`_record` 讀改寫未加鎖 | THREAT_MODEL T3 殘餘、§8 新增一列；§6、§9 U10，列 P7 |
 | W3（should-fix） | T5 未說明 charset 偵測在每次 `inspect_page` 執行、不快取，只開檔檢視即讓不可信 CFF 進入 fontTools | T5、§1 補述；§8 註明 |
 | W4（should-fix） | §1「所有呼叫在單一背景執行緒」過寬：`cancel`、`history`、`list_drafts` 在主執行緒 | THREAT_MODEL §1 改寫（ADR-0021 §2 原文同此寫法，未改 ADR） |
 | W5（should-fix） | T3 未註明「僅 UI；CLI 不記錄」；T14 所述非清單、刪除失敗保留、符號連結無測試 | T3 補註；非清單與刪除失敗保留補入 W1 測試；符號連結在 T14 標「未測」 |
