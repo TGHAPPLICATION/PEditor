@@ -103,7 +103,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 
 ## 7. 限制、阻擋、未測項目
 
-- **Windows 實機人工驗收**：NOT RUN。IME（注音／倉頡實機輸入）、快捷鍵實按、中文 UI 字型、12 個 E2E 流程的人工操作皆未做。
+- **Windows 實機人工驗收**：NOT RUN。驗收清單見 `reports/P4/windows-acceptance.md`（W01–W31）。IME（注音／倉頡實機輸入）、快捷鍵實按、中文 UI 字型、12 個 E2E 流程的人工操作皆未做。
 - **macOS 實機**：NOT RUN（ADR-0021 §3、P3 U1）。
 - **UI 中文字形**：offscreen 平台的字型資料庫沒有任何繁中字型（實測 `QFontDatabase.families(TraditionalChinese)` 為 0），
   介面元件的中文是否顯示正確無法自動驗證。
