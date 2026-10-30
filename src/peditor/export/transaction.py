@@ -172,7 +172,7 @@ def _recorded() -> list[str]:
     try:
         with open(registry, encoding="utf-8") as fh:
             data = json.load(fh)
-    except (OSError, ValueError, TypeError):
+    except (OSError, ValueError, TypeError, RecursionError):  # 巢狀過深的 JSON 亦視為損壞
         return []
     return [p for p in data if isinstance(p, str)] if isinstance(data, list) else []
 

@@ -5,8 +5,8 @@
 
 ## 1. 階段／commit／日期
 
-- 階段：P4　分支：`p4-desktop-ui`　commit：`28d89b5`（實作與 G4 測試）、`ecc067b`（U2 補測試，G4-08、G4-09）、`2aafaf3`（核對出入處理）、`c234632`（U7 修正）、`77a6348`（U8）、`b9a383e`（U9）　日期：2026-10-30
-- 撰寫：Claude Code；審查：待工程師；獨立核對：2026-10-30 完成，結論「有出入」，處理見 §11
+- 階段：P4　分支：`p4-desktop-ui`　commit：`28d89b5`（實作與 G4 測試）、`ecc067b`（U2 補測試，G4-08、G4-09）、`2aafaf3`（核對出入處理）、`c234632`（U7 修正）、`77a6348`（U8）、`b9a383e`（U9）、`efc3ddf`（U5，THREAT_MODEL）、本次 commit（第二輪核對出入處理，見 §11）　日期：2026-10-30
+- 撰寫：Claude Code；審查：待工程師；獨立核對：2026-10-30 兩輪（第一輪 `ecc067b`、第二輪 `efc3ddf` 針對 U5），結論皆「有出入」，處理見 §11
 - 輸入：spec v1.1 P4／G4／§7／§9、ADR-0001～0021、manifest、P3 報告 §9 延續項目（U2、U4 f001／f006、U9）、`docs/traceability.md` 預登記的 G4-01～G4-07
 - S1／S2 工程師決定（2026-10-29，ADR-0021）：預覽維持 MuPDF，偵測 CID 不在 charset 時提示 `PREVIEW_UNRELIABLE`；
   UI 只呼叫 DocumentService 公開 API、單一背景執行緒；新增 worker 操作 `preview_edit`；macOS 只有 CI 證據，實機項目標 NOT RUN。
@@ -38,7 +38,7 @@ fixture hash（前 12 碼）：T01 `65a4ebca20fe`、T05 `3704edfda119`、F02 `66
 | G4-06 | `tests/gui/test_responsiveness.py::test_ui_not_blocked`：worker 睡 1.5 秒期間，10 ms 計時器的最大間隔 ≤100 ms、送出工作 ≤100 ms | F04 | PASS | — |
 | G4-07 | `tests/gui/test_fonts.py::test_cjk_font_rendering`：頁面原中文字形有畫出（文字框內有深色像素）；兩個不同中文新字串的「修改後」預覽圖不同（排除空白與同一缺字框）；介面拿到的文字未改碼 | T05 | 預覽 PASS | UI 元件中文字形 NOT RUN（offscreen 沒有系統字型，見 §7） |
 | G4-08 | `tests/integration/test_preview.py`（3 項）：全部 available fixture（排除加密、損壞）逐頁分析，帶 PREVIEW_UNRELIABLE 的恰為 ADR-0015 的 7 份；worker 層 preview_edit 前後圖不同、revision／內容指紋／applied 不變、之後同一 plan_id 可套用；其他未套用計畫失效；無效 plan_id 回 INVALID_REQUEST | 全部 available、F04 | PASS | — |
-| G4-09 | `test_drafts.py::test_draft_structure_validated`（14 組）、`::test_recover_failure_closes_document`、`test_transaction.py::test_plan_params_copied`、`test_crash_injection.py::test_temp_recorded_while_writing`、`::test_cleanup_recorded_removes_only_own_temps` | T01、F04、測試內樣本 | PASS | — |
+| G4-09 | `test_drafts.py::test_draft_structure_validated`（14 組）、`::test_recover_failure_closes_document`、`test_transaction.py::test_plan_params_copied`、`test_crash_injection.py::test_temp_recorded_while_writing`、`::test_cleanup_recorded_removes_only_own_temps`、`::test_cleanup_recorded_malformed_registry`（第二輪核對 W1） | T01、F04、測試內樣本 | PASS | — |
 
 G4 驗收條件：
 
@@ -54,10 +54,10 @@ G4 驗收條件：
 
 ```
 uv run ruff check . && uv run ruff format --check .   → exit 0
-uv run pytest -q                                        → exit 0，354 passed（Windows 製作機 offscreen，2026-10-30，U9 修正後）
+uv run pytest -q                                        → exit 0，355 passed（Windows 製作機 offscreen，2026-10-30，第二輪核對 W1 修正後）
 ```
 
-- P4 新增 48 項測試（含 U7 的 1 項、U8 的 2 項、U9 的 2 項，見下）。`tests/gui/` 22 項：`test_e2e.py` 15 項、`test_paths.py` 3 項（參數化）、`test_ime.py`、`test_shortcuts.py`、`test_responsiveness.py`、`test_fonts.py` 各 1 項。
+- P4 新增 49 項測試（含 U7 的 1 項、U8 的 2 項、U9 的 2 項、第二輪核對 W1 的 1 項，見下）。`tests/gui/` 22 項：`test_e2e.py` 15 項、`test_paths.py` 3 項（參數化）、`test_ime.py`、`test_shortcuts.py`、`test_responsiveness.py`、`test_fonts.py` 各 1 項。
   U2 補測試 21 項（G4-08、G4-09）：`test_preview.py` 3 項、`test_drafts.py` 15 項（結構驗證 14 組＋復原失敗）、`test_crash_injection.py` 2 項、`test_transaction.py` 1 項；
   既有檔案只在末尾新增測試（`test_crash_injection.py` 另加 `import json`）。P3 既有 306 項未修改、全數通過。
 - U2 補測試的反向驗證（暫時把修正改回舊行為後執行，再以 `git checkout` 還原）：拿掉 `_valid`→結構驗證 12／14 組失敗（另 2 組是 saved_at 的 NaN 與未來時間，由 `_expired` 負責，未改動）；
@@ -71,6 +71,7 @@ uv run pytest -q                                        → exit 0，354 passed�
 - U8 處理：`run()` 的啟動接線抽成 `app.py::prepare_storage()`（行為不變），ADR-0021 §2 註明例外；測試 `tests/gui/test_startup.py` 2 項（草稿區與紀錄位置設定、清除上次暫存檔；草稿區不可用時仍啟動並清除）。反向驗證（以備份檔還原）：拿掉清除或拿掉紀錄位置設定，2 項皆失敗。
 - U9 修正：新增 `DraftDialog`，列出全部未逾期草稿（檔名、編輯數、儲存時間，不含完整路徑），使用者選一份復原或捨棄；捨棄後再列出其餘；復原一份後其餘保留，下次啟動再列出（一次只開一份文件）。測試 `tests/gui/test_drafts_ui.py` 2 項。反向驗證（以備份檔還原）：捨棄後不再列出、只列第一份，各使對應測試失敗。
   U8 處理後 CI run [41004289165](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41004289165)（commit `77a6348`）雙平台 352 passed；U9 修正後 run [41005065222](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41005065222)（commit `b9a383e`）windows-latest 354 passed、macos-15 354 passed。
+- 第二輪核對 W1 修正：`transaction._recorded()` 另捕捉 `RecursionError`（巢狀過深的 `pending-temps.json` 原會使啟動與另存中斷）；測試 `test_crash_injection.py::test_cleanup_recorded_malformed_registry`（巢狀過深、非清單、刪除失敗保留）。反向驗證（以備份檔還原）：拿掉 `RecursionError` 後該測試失敗（json decoder RecursionError）。
 - 實作時發現並修正：`drafts.py` 的 `_valid()`（P3 triage f001）插在 `DraftStore` 類別中間，使 `_remove_if_old`、`_file` 變成 `_valid` 內的巢狀函式；
   修正前 5 項失敗（`test_drafts.py` 4 項、`test_flow_recover_draft_after_crash`）。
 - `test_ui_not_blocked` 的反向驗證（臨時檔，未入庫）：`JobRunner.submit` 改為同步執行時，失敗點是 `window.busy` 斷言，不是計時斷言（獨立核對 V3）；另在睡眠工作期間於主執行緒插入 250 ms 工作，計時斷言失敗（最大間隔 260 ms > 100 ms），確認計時量測有效。量測的是 worker `_sleep` 期間的事件迴圈；主執行緒自身的工作（`_previewed` 解碼 PNG、`load_page` 顯示頁面）耗時未量測。
@@ -82,7 +83,7 @@ uv run pytest -q                                        → exit 0，354 passed�
 本段沒有新增編輯能力，編輯證據沿用 P2（`reports/P2/evidence/`）。P4 的 UI 經 DocumentService 呼叫既有 plan／apply／undo／redo／export，
 E2E 測試確認：套用後頁面目標文字更新、另存檔以 PyMuPDF 擷取到新文字、重開後目標為新文字；原檔 SHA-256 不變（`test_source_never_modified`）。
 
-新增的 `preview_edit`（ADR-0021 §2）：在工作文件上套用計畫、渲染改動頁前後圖、以開啟自的位元組回滾，再以同一參數重新規劃並沿用 plan_id。
+新增的 `preview_edit`（ADR-0021 §2）：在工作文件上套用計畫、渲染改動頁前後圖、回滾到套用前的工作文件位元組（ADR-0021 §2 寫作「開啟自的位元組」，指同一件事），再以同一參數重新規劃並沿用 plan_id。
 E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常套用。
 
 ## 6. 資料完整性與資源／出站紀錄
@@ -90,7 +91,8 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 - **UI 不碰 PDF**：`src/peditor/ui/` 不匯入 PyMuPDF／pikepdf，G1-01 測試持續通過。但不是「只用 DocumentService」：`app.py:38` 匯入 `core.geometry`（點擊判定座標換算）；啟動時的 `prepare_storage()` 直接建立 `DraftStore`、設定 `transaction.registry` 並呼叫 `transaction.cleanup_recorded()`，不經 DocumentService；已在 ADR-0021 §2 註明為例外，測試 `tests/gui/test_startup.py`（§9 U8）。
 - **預覽不提交**：`preview_edit` 回滾到套用前的位元組與 applied 清單，revision 不變；副作用是同文件其他未套用計畫會失效（ADR-0021 後果）。
 - **暫存檔清除（P3 U9）**：交易建立暫存檔時記錄到本機資料目錄的 `pending-temps.json`，完成或已刪除即移除紀錄；
-  UI 啟動時刪除紀錄中符合 `.~peditor-*.tmp.pdf` 命名的檔案。紀錄失敗不影響另存（G4-09）。
+  UI 啟動時刪除紀錄中符合 `.~peditor-*.tmp.pdf` 命名的檔案。紀錄失敗或紀錄檔損壞（含巢狀過深）不影響啟動與另存（G4-09）。CLI 不設紀錄檔。
+  殘餘：啟動清除不檢查年齡、沒有單一實例鎖，同時執行兩個 PEditor 時後啟動者會使前者寫入中的另存失敗（原檔與目的檔不受影響）；紀錄讀改寫未加鎖（§9 U10）。
 - **復原草稿**：UI 啟用；啟動時列出全部未逾期草稿，由使用者選一份復原或捨棄；捨棄後再列出其餘，復原一份後其餘保留到下次啟動（§9 U9）；對話框只顯示檔名、不含完整路徑。草稿結構驗證（f001）：draft_id、path、sha256、log、position、
   每筆 params 與 base_revision 型別不符即視為損壞並刪除；saved_at 非有限數或晚於現在 60 秒以上視為無效。
   復原時任何例外都關閉開啟一半的文件（`except BaseException`）。
@@ -116,8 +118,8 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 
 - CLAUDE.md 規定的 vuln-scan／triage 時點是 P1、P2、P3、P7，P4 沒有規定：**NOT RUN**。
 - 新增的攻擊面：worker 操作 `preview_edit`（只接受 plan_id，型別錯誤回 INVALID_REQUEST）；`cid_not_in_charset` 解析字型程式（例外一律回 False）；
-  本機資料目錄的 `pending-temps.json`（啟動時讀取，只刪符合本程式命名的檔案）。
-- `THREAT_MODEL.md`：已更新（U5）。§1 加 P4 段落；§3 編輯請求加 `preview_edit`、新增「暫存紀錄檔」入口；T3 殘餘改為啟動清除後的情況；T5 加 `preview_edit` 成本與 charset 偵測的字型解析；T11 加點擊判定與 preview_edit 回滾；新增 T14（`pending-temps.json` 遭竄改或洩漏資料夾路徑，low／mitigated）。
+  本機資料目錄的 `pending-temps.json`（啟動時讀取，只刪符合本程式命名的檔案）。`PREVIEW_UNRELIABLE` 偵測使每次 `inspect_page` 都以 fontTools 解析 CID-keyed CFF，只開檔檢視就會觸發（P2 模式 A 只在規劃時），見 THREAT_MODEL T5。
+- `THREAT_MODEL.md`：已更新（U5），第二輪獨立核對後再修正（§11）。§1 加 P4 段落；§3 編輯請求加 `preview_edit`、新增「暫存紀錄檔」入口；T3 殘餘改為啟動清除後的情況；T5 加 `preview_edit` 成本與 charset 偵測的字型解析；T11 加點擊判定與 preview_edit 回滾；新增 T14（`pending-temps.json` 遭竄改或洩漏資料夾路徑，low／mitigated）。
 
 ## 9. 不確定性與人工確認項目
 
@@ -131,11 +133,12 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | U7 | 組字中（preedit 進行中）按 Enter：offscreen 下 `returnPressed` 仍觸發，修正前會送出空字串規劃（獨立核對 V6 延伸）；`app.py` 原註解「組字中不觸發 returnPressed」不是 Qt 保證的行為 | 實機輸入法若不攔截 Enter，會以組字前內容規劃 | **已處理**（工程師 2026-10-30 決定合併前修）：`TextInput` 追蹤組字狀態，組字中按 Enter 或「預覽」不規劃；測試 `test_enter_during_preedit_not_planned`（修正前失敗）。實機輸入法行為仍待 U1 驗收 |
 | U8 | `run()` 繞過 DocumentService 直接操作 `DraftStore`、`transaction.registry`（獨立核對 V2），啟動接線無測試 | 與 ADR-0021 §2 字面不一致 | **已處理**（工程師 2026-10-30 決定在 ADR 註明例外並補測試）：抽成 `prepare_storage()`，ADR-0021 §2 新增例外說明；`tests/gui/test_startup.py` 2 項 |
 | U9 | 多份草稿時一次只詢問第一份（獨立核對 V11） | 其他草稿要到下次啟動才處理 | **已處理**（工程師 2026-10-30 決定改為全列）：`DraftDialog` 列出全部草稿、捨棄後再列出其餘；`tests/gui/test_drafts_ui.py` 2 項（修正前行為下失敗）。復原一份後其餘仍要到下次啟動才列出 |
+| U10 | 多實例同時執行：啟動清除不檢查暫存檔年齡、沒有單一實例鎖；`_record` 讀改寫未加鎖（第二輪核對 W2） | 另一實例的另存失敗（原檔與目的檔不受影響）；並行時可能遺失紀錄而退回 P3 清除方式 | 工程師決定是否在 P4 修（單一實例鎖或年齡檢查），或列 P7；已記入 THREAT_MODEL T3、§8 |
 | U6 | P3 延續：U3（重播 30 秒逾時）、U7（§8.3 效能）、U10（影像雜湊解讀）、U11（逾時路徑無測試）、U12（服務層 undo 失敗無測試） | 同 P3 報告 | 同 P3 報告 |
 
 ## 10. 關卡結果
 
-- CI：run [41005065222](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41005065222)（commit `b9a383e`，U9 修正後）windows-latest 354 passed、macos-15 354 passed；run 41004289165（`77a6348`）352 passed；run 41001063910（commit `c234632`，U7 修正後）雙平台 350 passed；run 40998022034（commit `ecc067b`）雙平台 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
+- CI：run 41010683123（commit `efc3ddf`，U5，只改文件）雙平台 354 passed；run [41005065222](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41005065222)（commit `b9a383e`，U9 修正後）windows-latest 354 passed、macos-15 354 passed；run 41004289165（`77a6348`）352 passed；run 41001063910（commit `c234632`，U7 修正後）雙平台 350 passed；run 40998022034（commit `ecc067b`）雙平台 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
 - **關卡結果：BLOCKED**。G4-01～G4-09 都有自動測試，本機與 CI 雙平台通過；但 G4 要求兩平台實機，Windows 實機人工驗收尚未執行（U1），
   U2 已補測試。
 - **下一段可開始：否**。條件：Windows 實機驗收完成（含 G4-03 檔案對話框與實機輸入法組字中按 Enter）。macOS 依 ADR-0021 §3 附條件。
@@ -159,3 +162,20 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | V9 | traceability 未說明 G4-04／G4-06 fixture 由 T01 改 F04、G4-08 排除 2 份 | traceability 補註；§7 註明 43／45 份 |
 | V10 | macOS CI 的 Python 是 3.13.15 | §2 改寫 |
 | V11 | 多份草稿一次只問一份 | §6 改寫；§9 U9，已改為全列並補測試 |
+
+第二輪（2026-10-30，HEAD `efc3ddf`，針對 U5 的 THREAT_MODEL 更新）：未參與實作的 Claude 子代理人只讀核對 THREAT_MODEL 每項新陳述與程式碼、測試是否相符，
+確認 CI run 41010683123（`efc3ddf`）雙平台 354 passed，並在 scratchpad 實測過深 JSON 與 `cleanup_recorded()`；結束時工作目錄乾淨。結論「有出入」，must-fix 1 項（W1，已由實作方重現），處理如下：
+
+| # | 出入 | 處理 |
+| --- | --- | --- |
+| W1（must-fix） | T14「JSON 錯誤一律視為空紀錄」不成立：巢狀過深的 `pending-temps.json` 使 `_recorded()` 丟出 RecursionError，啟動（`prepare_storage`）與另存（`_record`）中斷，每次啟動重現 | 程式修正（另捕捉 `RecursionError`）並補測試 `test_cleanup_recorded_malformed_registry`（修正前失敗，§4）；T14 改寫 |
+| W2（should-fix） | 啟動清除不檢查年齡、無單一實例鎖，多實例時會刪掉另一實例寫入中的暫存檔；`_record` 讀改寫未加鎖 | THREAT_MODEL T3 殘餘、§8 新增一列；§6、§9 U10，待工程師決定 |
+| W3（should-fix） | T5 未說明 charset 偵測在每次 `inspect_page` 執行、不快取，只開檔檢視即讓不可信 CFF 進入 fontTools | T5、§1 補述；§8 註明 |
+| W4（should-fix） | §1「所有呼叫在單一背景執行緒」過寬：`cancel`、`history`、`list_drafts` 在主執行緒 | THREAT_MODEL §1 改寫（ADR-0021 §2 原文同此寫法，未改 ADR） |
+| W5（should-fix） | T3 未註明「僅 UI；CLI 不記錄」；T14 所述非清單、刪除失敗保留、符號連結無測試 | T3 補註；非清單與刪除失敗保留補入 W1 測試；符號連結在 T14 標「未測」 |
+| W6（should-fix） | 報告 §1 未列 `efc3ddf`、§10 未列 run 41010683123 | 已補 |
+| W7 | 「開啟自的位元組」實為套用前的工作文件位元組 | THREAT_MODEL §1、T11 與報告 §5 改寫；ADR-0021 未改 |
+| W8 | preview_edit 成本另含一次重新開啟 | T5 補述 |
+| W9 | T14 排在 T13 之前；§8 無 T14 對應列 | T14 移到 T13 之後；§8 新增一列（與 W2 同列） |
+| W10 | G4-08 只測 revision 0 的預覽回滾；provenance 未標 commit | 備查，未處理 |
+

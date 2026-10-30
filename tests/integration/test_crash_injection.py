@@ -275,3 +275,29 @@ def test_cleanup_recorded_removes_only_own_temps(tmp_path, monkeypatch):
     assert transaction.cleanup_recorded() == 0 and left.exists()
     monkeypatch.setattr(transaction, "registry", None)  # 未設定紀錄檔（CLI）：不做任何事
     assert transaction.cleanup_recorded() == 0 and left.exists()
+
+
+def test_cleanup_recorded_malformed_registry(tmp_path, monkeypatch):
+    """紀錄檔巢狀過深或不是清單時視為空紀錄、不中斷啟動與另存；刪除失敗的路徑留到下次啟動。"""
+    registry = tmp_path / "pending-temps.json"
+    monkeypatch.setattr(transaction, "registry", str(registry))
+    left = tmp_path / ".~peditor-00000000000000aa.tmp.pdf"
+    left.write_bytes(b"content")
+    for broken in ("[" * 200_000, json.dumps({"paths": [str(left)]})):
+        registry.write_text(broken, encoding="utf-8")
+        assert transaction.cleanup_recorded() == 0 and left.exists()
+        registry.write_text(broken, encoding="utf-8")
+        _commit_with(tmp_path, monkeypatch, None, f"dest{len(broken)}.pdf")
+        assert transaction._recorded() == []
+
+    registry.write_text(json.dumps([str(left)]), encoding="utf-8")
+    real_remove = os.remove
+
+    def locked(path):
+        if os.path.basename(path) == left.name:
+            raise PermissionError
+        real_remove(path)
+
+    monkeypatch.setattr(transaction.os, "remove", locked)
+    assert transaction.cleanup_recorded() == 0 and left.exists()
+    assert transaction._recorded() == [str(left)]
