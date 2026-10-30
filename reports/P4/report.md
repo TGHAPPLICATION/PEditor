@@ -6,7 +6,7 @@
 ## 1. 階段／commit／日期
 
 - 階段：P4　分支：`p4-desktop-ui`　commit：`28d89b5`（實作與 G4 測試）、`ecc067b`（U2 補測試，G4-08、G4-09）、`2aafaf3`（核對出入處理）、`c234632`（U7 修正）、`77a6348`（U8）、`b9a383e`（U9）、`efc3ddf`（U5，THREAT_MODEL）、`cb40fdf`（第二輪核對出入處理，見 §11）、`f601f84`（實機驗收清單，第三輪核對）、`5d4a5df`（U11）、`51c3c0d`（U11 第四輪核對補修）、`5b3f148`（U11 第五輪核對處理）、`ffcecc3`（第六輪核對 A4、A5）、`3f712aa`（第七輪核對 B1–B3）、`46febae`（第八輪核對 C1–C3，只改文件）　日期：2026-10-30
-- 撰寫：Claude Code；審查：待工程師；獨立核對：2026-10-30 八輪（第一輪 `ecc067b`、第二輪 `efc3ddf` 針對 U5、第三輪 `00f8a7d` 針對實機驗收清單、第四輪 `90dcf84` 針對 U11、第五輪 `e2c8cf4` 針對 U11 補修、第六輪 `5b3f148` 針對第五輪處理、第七輪 `60d0cab` 針對 A4／A5、第八輪 `3f712aa` 針對 B1–B3），前五輪結論「有出入」、第六輪無程式上的 must-fix、第七、八輪無 must-fix，處理見 §11
+- 撰寫：Claude Code；審查：待工程師；獨立核對：2026-10-30 九輪（第一輪 `ecc067b`、第二輪 `efc3ddf` 針對 U5、第三輪 `00f8a7d` 針對實機驗收清單、第四輪 `90dcf84` 針對 U11、第五輪 `e2c8cf4` 針對 U11 補修、第六輪 `5b3f148` 針對第五輪處理、第七輪 `60d0cab` 針對 A4／A5、第八輪 `3f712aa` 針對 B1–B3、第九輪 `0ddc265` 針對 C1–C3），前五輪結論「有出入」、第六輪無程式上的 must-fix、第七、八輪無 must-fix、第九輪無出入，處理見 §11
 - 輸入：spec v1.1 P4／G4／§7／§9、ADR-0001～0021、manifest、P3 報告 §9 延續項目（U2、U4 f001／f006、U9）、`docs/traceability.md` 預登記的 G4-01～G4-07
 - S1／S2 工程師決定（2026-10-29，ADR-0021）：預覽維持 MuPDF，偵測 CID 不在 charset 時提示 `PREVIEW_UNRELIABLE`；
   UI 只呼叫 DocumentService 公開 API、單一背景執行緒；新增 worker 操作 `preview_edit`；macOS 只有 CI 證據，實機項目標 NOT RUN。
@@ -260,4 +260,14 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | C2 | §1 commit 清單未列 `3f712aa` | 補 |
 | C3 | §11 A5 處理欄仍引用舊文字「worker 存活時」 | 該列補註「第七輪 B1、第八輪 C1 已改寫」 |
 | C4 | 送 IPC 另需 `doc.worker_id` 不是 None（ADR 未寫，只會讓 IPC 變少、不影響上限）；第七輪實驗數字無法從 repo 驗證；ADR 修改的人工確認與 ADR 開頭未註明 10-30 增補須工程師確認 | 備查 |
+
+第九輪（2026-10-30，HEAD `0ddc265`，針對第八輪 C1–C3，只改文件）：未參與實作的 Claude 子代理人在 %TEMP% 的 worktree 以量測腳本重測（Windows 製作機，非 pytest、**不是實機驗收證據**）：worker 已死時 `close_document` 共 0.458 秒，建立行程約 0.010 秒在計時外、`_exchange` 0.447 秒在計時內；另以「子行程先睡 3 秒再進 worker」反證，逾時 1 秒時於 1.009 秒逾時並收掉新 worker，確認 ADR-0021 §2 C1 新文字與程式一致。
+§1、§11 的修改與 `46febae`、`0ddc265` 的 diff 一致，全 repo .md 沒有殘留過時說法（舊用詞只在已加註的歷史引文）；`ffcecc3` 之後只改 .md。文件 commit 的 CI：run 41040138927（`46febae`）、41040808503（`0ddc265`）雙平台 360 passed。結束時 worktree 已移除、工作目錄乾淨。結論「無必須修正、無建議修正」，備查：
+
+| # | 備查 | 處理 |
+| --- | --- | --- |
+| D1 | 計時前除建立行程外，還有取得 `_lock`、對已死舊 worker 的 `kill()`、`send()`，實測皆毫秒級；ADR 只點名建立行程 | 備查，不改 ADR |
+| D2 | worker 已死時 `close_document` 送給新 worker 的是舊 `worker_id`，錯誤被吞掉，不影響上限（屬 Y7 同一情境）；Y7 措辭未點名 Popen OSError，但語意涵蓋 | 備查 |
+| D3 | §1 不列只改報告的 commit（例如 `0ddc265`），屬既有慣例 | 備查 |
+| D4 | ADR 修改的人工確認與 ADR 開頭未註明 10-30 增補，無法從 repo 核對 | 須工程師審查時確認 |
 
