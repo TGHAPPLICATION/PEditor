@@ -89,13 +89,13 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 
 | 需求 ID | spec | 需求 | 預定 test ID | fixture | 狀態 |
 | --- | --- | --- | --- | --- | --- |
-| G4-01 | G4 | 每平台至少 12 個 E2E 流程 | `tests/gui/test_e2e.py::test_flow_*`（12 項） | T01、F02、F04 | PASS（本機 Windows offscreen）；CI 待跑；實機 NOT RUN |
-| G4-02 | G4 | IME 組字中不提前送出 | `tests/gui/test_ime.py::test_preedit_not_committed`（以 QInputMethodEvent 模擬）+ 實機人工 | T01 | PASS（本機 Windows offscreen）；CI 待跑；實機 NOT RUN |
-| G4-03 | G4 | 中文路徑、空白檔名、emoji 路徑 | `tests/gui/test_paths.py::test_unicode_paths`（3 組：開啟、編輯、另存、重開） | T01 | PASS（本機 Windows offscreen）；CI 待跑 |
-| G4-04 | G4 | 取消不提交 | `tests/gui/test_e2e.py::test_cancel_does_not_commit` | F04 | PASS（本機 Windows offscreen）；CI 待跑 |
-| G4-05 | G4 | 不可編輯物件顯示原因 | `tests/gui/test_e2e.py::test_reason_shown_for_uneditable` | F05、U01 | PASS（本機 Windows offscreen）；CI 待跑 |
-| G4-07 | G4 | 中文字型正確顯示（UI 與預覽） | `tests/gui/test_fonts.py::test_cjk_font_rendering`（頁面與前後對照預覽；offscreen 無系統字型，UI 元件字形限實機人工） | T05；實機 B02 | 預覽：PASS（本機 Windows offscreen）、CI 待跑；UI：實機 NOT RUN |
-| G4-06 | P4 | Ctrl／Cmd 快捷鍵；worker 不阻塞 UI（≤100 ms） | `tests/gui/test_shortcuts.py::test_platform_shortcuts`、`tests/gui/test_responsiveness.py::test_ui_not_blocked` | F04 | PASS（本機 Windows offscreen）；CI 待跑；macOS Cmd 實機 NOT RUN |
+| G4-01 | G4 | 每平台至少 12 個 E2E 流程 | `tests/gui/test_e2e.py::test_flow_*`（12 項） | T01、F02、F04 | PASS（本機 Windows offscreen）、CI run 40994221324 雙平台 328 passed；實機 NOT RUN |
+| G4-02 | G4 | IME 組字中不提前送出 | `tests/gui/test_ime.py::test_preedit_not_committed`（以 QInputMethodEvent 模擬）+ 實機人工 | T01 | PASS（本機 Windows offscreen）、CI run 40994221324 雙平台 328 passed；實機 NOT RUN |
+| G4-03 | G4 | 中文路徑、空白檔名、emoji 路徑 | `tests/gui/test_paths.py::test_unicode_paths`（3 組：開啟、編輯、另存、重開） | T01 | PASS（本機 Windows offscreen）、CI run 40994221324 雙平台 328 passed |
+| G4-04 | G4 | 取消不提交 | `tests/gui/test_e2e.py::test_cancel_does_not_commit` | F04 | PASS（本機 Windows offscreen）、CI run 40994221324 雙平台 328 passed |
+| G4-05 | G4 | 不可編輯物件顯示原因 | `tests/gui/test_e2e.py::test_reason_shown_for_uneditable` | F05、U01 | PASS（本機 Windows offscreen）、CI run 40994221324 雙平台 328 passed |
+| G4-07 | G4 | 中文字型正確顯示（UI 與預覽） | `tests/gui/test_fonts.py::test_cjk_font_rendering`（頁面與前後對照預覽；offscreen 無系統字型，UI 元件字形限實機人工） | T05；實機 B02 | 預覽：PASS（本機 Windows offscreen）、CI run 40994221324 雙平台 328 passed；UI：實機 NOT RUN |
+| G4-06 | P4 | Ctrl／Cmd 快捷鍵；worker 不阻塞 UI（≤100 ms） | `tests/gui/test_shortcuts.py::test_platform_shortcuts`、`tests/gui/test_responsiveness.py::test_ui_not_blocked` | F04 | PASS（本機 Windows offscreen）、CI run 40994221324 雙平台 328 passed；macOS Cmd 實機 NOT RUN |
 
 ## G5：圖片替換（P5）
 
