@@ -141,3 +141,16 @@ def test_close_window_delivers_finished_result(qtbot, make_window, tmp_path):
     window._run(late, window._opened)
     window.close()
     assert service._docs == {} and window.document_id is None
+
+
+def test_close_window_does_not_offer_drafts(qtbot, make_window, tmp_path):
+    """U11：關閉中送達的結果若是「再列出草稿」（捨棄後的回呼），不在關閉流程中跳出對話框。"""
+    store_dir = tmp_path / "drafts"
+    shutil.copyfile(FILES / "F04.pdf", tmp_path / "a.pdf")
+    _crash_with_edit(qtbot, make_window, store_dir, tmp_path / "a.pdf")
+    asked = []
+    window = make_window(DocumentService(drafts=drafts.DraftStore(store_dir)),
+                         ask_draft=lambda items: asked.append(items))  # fmt: skip
+    window._run(lambda: time.sleep(0.3), lambda _: window.offer_drafts())
+    window.close()
+    assert asked == []

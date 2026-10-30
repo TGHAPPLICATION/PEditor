@@ -1,7 +1,8 @@
 """背景工作：DocumentService 呼叫在單一背景執行緒依序執行，
 結果經 Qt signal 回主執行緒（ADR-0021 §2）。
 
-主執行緒不等待 worker（G4-06）。取消直接呼叫 DocumentService.cancel（可跨執行緒）。
+主執行緒不等待 worker（G4-06）；例外是關閉時的 shutdown（ADR-0021 §2，P4 U11）。
+取消直接呼叫 DocumentService.cancel（可跨執行緒）。
 """
 
 from __future__ import annotations
@@ -29,6 +30,10 @@ class JobRunner(QObject):
     @property
     def busy(self) -> bool:
         return self._pending > 0
+
+    @property
+    def closed(self) -> bool:
+        return self._closed
 
     def submit(self, func: Callable[[], object], on_done: Callable[[object], None],
                on_error: Callable[[ServiceError], None]) -> None:  # fmt: skip
@@ -62,7 +67,9 @@ class JobRunner(QObject):
 
     def shutdown(self, cancel: Callable[[], object] | None = None) -> None:
         """關閉（P4 U11）：不再接受工作、取消排隊中的工作；執行中的工作每 50 ms 呼叫一次 cancel
-        直到結束（多段呼叫的工作在兩段之間取消不到，須重試），再把已完成工作的結果送回主執行緒。"""
+        直到結束（多段呼叫的工作在兩段之間取消不到，須重試），再把已完成工作的結果送回主執行緒。
+        主執行緒會等目前這段 Python 端運算跑完（無上限）；
+        工作不得攔下 CANCELLED 後重試，否則不會結束。"""
         self._closed = True
         self._pool.shutdown(wait=False, cancel_futures=True)
         while running := [f for f in list(self._futures) if not f.done()]:

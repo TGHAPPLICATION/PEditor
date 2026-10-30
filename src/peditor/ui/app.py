@@ -1,7 +1,8 @@
 """桌面主視窗（P4、ADR-0021）：開檔、縮圖、預覽、點選文字、替換、前後對照、undo／redo、另存、進度與取消。
 
 UI 只呼叫 DocumentService 的公開 API，不匯入 PDF 程式庫、不組 PDF 指令（spec §9、G1-01）。
-所有 DocumentService 呼叫經 JobRunner 在背景執行緒進行，主執行緒不等待 worker（G4-06）。
+所有 DocumentService 呼叫經 JobRunner 在背景執行緒進行，主執行緒不等待 worker（G4-06）；
+關閉視窗時例外（ADR-0021 §2，P4 U11）。
 """
 
 from __future__ import annotations
@@ -511,8 +512,8 @@ class MainWindow(QMainWindow):
 
     # --- 復原草稿 ----------------------------------------------------------
     def offer_drafts(self) -> None:
-        """使用者選擇後才復原（ADR-0020 §5）。"""
-        if self.service is None or self.service.drafts is None:
+        """使用者選擇後才復原（ADR-0020 §5）。視窗關閉中不再詢問（P4 U11）。"""
+        if self.service is None or self.service.drafts is None or self.jobs.closed:
             return
         try:
             drafts = self.service.list_drafts()
