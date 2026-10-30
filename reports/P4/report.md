@@ -5,8 +5,8 @@
 
 ## 1. 階段／commit／日期
 
-- 階段：P4　分支：`p4-desktop-ui`　commit：`28d89b5`（實作與 G4 測試）、`ecc067b`（U2 補測試，G4-08、G4-09）、`2aafaf3`（核對出入處理）、`c234632`（U7 修正）、`77a6348`（U8）、`b9a383e`（U9）、`efc3ddf`（U5，THREAT_MODEL）、`cb40fdf`（第二輪核對出入處理，見 §11）、`f601f84`（實機驗收清單，第三輪核對）、`5d4a5df`（U11）、`51c3c0d`（U11 第四輪核對補修）　日期：2026-10-30
-- 撰寫：Claude Code；審查：待工程師；獨立核對：2026-10-30 五輪（第一輪 `ecc067b`、第二輪 `efc3ddf` 針對 U5、第三輪 `00f8a7d` 針對實機驗收清單、第四輪 `90dcf84` 針對 U11、第五輪 `e2c8cf4` 針對 U11 補修），結論皆「有出入」，處理見 §11
+- 階段：P4　分支：`p4-desktop-ui`　commit：`28d89b5`（實作與 G4 測試）、`ecc067b`（U2 補測試，G4-08、G4-09）、`2aafaf3`（核對出入處理）、`c234632`（U7 修正）、`77a6348`（U8）、`b9a383e`（U9）、`efc3ddf`（U5，THREAT_MODEL）、`cb40fdf`（第二輪核對出入處理，見 §11）、`f601f84`（實機驗收清單，第三輪核對）、`5d4a5df`（U11）、`51c3c0d`（U11 第四輪核對補修）、`5b3f148`（U11 第五輪核對處理）　日期：2026-10-30
+- 撰寫：Claude Code；審查：待工程師；獨立核對：2026-10-30 六輪（第一輪 `ecc067b`、第二輪 `efc3ddf` 針對 U5、第三輪 `00f8a7d` 針對實機驗收清單、第四輪 `90dcf84` 針對 U11、第五輪 `e2c8cf4` 針對 U11 補修、第六輪 `5b3f148` 針對第五輪處理），前五輪結論「有出入」、第六輪無程式上的 must-fix，處理見 §11
 - 輸入：spec v1.1 P4／G4／§7／§9、ADR-0001～0021、manifest、P3 報告 §9 延續項目（U2、U4 f001／f006、U9）、`docs/traceability.md` 預登記的 G4-01～G4-07
 - S1／S2 工程師決定（2026-10-29，ADR-0021）：預覽維持 MuPDF，偵測 CID 不在 charset 時提示 `PREVIEW_UNRELIABLE`；
   UI 只呼叫 DocumentService 公開 API、單一背景執行緒；新增 worker 操作 `preview_edit`；macOS 只有 CI 證據，實機項目標 NOT RUN。
@@ -25,7 +25,7 @@
 ## 3. 需求 → test ID → fixture／hash → 結果
 
 fixture hash（前 12 碼）：T01 `65a4ebca20fe`、T05 `3704edfda119`、F02 `661ad2572758`、F04 `6dda72bbbb80`、F05 `6ba509976fbf`、U01 `29d8728efbee`。
-「本機」＝Windows 製作機 offscreen；「CI」＝run 41022660909（commit `51c3c0d`）雙平台 359 passed，涵蓋 G4-01～G4-09、U7～U9、U11（含第四輪補修）與第二輪核對 W1（§4）。實機欄另列。
+「本機」＝Windows 製作機 offscreen；「CI」＝run 41028316187（commit `5b3f148`）雙平台 360 passed，涵蓋 G4-01～G4-09、U7～U9、U11（含第四、五輪補修）與第二輪核對 W1（§4）。實機欄另列。
 
 | 需求 ID | test ID | fixture | 本機／CI | 實機 |
 | --- | --- | --- | --- | --- |
@@ -74,6 +74,7 @@ uv run pytest -q                                        → exit 0，360 passed�
 - 第二輪核對 W1 修正：`transaction._recorded()` 另捕捉 `RecursionError`（巢狀過深的 `pending-temps.json` 原會使啟動與另存中斷）；測試 `test_crash_injection.py::test_cleanup_recorded_malformed_registry`（巢狀過深、非清單、刪除失敗保留）。反向驗證（以備份檔還原）：拿掉 `RecursionError` 後該測試失敗（json decoder RecursionError）。CI run [41011809272](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41011809272)（commit `cb40fdf`）windows-latest 355 passed、macos-15 355 passed。
 - U11 修正：`MainWindow.closeEvent` 在背景工作進行中先 `service.cancel()`，`JobRunner.shutdown(wait=True)` 等背景執行緒結束，再 `close_document` 刪除草稿。測試 `test_drafts_ui.py::test_close_window_discards_draft`、`::test_close_window_while_busy`（worker `_sleep` 20 秒中關閉，10 秒內完成）。反向驗證（以備份檔還原）：拿掉 `close_document`→前者失敗（草稿仍在）；拿掉取消→後者失敗（等了 20 秒）。CI run [41017277282](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41017277282)（commit `5d4a5df`）windows-latest 357 passed、macos-15 357 passed。
 - U11 第四輪核對補修（§11 Y1、Y2）：`JobRunner.shutdown(cancel)` 不再接受新工作、取消排隊中的工作，對執行中的工作每 50 ms 重試 cancel 直到結束（多段呼叫的工作在兩段之間 cancel 打不中，原本會凍結主執行緒到整個工作完成），再以 `QCoreApplication.sendPostedEvents` 收下已完成工作的結果，之後才 `close_document`（原本關閉後才送達的開檔／復原結果會留下文件與草稿，並因對已關閉的執行緒池送工作而丟 RuntimeError）。測試 `::test_close_window_while_busy_between_calls`（工作先在 Python 端 0.5 秒再送 20 秒請求）、`::test_close_window_delivers_finished_result`。反向驗證（以備份檔還原）：只取消一次→前者失敗（等了 20 秒）；拿掉 `sendPostedEvents`→後者失敗（service 仍有 1 份文件）。殘餘：取消重試只能打斷 worker 端的請求；關閉時主執行緒仍要等目前這段 Python 端運算跑完（無上限），每次終止 worker 最多再等 5 秒（ADR-0021 §2 例外）。CI run [41022660909](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41022660909)（commit `51c3c0d`）windows-latest 359 passed、macos-15 359 passed。
+- U11 第五輪核對處理（§11 Z1–Z5）：關閉後 `offer_drafts` 直接 return（`JobRunner.closed`），不在關閉流程中跳出「復原草稿」對話框；ADR-0021 §2 與 `jobs.py`／`app.py` docstring 註明關閉流程是「主執行緒不等待 worker」的例外。測試 `test_drafts_ui.py::test_close_window_does_not_offer_drafts`。反向驗證（以備份檔還原；第六輪核對連跑 3 次重做）：拿掉 closed 檢查→失敗（對話框被呼叫）。CI run [41028316187](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41028316187)（commit `5b3f148`）windows-latest 360 passed、macos-15 360 passed。
 - 實作時發現並修正：`drafts.py` 的 `_valid()`（P3 triage f001）插在 `DraftStore` 類別中間，使 `_remove_if_old`、`_file` 變成 `_valid` 內的巢狀函式；
   修正前 5 項失敗（`test_drafts.py` 4 項、`test_flow_recover_draft_after_crash`）。
 - `test_ui_not_blocked` 的反向驗證（臨時檔，未入庫）：`JobRunner.submit` 改為同步執行時，失敗點是 `window.busy` 斷言，不是計時斷言（獨立核對 V3）；另在睡眠工作期間於主執行緒插入 250 ms 工作，計時斷言失敗（最大間隔 260 ms > 100 ms），確認計時量測有效。量測的是 worker `_sleep` 期間的事件迴圈；主執行緒自身的工作（`_previewed` 解碼 PNG、`load_page` 顯示頁面）耗時未量測。
@@ -110,7 +111,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 - **UI 中文字形**：offscreen 平台的字型資料庫沒有任何繁中字型（實測 `QFontDatabase.families(TraditionalChinese)` 為 0），
   介面元件的中文是否顯示正確無法自動驗證。
 - **ADR-0015 的 7 份檔案**：預覽空白，只顯示 `PREVIEW_UNRELIABLE` 提示；E2E 只確認 T01 有提示。
-- **E2E 的捷徑**：覆寫既有目的檔直接呼叫 `save_as`（覆寫確認對話框未測）；G4-04 與 U11 的 `test_close_window_while_busy*`、`test_close_window_delivers_finished_result` 以私有 `window._run`、`window._opened`、`service._send_raw`／`open_document` 搭配 worker `_sleep` 模擬長操作或晚到的結果，並以 `service._docs` 斷言沒有殘留文件，不是實際套用流程；G4-05 以 `select_target` 選取，不是點選；G4-03 繞過檔案對話框。這些都須實機補驗。
+- **E2E 的捷徑**：覆寫既有目的檔直接呼叫 `save_as`（覆寫確認對話框未測）；G4-04 與 U11 的 `test_close_window_while_busy*`、`test_close_window_delivers_finished_result` 以私有 `window._run`、`window._opened`、`service._send_raw`／`open_document` 搭配 worker `_sleep` 模擬長操作或晚到的結果，並以 `service._docs` 斷言沒有殘留文件；`test_close_window_does_not_offer_drafts` 以 `_run` 加 sleep 工作模擬「捨棄後再列出草稿」的回呼，不是實際捨棄流程，不是實際套用流程；G4-05 以 `select_target` 選取，不是點選；G4-03 繞過檔案對話框。這些都須實機補驗。
 - **G4-07 字型測試**能分辨空白與同一缺字框，但不驗證畫出的字形是否對應正確的字。
 - **G4-08** 的「全部 available fixture」排除加密（U02）與損壞（S01），實際 43／45 份；pending 的 16 份不在 repo。
 - **§8.3 效能**：NOT RUN（P2 U5、P3 U7 延續）。大檔的預覽與 undo 重播耗時未量測。
@@ -144,7 +145,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 
 ## 10. 關卡結果
 
-- CI：run [41022660909](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41022660909)（commit `51c3c0d`，U11 第四輪補修後）windows-latest 359 passed、macos-15 359 passed；run [41017277282](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41017277282)（commit `5d4a5df`，U11 修正後）windows-latest 357 passed、macos-15 357 passed；run [41011809272](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41011809272)（commit `cb40fdf`，第二輪核對處理後）windows-latest 355 passed、macos-15 355 passed；run 41010683123（commit `efc3ddf`，U5，只改文件）雙平台 354 passed；run [41005065222](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41005065222)（commit `b9a383e`，U9 修正後）windows-latest 354 passed、macos-15 354 passed；run 41004289165（`77a6348`）352 passed；run 41001063910（commit `c234632`，U7 修正後）雙平台 350 passed；run 40998022034（commit `ecc067b`）雙平台 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
+- CI：run [41028316187](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41028316187)（commit `5b3f148`，U11 第五輪核對處理後）windows-latest 360 passed、macos-15 360 passed；run [41022660909](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41022660909)（commit `51c3c0d`，U11 第四輪補修後）windows-latest 359 passed、macos-15 359 passed；run [41017277282](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41017277282)（commit `5d4a5df`，U11 修正後）windows-latest 357 passed、macos-15 357 passed；run [41011809272](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41011809272)（commit `cb40fdf`，第二輪核對處理後）windows-latest 355 passed、macos-15 355 passed；run 41010683123（commit `efc3ddf`，U5，只改文件）雙平台 354 passed；run [41005065222](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41005065222)（commit `b9a383e`，U9 修正後）windows-latest 354 passed、macos-15 354 passed；run 41004289165（`77a6348`）352 passed；run 41001063910（commit `c234632`，U7 修正後）雙平台 350 passed；run 40998022034（commit `ecc067b`）雙平台 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
 - **關卡結果：BLOCKED**。G4-01～G4-09 都有自動測試，本機與 CI 雙平台通過；但 G4 要求兩平台實機，Windows 實機人工驗收尚未執行（U1），
   U2 已補測試。
 - **下一段可開始：否**。條件：Windows 實機驗收完成（含 G4-03 檔案對話框與實機輸入法組字中按 Enter）。macOS 依 ADR-0021 §3 附條件。
@@ -228,4 +229,15 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | Z3（建議） | 關閉中送達的回呼若是 `offer_drafts`，會在 closeEvent 中跳出模態「復原草稿」對話框（已重現） | 關閉後 `offer_drafts` 直接 return（`JobRunner.closed`）；測試 `test_close_window_does_not_offer_drafts`（拿掉檢查時失敗） |
 | Z4（建議） | §7 未揭露 `service._docs`、`window._opened` | §7 補 |
 | Z5 | 工作若攔下 CANCELLED 後無限重試，shutdown 迴圈不結束（目前沒有這種工作）；排隊工作被取消後 `busy` 停在 True（關閉後無影響）；排隊中的 `close_document(old)` 被取消會留下舊文件與草稿（機率極低）；`test_close_window_delivers_finished_result` 依賴工作在 close 前已開始（實測 200 次 0 次未開始）；`_futures` 併發安全依賴 GIL；func 丟 BaseException 時不送結果；第四輪 Y1「8.5 秒」無實驗紀錄可核對 | 備查，未處理；`JobRunner.shutdown` docstring 註明工作不得攔下 CANCELLED 後重試 |
+
+第六輪（2026-10-30，HEAD `5b3f148`，針對第五輪處理）：未參與實作的 Claude 子代理人在 %TEMP% 的 worktree 重做反向驗證（拿掉 closed 檢查，連跑 3 次皆失敗），逐一檢查關閉中送達的回呼不再開對話框或排入工作，核對 ADR-0021 §2 新段落的 50 ms、5 秒與程式一致，確認 360 項（較 `0ecf673` 多 54 項、既有測試刪除 0 行）與 CI run 41028316187 雙平台 360 passed 一致（offscreen 與 CI，**不是實機證據**）。結束時 worktree 已移除、工作目錄乾淨。結論「程式無 must-fix」：
+
+| # | 出入 | 處理 |
+| --- | --- | --- |
+| A1（must-fix） | §3、§10、traceability 的 CI 證據仍是 run 41022660909（359，不含新測試） | 改引 run 41028316187（`5b3f148`，雙平台 360 passed） |
+| A2 | §7 未揭露新測試以 `_run`＋sleep 工作模擬捨棄回呼 | §7 補 |
+| A3 | §4 沒有第五輪處理的專段；§1 未列 `5b3f148` | 已補 |
+| A4 | 新測試若工作在 close 前尚未開始，會被取消而偽通過（不會誤報失敗；空閒時實測 200/200 已開始，高負載未測），與 `test_close_window_delivers_finished_result` 同一依賴 | **待工程師決定**：改用 Event 等工作開始再 close |
+| A5 | ADR-0021 §2 未寫關閉時 `close_document` 的 IPC 每次最多等 30 秒（逾時再 kill 最多 5 秒） | **待工程師決定**（修改 ADR） |
+| A6 | ADR-0021 開頭狀態／日期未註明 2026-10-30 增補（與 U8 先例一致）；「工程師同意」無法從 repo 核對，須審查時確認；新 worktree 缺被 git 忽略的字型會大量失敗 | 備查 |
 
