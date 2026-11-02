@@ -5,8 +5,8 @@
 
 ## 1. 階段／commit／日期
 
-- 階段：P4　分支：`p4-desktop-ui`　commit：`28d89b5`（實作與 G4 測試）、`ecc067b`（U2 補測試，G4-08、G4-09）、`2aafaf3`（核對出入處理）、`c234632`（U7 修正）、`77a6348`（U8）、`b9a383e`（U9）、`efc3ddf`（U5，THREAT_MODEL）、`cb40fdf`（第二輪核對出入處理，見 §11）、`f601f84`（實機驗收清單，第三輪核對）、`5d4a5df`（U11）、`51c3c0d`（U11 第四輪核對補修）、`5b3f148`（U11 第五輪核對處理）、`ffcecc3`（第六輪核對 A4、A5）、`3f712aa`（第七輪核對 B1–B3）、`46febae`（第八輪核對 C1–C3，只改文件）　日期：2026-10-30
-- 撰寫：Claude Code；審查：待工程師；獨立核對：2026-10-30 十輪（第一輪 `ecc067b`、第二輪 `efc3ddf` 針對 U5、第三輪 `00f8a7d` 針對實機驗收清單、第四輪 `90dcf84` 針對 U11、第五輪 `e2c8cf4` 針對 U11 補修、第六輪 `5b3f148` 針對第五輪處理、第七輪 `60d0cab` 針對 A4／A5、第八輪 `3f712aa` 針對 B1–B3、第九輪 `0ddc265` 針對 C1–C3、第十輪 PR #11），前五輪結論「有出入」、第六輪無程式上的 must-fix、第七、八輪無 must-fix、第九輪無出入、第十輪（PR）有出入，處理見 §11
+- 階段：P4　分支：`p4-desktop-ui`　commit：`28d89b5`（實作與 G4 測試）、`ecc067b`（U2 補測試，G4-08、G4-09）、`2aafaf3`（核對出入處理）、`c234632`（U7 修正）、`77a6348`（U8）、`b9a383e`（U9）、`efc3ddf`（U5，THREAT_MODEL）、`cb40fdf`（第二輪核對出入處理，見 §11）、`f601f84`（實機驗收清單，第三輪核對）、`5d4a5df`（U11）、`51c3c0d`（U11 第四輪核對補修）、`5b3f148`（U11 第五輪核對處理）、`ffcecc3`（第六輪核對 A4、A5）、`3f712aa`（第七輪核對 B1–B3）、`46febae`（第八輪核對 C1–C3，只改文件）、`314314a`（PR 核對處理）、`5d131f3`（CI 失敗時印完整 log，U15）、`c6a86d9`／`497a86e`（U15 調查與接受殘餘）、本次 commit（第十一輪核對處理）　日期：2026-10-30
+- 撰寫：Claude Code；審查：待工程師；獨立核對：2026-10-30～11-02 十一輪（第一輪 `ecc067b`、第二輪 `efc3ddf` 針對 U5、第三輪 `00f8a7d` 針對實機驗收清單、第四輪 `90dcf84` 針對 U11、第五輪 `e2c8cf4` 針對 U11 補修、第六輪 `5b3f148` 針對第五輪處理、第七輪 `60d0cab` 針對 A4／A5、第八輪 `3f712aa` 針對 B1–B3、第九輪 `0ddc265` 針對 C1–C3、第十輪 PR #11、第十一輪 U15 `497a86e`），前五輪結論「有出入」、第六輪無程式上的 must-fix、第七、八輪無 must-fix、第九輪無出入、第十、十一輪有出入，處理見 §11
 - 輸入：spec v1.1 P4／G4／§7／§9、ADR-0001～0021、manifest、P3 報告 §9 延續項目（U2、U4 f001／f006、U9）、`docs/traceability.md` 預登記的 G4-01～G4-07
 - S1／S2 工程師決定（2026-10-29，ADR-0021）：預覽維持 MuPDF，偵測 CID 不在 charset 時提示 `PREVIEW_UNRELIABLE`；
   UI 只呼叫 DocumentService 公開 API、單一背景執行緒；新增 worker 操作 `preview_edit`；macOS 只有 CI 證據，實機項目標 NOT RUN。
@@ -117,8 +117,8 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 - **G4-08** 的「全部 available fixture」排除加密（U02）與損壞（S01），實際 43／45 份；pending 的 16 份不在 repo。
 - **§8.3 效能**：NOT RUN（P2 U5、P3 U7 延續）。大檔的預覽與 undo 重播耗時未量測。
 - **盲測**：NOT RUN，P8 執行。
-- **CI 偶發崩潰**：run 41017732159（commit `90dcf84`，只改 .md，程式碼與 `5d4a5df` 相同）windows-latest 的 pytest 啟動約 5 秒後以 0xC0000005（access violation）結束，macOS 通過；同一程式碼在 `5d4a5df`（run 41017277282）與之後各 run 皆通過，屬偶發。日誌只有 P0 check 腳本截取的堆疊末段，看不出是哪個測試，沒有 artifact，原因未查明。P2／P3 報告記錄 Windows 匯入 pypdfium2 時 faulthandler 會印出 access violation 但不中斷，是否同一原因無法確認（§9 U15）。
-  U15 調查（2026-11-02，工程師決定合併前查明）：(1) CI 改為失敗時印出完整檢查 log（commit `5d131f3`）；(2) 重跑 CI 10 次（run 41371098105、41371103064 與 8 次 workflow_dispatch，最後為 41372961561），雙平台全部 360 passed；(3) 本機 Windows 製作機全套 pytest 10 次全部 360 passed，每次都在收集階段出現同一個已被攔下的 pypdfium2 `init_lib` access violation；(4) 單獨匯入 pypdfium2 300 次全部正常結束；(5) repo 全部 163 次已完成的 CI run 只有這 1 次崩潰（另 1 次失敗是 P3 的 macOS 測試失敗，已處理）；(6) 崩潰發生在 pytest 啟動後 5.0 秒內（成功的 run 約 100 秒），本機收集約 2 秒，所以落在收集階段或最前面幾項 GUI 測試，無法再細分。**結論：無法重現，原因未查明；工程師 2026-11-02 決定接受殘餘**；最可能是收集時匯入 pypdfium2（只有測試用）的初始化例外偶發未被攔下，但沒有直接證據。之後再發生時，CI 會印出完整堆疊。
+- **CI 偶發崩潰**：run 41017732159（commit `90dcf84`，只改 .md，程式碼與 `5d4a5df` 相同）windows-latest 的 pytest 啟動約 5 秒後以 0xC0000005（access violation）結束，macOS 通過；同一程式碼在 `5d4a5df`（run 41017277282）通過，其後各 run（含之後的程式修改）皆通過，屬偶發。日誌只有 P0 check 腳本截取的堆疊末段，看不出是哪個測試，沒有 artifact，原因未查明。P2／P3 報告記錄 Windows 匯入 pypdfium2 時 faulthandler 會印出 access violation 但不中斷，是否同一原因無法確認（§9 U15）。
+  U15 調查（2026-11-02，工程師決定合併前查明）：(1) CI 改為失敗時印出完整檢查 log（commit `5d131f3`）；(2) 重跑 CI 8 次（push／pull_request 各 1 次：run 41371098105、41371103064；workflow_dispatch 6 次：41371446753～41372961561），雙平台全部 360 passed；(3) 本機 Windows 製作機全套 pytest 10 次全部 360 passed，每次都在收集階段出現同一個已被攔下的 pypdfium2 `init_lib` access violation；(4) 單獨匯入 pypdfium2 300 次全部正常結束（第一次未保存輸出，2026-11-02 重做並保存於工作機 scratchpad `u15/import300.txt`）；(5) repo 163 次已完成的 CI run（不含取消，以最終 attempt 計）只有這 1 次崩潰；其他失敗都不是崩潰：P3 run 40826959745 的 macOS 測試失敗（已處理），以及 P2 run 40442075176 第一次 attempt 的 macOS 測試失敗（`gh run list` 只顯示最終 attempt，P2 報告已記錄）；(6) 崩潰發生在 pytest 啟動後 5.0 秒內（成功的 run 約 100 秒），本機收集約 2～2.7 秒（`u15/collect_time.txt`），所以落在收集階段或最前面幾項 GUI 測試，無法再細分。**結論：無法重現，原因未查明；工程師 2026-11-02 決定接受殘餘**；最可能是收集時匯入 pypdfium2（只有測試用）的初始化例外偶發未被攔下，但沒有直接證據。之後再發生時，CI 會印出完整堆疊。
   此 run 原先漏看：實作方只等修正 commit 的 CI，未檢查只改文件的 commit 的 CI（PR 獨立核對發現）。
 
 ## 8. 安全審查
@@ -144,13 +144,13 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | U11 | 按視窗 ✕ 正常關閉時 UI 不呼叫 `close_document`（`closeEvent` 只停 JobRunner），草稿不刪，下次啟動仍列出（第三輪核對，offscreen 實測） | 與 ADR-0020 §5「正常 close_document 時刪除」及 THREAT_MODEL T13「正常關閉即刪」不一致；草稿（含新文字）多留最多 7 天 | **已處理**（工程師 2026-10-30 決定修）：`closeEvent` 先取消進行中的請求、等背景執行緒結束，再 `close_document`（刪草稿）；測試 `tests/gui/test_drafts_ui.py::test_close_window_discards_draft`、`::test_close_window_while_busy`（修正前／拿掉取消時失敗，§4）；第四輪核對後補：取消重試、關閉前收下已完成結果（`::test_close_window_while_busy_between_calls`、`::test_close_window_delivers_finished_result`）；第五輪核對後補：關閉中不再跳出草稿對話框（`::test_close_window_does_not_offer_drafts`），ADR-0021 §2 註明關閉流程是「主執行緒不等待 worker」的例外；清單 W31 改為依 ADR 判定。未驗證：Windows 登出／關機時是否觸發 closeEvent（Qt session 行為，須實機） |
 | U12 | 快捷鍵：「重做」只綁第一組 Ctrl+Y（`setShortcut`），Ctrl+Shift+Z 無作用；套用後焦點在「尋找文字」欄，Ctrl+Z 由輸入欄處理而非文件復原；工具列提示不顯示快捷鍵 | 使用者可能以為復原失效 | **列 P7**（工程師 2026-10-30 決定）；清單 W10、W11、W24 標已知不符 |
 | U13 | 開啟 0 頁文件（加密 U02）後頁面區仍顯示前一份文件與目標框 | 使用者可能點選到已關閉文件的框 | **列 P7**（工程師 2026-10-30 決定）；清單 W06 記錄 |
-| U15 | Windows CI 偶發 pytest 崩潰（0xC0000005），run 41017732159，原因未查明（§7） | 可能是測試環境或原生程式庫（pypdfium2／PyMuPDF／Qt）的偶發問題，也可能是產品碼觸發；未查明前無法排除 | 工程師 2026-11-02 決定合併前查明：已調查，無法重現、原因未查明（§7）；CI 已改為失敗時印完整 log。**接受殘餘**（工程師 2026-11-02 決定）：頻率約 1／163，同一程式碼其後 20 次全通過；再發生時依完整堆疊另行處理 |
+| U15 | Windows CI 偶發 pytest 崩潰（0xC0000005），run 41017732159，原因未查明（§7） | 可能是測試環境或原生程式庫（pypdfium2／PyMuPDF／Qt）的偶發問題，也可能是產品碼觸發；未查明前無法排除 | 工程師 2026-11-02 決定合併前查明：已調查，無法重現、原因未查明（§7）；CI 已改為失敗時印完整 log。**接受殘餘**（工程師 2026-11-02 決定）：頻率約 1／163，其後 CI 20 次全通過（與 HEAD 程式碼相同者 16 次）；再發生時依完整堆疊另行處理 |
 | U14 | G4-04 實際套用流程的取消，人工在實機來不及操作（套用約 0.15 秒） | G4-04 只有 offscreen 證據（worker 延遲模擬） | **列 P7**（工程師 2026-10-30 決定）；清單 W26 照實記錄 |
 | U6 | P3 延續：U3（重播 30 秒逾時）、U7（§8.3 效能）、U10（影像雜湊解讀）、U11（逾時路徑無測試）、U12（服務層 undo 失敗無測試） | 同 P3 報告 | 同 P3 報告 |
 
 ## 10. 關卡結果
 
-- CI：run [41029981106](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41029981106)（commit `ffcecc3`，第六輪核對 A4、A5 處理後）windows-latest 360 passed、macos-15 360 passed；run [41028316187](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41028316187)（commit `5b3f148`，U11 第五輪核對處理後）windows-latest 360 passed、macos-15 360 passed；run [41022660909](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41022660909)（commit `51c3c0d`，U11 第四輪補修後）windows-latest 359 passed、macos-15 359 passed；run [41017277282](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41017277282)（commit `5d4a5df`，U11 修正後）windows-latest 357 passed、macos-15 357 passed；run [41011809272](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41011809272)（commit `cb40fdf`，第二輪核對處理後）windows-latest 355 passed、macos-15 355 passed；run 41010683123（commit `efc3ddf`，U5，只改文件）雙平台 354 passed；run [41005065222](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41005065222)（commit `b9a383e`，U9 修正後）windows-latest 354 passed、macos-15 354 passed；run 41004289165（`77a6348`）352 passed；run 41001063910（commit `c234632`，U7 修正後）雙平台 350 passed；run 40998022034（commit `ecc067b`）雙平台 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
+- CI：PR head 的 run 41373728592（push）、41373734102（pull_request，commit `497a86e`，含 `5d131f3` 的 ci.yml 修改）windows-latest 360 passed、macos-15 360 passed；U15 重跑 8 次見 §7；程式證據 run [41029981106](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41029981106)（commit `ffcecc3`，第六輪核對 A4、A5 處理後）windows-latest 360 passed、macos-15 360 passed；run [41028316187](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41028316187)（commit `5b3f148`，U11 第五輪核對處理後）windows-latest 360 passed、macos-15 360 passed；run [41022660909](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41022660909)（commit `51c3c0d`，U11 第四輪補修後）windows-latest 359 passed、macos-15 359 passed；run [41017277282](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41017277282)（commit `5d4a5df`，U11 修正後）windows-latest 357 passed、macos-15 357 passed；run [41011809272](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41011809272)（commit `cb40fdf`，第二輪核對處理後）windows-latest 355 passed、macos-15 355 passed；run 41010683123（commit `efc3ddf`，U5，只改文件）雙平台 354 passed；run [41005065222](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41005065222)（commit `b9a383e`，U9 修正後）windows-latest 354 passed、macos-15 354 passed；run 41004289165（`77a6348`）352 passed；run 41001063910（commit `c234632`，U7 修正後）雙平台 350 passed；run 40998022034（commit `ecc067b`）雙平台 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
 - **關卡結果：BLOCKED**。G4-01～G4-09 都有自動測試，本機與 CI 雙平台通過；但 G4 要求兩平台實機，Windows 實機人工驗收尚未執行（U1），
   U2 已補測試。
 - **下一段可開始：否**。條件：Windows 實機驗收完成（含 G4-03 檔案對話框與實機輸入法組字中按 Enter），結果寫回本報告後由未參與實作者再做一次獨立核對，並依結果更新本節關卡結果；macOS 依 ADR-0021 §3 附條件。U15（CI 偶發崩潰）已由工程師接受殘餘（2026-11-02）。
@@ -279,11 +279,23 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 
 | # | 出入 | 處理 |
 | --- | --- | --- |
-| E1（must-fix） | run 41017732159（`90dcf84`）Windows pytest 偶發崩潰 0xC0000005，報告與 PR 都沒提 | §7 揭露（實作方已查 log 確認）；§9 U15 待工程師決定 |
+| E1（must-fix） | run 41017732159（`90dcf84`）Windows pytest 偶發崩潰 0xC0000005，報告與 PR 都沒提 | §7 揭露（實作方已查 log 確認）；§9 U15 → 2026-11-02 已調查（無法重現）、工程師接受殘餘（§7、§9，第十一輪核對） |
 | E2（must-fix） | PR 合併前條件缺「實機結果寫回後再做獨立核對」「依結果更新 §10、macOS 附條件」 | §10 條件補上；PR 說明 checkbox 補上 |
 | E3（must-fix） | PR 已是 CLEAN／MERGEABLE，轉成 ready 即可合併 | PR 維持 draft；PR 說明註明 W01–W31 完成並核對前不轉 ready |
 | E4 | PR「出入均已處理或列備查」未含 A6／B4／C4／D4（待工程師確認） | PR 說明改寫；ADR-0021 開頭新增增補註記，checkbox 改為審查確認此註記 |
 | E5 | PR 需知悉未列 U11 殘餘（登出／關機未驗證、關閉時 Python 端等待無上限）與 §7 NOT RUN 摘要 | PR 說明補上 |
 | E6 | PR「G4-01～G4-09 都有自動測試（offscreen）」不精確，G4-08、G4-09 多為 integration 測試 | PR 說明改為「G4-01～07 為 offscreen GUI 測試」 |
 | E7 | ruleset「main-protection」規則內容未展開，是否要求 review 無法核對；崩潰原因無法核對 | 備查 |
+
+第十一輪（2026-11-02，HEAD `497a86e`，針對 U15 調查與接受殘餘）：未參與實作的 Claude 子代理人只讀核對 `5d131f3` 的 ci.yml 修改（只加 `run:` 步驟、沒有新增 action，兩平台 log 路徑一致，log 沒有主機名或使用者名，只有公開 runner 路徑）、以 GitHub 紀錄逐一核對重跑結果與 CI 歷史、比對崩潰與成功 run 的時間戳（5.0 秒、約 100.6 秒），並以 scratchpad 原始輸出佐證本機 10 次。結論「有出入」，處理如下：
+
+| # | 出入 | 處理 |
+| --- | --- | --- |
+| F1（must-fix） | §7 與 PR 寫「重跑 CI 10 次（含 8 次 workflow_dispatch）」，實際 workflow_dispatch 6 次、共 8 次（實作方的迴圈為 6 次，回報時寫錯） | §7、PR 改為 8 次（push／PR 各 1＋dispatch 6），雙平台全部 360 passed |
+| F2（must-fix） | §11 E1 處理欄仍寫「§9 U15 待工程師決定」 | 補上調查與接受殘餘的結果；新增本輪紀錄 |
+| F3 | 「163 次」未說明不含取消、以最終 attempt 計；漏列 P2 run 40442075176 第一次 attempt 的 macOS 測試失敗 | §7 補註與補列（均非崩潰） |
+| F4 | 「同一程式碼……皆通過」「同一程式碼其後 20 次」用詞不精確（之後有程式修改） | 改為「其後各 run（含之後的程式修改）」「其後 20 次（與 HEAD 程式碼相同者 16 次）」 |
+| F5 | §1 commit 清單未列 `5d131f3` 等；§10 未列 PR head 的 CI | §1、§10 補上（run 41373728592、41373734102 雙平台 360 passed） |
+| F6 | 匯入 300 次與本機收集時間沒有保存原始輸出，無法核對 | 2026-11-02 重做並保存（`u15/import300.txt`：300／300 正常；`u15/collect_time.txt`：2.0～2.7 秒）；scratchpad 不進 repo |
+| F7 | `p0_macos_check.sh` 註解「log.txt (no host or user names)」字面略寬（含 runner 路徑）；失敗時印 log 的步驟尚未在真實失敗中執行過 | 備查 |
 
