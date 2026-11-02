@@ -117,7 +117,9 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 - **G4-08** 的「全部 available fixture」排除加密（U02）與損壞（S01），實際 43／45 份；pending 的 16 份不在 repo。
 - **§8.3 效能**：NOT RUN（P2 U5、P3 U7 延續）。大檔的預覽與 undo 重播耗時未量測。
 - **盲測**：NOT RUN，P8 執行。
-- **CI 偶發崩潰**：run 41017732159（commit `90dcf84`，只改 .md，程式碼與 `5d4a5df` 相同）windows-latest 的 pytest 啟動約 5 秒後以 0xC0000005（access violation）結束，macOS 通過；同一程式碼在 `5d4a5df`（run 41017277282）與之後各 run 皆通過，屬偶發。日誌只有 P0 check 腳本截取的堆疊末段，看不出是哪個測試，沒有 artifact，原因未查明。P2／P3 報告記錄 Windows 匯入 pypdfium2 時 faulthandler 會印出 access violation 但不中斷，是否同一原因無法確認（§9 U15）。此 run 原先漏看：實作方只等修正 commit 的 CI，未檢查只改文件的 commit 的 CI（PR 獨立核對發現）。
+- **CI 偶發崩潰**：run 41017732159（commit `90dcf84`，只改 .md，程式碼與 `5d4a5df` 相同）windows-latest 的 pytest 啟動約 5 秒後以 0xC0000005（access violation）結束，macOS 通過；同一程式碼在 `5d4a5df`（run 41017277282）與之後各 run 皆通過，屬偶發。日誌只有 P0 check 腳本截取的堆疊末段，看不出是哪個測試，沒有 artifact，原因未查明。P2／P3 報告記錄 Windows 匯入 pypdfium2 時 faulthandler 會印出 access violation 但不中斷，是否同一原因無法確認（§9 U15）。
+  U15 調查（2026-11-02，工程師決定合併前查明）：(1) CI 改為失敗時印出完整檢查 log（commit `5d131f3`）；(2) 重跑 CI 10 次（run 41371098105、41371103064 與 8 次 workflow_dispatch，最後為 41372961561），雙平台全部 360 passed；(3) 本機 Windows 製作機全套 pytest 10 次全部 360 passed，每次都在收集階段出現同一個已被攔下的 pypdfium2 `init_lib` access violation；(4) 單獨匯入 pypdfium2 300 次全部正常結束；(5) repo 全部 163 次已完成的 CI run 只有這 1 次崩潰（另 1 次失敗是 P3 的 macOS 測試失敗，已處理）；(6) 崩潰發生在 pytest 啟動後 5.0 秒內（成功的 run 約 100 秒），本機收集約 2 秒，所以落在收集階段或最前面幾項 GUI 測試，無法再細分。**結論：無法重現，原因未查明**；最可能是收集時匯入 pypdfium2（只有測試用）的初始化例外偶發未被攔下，但沒有直接證據。之後再發生時，CI 會印出完整堆疊。
+  此 run 原先漏看：實作方只等修正 commit 的 CI，未檢查只改文件的 commit 的 CI（PR 獨立核對發現）。
 
 ## 8. 安全審查
 
@@ -142,7 +144,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | U11 | 按視窗 ✕ 正常關閉時 UI 不呼叫 `close_document`（`closeEvent` 只停 JobRunner），草稿不刪，下次啟動仍列出（第三輪核對，offscreen 實測） | 與 ADR-0020 §5「正常 close_document 時刪除」及 THREAT_MODEL T13「正常關閉即刪」不一致；草稿（含新文字）多留最多 7 天 | **已處理**（工程師 2026-10-30 決定修）：`closeEvent` 先取消進行中的請求、等背景執行緒結束，再 `close_document`（刪草稿）；測試 `tests/gui/test_drafts_ui.py::test_close_window_discards_draft`、`::test_close_window_while_busy`（修正前／拿掉取消時失敗，§4）；第四輪核對後補：取消重試、關閉前收下已完成結果（`::test_close_window_while_busy_between_calls`、`::test_close_window_delivers_finished_result`）；第五輪核對後補：關閉中不再跳出草稿對話框（`::test_close_window_does_not_offer_drafts`），ADR-0021 §2 註明關閉流程是「主執行緒不等待 worker」的例外；清單 W31 改為依 ADR 判定。未驗證：Windows 登出／關機時是否觸發 closeEvent（Qt session 行為，須實機） |
 | U12 | 快捷鍵：「重做」只綁第一組 Ctrl+Y（`setShortcut`），Ctrl+Shift+Z 無作用；套用後焦點在「尋找文字」欄，Ctrl+Z 由輸入欄處理而非文件復原；工具列提示不顯示快捷鍵 | 使用者可能以為復原失效 | **列 P7**（工程師 2026-10-30 決定）；清單 W10、W11、W24 標已知不符 |
 | U13 | 開啟 0 頁文件（加密 U02）後頁面區仍顯示前一份文件與目標框 | 使用者可能點選到已關閉文件的框 | **列 P7**（工程師 2026-10-30 決定）；清單 W06 記錄 |
-| U15 | Windows CI 偶發 pytest 崩潰（0xC0000005），run 41017732159，原因未查明（§7） | 可能是測試環境或原生程式庫（pypdfium2／PyMuPDF／Qt）的偶發問題，也可能是產品碼觸發；未查明前無法排除 | 工程師決定：P4 合併前查（例如 CI 保留 pytest 完整輸出、以 `-p no:randomly -x` 重跑多次），或列 P7 觀察 |
+| U15 | Windows CI 偶發 pytest 崩潰（0xC0000005），run 41017732159，原因未查明（§7） | 可能是測試環境或原生程式庫（pypdfium2／PyMuPDF／Qt）的偶發問題，也可能是產品碼觸發；未查明前無法排除 | 工程師 2026-11-02 決定合併前查明：已調查，無法重現、原因未查明（§7）；CI 已改為失敗時印完整 log。**待工程師決定**是否接受此殘餘後合併 |
 | U14 | G4-04 實際套用流程的取消，人工在實機來不及操作（套用約 0.15 秒） | G4-04 只有 offscreen 證據（worker 延遲模擬） | **列 P7**（工程師 2026-10-30 決定）；清單 W26 照實記錄 |
 | U6 | P3 延續：U3（重播 30 秒逾時）、U7（§8.3 效能）、U10（影像雜湊解讀）、U11（逾時路徑無測試）、U12（服務層 undo 失敗無測試） | 同 P3 報告 | 同 P3 報告 |
 
