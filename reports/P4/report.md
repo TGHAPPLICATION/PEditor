@@ -16,6 +16,7 @@
 | 環境 | OS／架構 | 硬體 | Python／套件／字型版本 |
 | --- | --- | --- | --- |
 | Windows 實機（製作機） | Windows 11 Pro 10.0.26300 x64 | 同 P0 | Python 3.13.16；PyMuPDF 1.28.2；pikepdf 10.14.0；pypdfium2 5.13.0（只在測試）；fontTools 4.66.0；Pillow 13.0.0；PySide6-Essentials 6.11.2；pytest-qt；字型同 P2。**G4 測試以 offscreen 執行，非實機人工驗收** |
+| Windows 實機（人工驗收，2026-11-02） | Windows 11 26H2（`winver`，驗收人填寫）；顯示縮放 150%、1920×1080 | 未記錄（是否為製作機未記錄） | commit `8d1f0ed`，依清單 §1 以 `uv sync --locked --all-groups` 安裝，套件同上；輸入法微軟注音；非一般使用者帳號（系統管理員） |
 | macOS 實機 | NOT RUN（無實機，ADR-0003、ADR-0021 §3） | — | — |
 | CI windows | windows-latest x64（windows-2025 映像） | GitHub 標準 runner | Python 3.13.16；套件同上（`uv.lock`）；offscreen |
 | CI macos | macos-15 arm64 | GitHub 標準 runner | Python 3.13.15（Python 小版本不由 `uv.lock` 鎖定）；套件同上；offscreen |
@@ -25,29 +26,29 @@
 ## 3. 需求 → test ID → fixture／hash → 結果
 
 fixture hash（前 12 碼）：T01 `65a4ebca20fe`、T05 `3704edfda119`、F02 `661ad2572758`、F04 `6dda72bbbb80`、F05 `6ba509976fbf`、U01 `29d8728efbee`。
-「本機」＝Windows 製作機 offscreen；「CI」＝run 41029981106（commit `ffcecc3`）雙平台 360 passed，涵蓋 G4-01～G4-09、U7～U9、U11（含第四至六輪補修）與第二輪核對 W1（§4）。實機欄另列。
+「本機」＝Windows 製作機 offscreen；「CI」＝run 41029981106（commit `ffcecc3`）雙平台 360 passed，涵蓋 G4-01～G4-09、U7～U9、U11（含第四至六輪補修）與第二輪核對 W1（§4）。實機欄另列：Windows 為 2026-11-02 人工驗收（commit `8d1f0ed`，`reports/P4/windows-acceptance.md` W01–W31 共 37 項，驗收人填寫，未提交截圖，§7）。
 
 | 需求 ID | test ID | fixture | 本機／CI | 實機 |
 | --- | --- | --- | --- | --- |
-| G4-01 | `tests/gui/test_e2e.py::test_flow_*`（12 項：開檔與縮圖、點選、預覽前後對照不提交、套用、undo／redo、另存重開、覆寫既有目的檔、模式 B 字型替換、溢出說明、尋找文字跨段落選取、預覽不可靠提示、崩潰後復原草稿），另 `::test_source_never_modified` | T01、F02、F04 | PASS | Windows NOT RUN；macOS NOT RUN |
-| G4-02 | `tests/gui/test_ime.py::test_preedit_not_committed`：以 QInputMethodEvent 模擬注音組字，組字中文字不進入內容、不規劃；確認字不規劃；Enter 後只以已確認的「測試局」規劃一次；`::test_enter_during_preedit_not_planned`：組字中按 Enter 或「預覽」不規劃，確認後才規劃（U7） | T01 | PASS | Windows NOT RUN；macOS NOT RUN |
-| G4-03 | `tests/gui/test_paths.py::test_unicode_paths`（3 組：中文目錄＋中文檔名、空白、emoji）：開啟、編輯、另存到同類路徑、重開見新文字 | T01 | PASS | Windows NOT RUN；macOS NOT RUN（測試以 `ask_save`／`open_path` 繞過原生檔案對話框，對話框選取這類路徑須實機） |
-| G4-04 | `test_e2e.py::test_cancel_does_not_commit`：長操作中取消回 CANCELLED，revision 與 history 皆為 0，worker 重啟後頁面為原文 | F04 | PASS | — |
-| G4-05 | `test_e2e.py::test_reason_shown_for_uneditable`：不可編輯目標顯示「無法編輯：<理由>」且不能預覽；U01 顯示無文字層 | F05、U01 | PASS | — |
-| G4-06 | `tests/gui/test_shortcuts.py::test_platform_shortcuts`：開啟／另存／復原／重做為 Qt 標準鍵、修飾鍵為 ControlModifier（Qt 在 macOS 對應 Cmd）、原生顯示 Windows `Ctrl+`／macOS `⌘`；以按鍵實際觸發 undo、redo | F04 | PASS | Windows NOT RUN；macOS Cmd NOT RUN |
-| G4-06 | `tests/gui/test_responsiveness.py::test_ui_not_blocked`：worker 睡 1.5 秒期間，10 ms 計時器的最大間隔 ≤100 ms、送出工作 ≤100 ms | F04 | PASS | — |
-| G4-07 | `tests/gui/test_fonts.py::test_cjk_font_rendering`：頁面原中文字形有畫出（文字框內有深色像素）；兩個不同中文新字串的「修改後」預覽圖不同（排除空白與同一缺字框）；介面拿到的文字未改碼 | T05 | 預覽 PASS | UI 元件中文字形 NOT RUN（offscreen 沒有系統字型，見 §7） |
-| G4-08 | `tests/integration/test_preview.py`（3 項）：全部 available fixture（排除加密、損壞）逐頁分析，帶 PREVIEW_UNRELIABLE 的恰為 ADR-0015 的 7 份；worker 層 preview_edit 前後圖不同、revision／內容指紋／applied 不變、之後同一 plan_id 可套用；其他未套用計畫失效；無效 plan_id 回 INVALID_REQUEST | 全部 available、F04 | PASS | — |
-| G4-09 | `test_drafts.py::test_draft_structure_validated`（14 組）、`::test_recover_failure_closes_document`、`test_transaction.py::test_plan_params_copied`、`test_crash_injection.py::test_temp_recorded_while_writing`、`::test_cleanup_recorded_removes_only_own_temps`、`::test_cleanup_recorded_malformed_registry`（第二輪核對 W1）、`tests/gui/test_startup.py`（2 項，U8）、`tests/gui/test_drafts_ui.py`（7 項：全列草稿 U9；正常關閉刪草稿 U11） | T01、F04、測試內樣本 | PASS | — |
+| G4-01 | `tests/gui/test_e2e.py::test_flow_*`（12 項：開檔與縮圖、點選、預覽前後對照不提交、套用、undo／redo、另存重開、覆寫既有目的檔、模式 B 字型替換、溢出說明、尋找文字跨段落選取、預覽不可靠提示、崩潰後復原草稿），另 `::test_source_never_modified` | T01、F02、F04 | PASS | Windows 實機 PASS（W02、W07–W13、W15、W04、W17–W19、W21、W27–W31）；macOS NOT RUN |
+| G4-02 | `tests/gui/test_ime.py::test_preedit_not_committed`：以 QInputMethodEvent 模擬注音組字，組字中文字不進入內容、不規劃；確認字不規劃；Enter 後只以已確認的「測試局」規劃一次；`::test_enter_during_preedit_not_planned`：組字中按 Enter 或「預覽」不規劃，確認後才規劃（U7） | T01 | PASS | Windows 實機 PASS（W16a–W16f，微軟注音；「其他」欄亦填 PASS，但未記錄是哪個輸入法；W16f 備註見 §9 U17）；macOS NOT RUN |
+| G4-03 | `tests/gui/test_paths.py::test_unicode_paths`（3 組：中文目錄＋中文檔名、空白、emoji）：開啟、編輯、另存到同類路徑、重開見新文字 | T01 | PASS | Windows 實機 PASS（W02、W03、W17–W21，原生檔案對話框選取中文、空白、emoji 路徑）；macOS NOT RUN |
+| G4-04 | `test_e2e.py::test_cancel_does_not_commit`：長操作中取消回 CANCELLED，revision 與 history 皆為 0，worker 重啟後頁面為原文 | F04 | PASS | Windows 實機 PASS（W26；清單預期人手多半來不及而標 NOT RUN，驗收人標 PASS，未記錄是否實際取消成功，見 §9 U14） |
+| G4-05 | `test_e2e.py::test_reason_shown_for_uneditable`：不可編輯目標顯示「無法編輯：<理由>」且不能預覽；U01 顯示無文字層 | F05、U01 | PASS | Windows 實機 PASS（W05、W06、W14） |
+| G4-06 | `tests/gui/test_shortcuts.py::test_platform_shortcuts`：開啟／另存／復原／重做為 Qt 標準鍵、修飾鍵為 ControlModifier（Qt 在 macOS 對應 Cmd）、原生顯示 Windows `Ctrl+`／macOS `⌘`；以按鍵實際觸發 undo、redo | F04 | PASS | Windows 實機 PASS（W10、W11、W17、W23、W24；W10、W11 備註見 §9 U12）；macOS Cmd NOT RUN |
+| G4-06 | `tests/gui/test_responsiveness.py::test_ui_not_blocked`：worker 睡 1.5 秒期間，10 ms 計時器的最大間隔 ≤100 ms、送出工作 ≤100 ms | F04 | PASS | Windows 實機 PASS（W25，只能排除明顯凍結） |
+| G4-07 | `tests/gui/test_fonts.py::test_cjk_font_rendering`：頁面原中文字形有畫出（文字框內有深色像素）；兩個不同中文新字串的「修改後」預覽圖不同（排除空白與同一缺字框）；介面拿到的文字未改碼 | T05 | 預覽 PASS | UI 元件中文字形：Windows 實機 PASS（W01、W03、W03b）；macOS NOT RUN |
+| G4-08 | `tests/integration/test_preview.py`（3 項）：全部 available fixture（排除加密、損壞）逐頁分析，帶 PREVIEW_UNRELIABLE 的恰為 ADR-0015 的 7 份；worker 層 preview_edit 前後圖不同、revision／內容指紋／applied 不變、之後同一 plan_id 可套用；其他未套用計畫失效；無效 plan_id 回 INVALID_REQUEST | 全部 available、F04 | PASS | Windows 實機 PASS（W04、W08、W13） |
+| G4-09 | `test_drafts.py::test_draft_structure_validated`（14 組）、`::test_recover_failure_closes_document`、`test_transaction.py::test_plan_params_copied`、`test_crash_injection.py::test_temp_recorded_while_writing`、`::test_cleanup_recorded_removes_only_own_temps`、`::test_cleanup_recorded_malformed_registry`（第二輪核對 W1）、`tests/gui/test_startup.py`（2 項，U8）、`tests/gui/test_drafts_ui.py`（7 項：全列草稿 U9；正常關閉刪草稿 U11） | T01、F04、測試內樣本 | PASS | Windows 實機 PASS（W20、W22、W27–W31） |
 
 G4 驗收條件：
 
-1. **每平台至少 12 個 E2E 流程**：G4-01 有 12 項 `test_flow_*`，CI 雙平台執行通過；但 spec 寫「兩平台實機」，實機 NOT RUN。
-2. **IME 組字中不提前送出**：G4-02 只驗證到 Qt 層（QInputMethodEvent）；實際輸入法（注音、倉頡、macOS 注音）的 Enter 由輸入法吃掉，offscreen 無法模擬，須實機。
+1. **每平台至少 12 個 E2E 流程**：G4-01 有 12 項 `test_flow_*`，CI 雙平台執行通過；spec 寫「兩平台實機」：Windows 實機人工驗收 PASS（2026-11-02），macOS 實機 NOT RUN（ADR-0021 §3）。
+2. **IME 組字中不提前送出**：G4-02 只驗證到 Qt 層（QInputMethodEvent）；實際輸入法（注音、倉頡、macOS 注音）的 Enter 由輸入法吃掉，offscreen 無法模擬；Windows 實機以微軟注音驗收 W16a–W16f PASS（組字中 Enter 只確認組字、不觸發預覽），倉頡、macOS 注音 NOT RUN。
 3. **中文、空白、emoji 路徑**：G4-03。
 4. **取消不提交**：G4-04。
 5. **不可編輯物件顯示原因**：G4-05。
-6. **中文字型正確顯示**：G4-07 預覽部分；UI 部分須實機。
+6. **中文字型正確顯示**：G4-07 預覽部分；UI 部分 Windows 實機 W01、W03、W03b PASS。
 7. **Ctrl／Cmd 快捷鍵、worker 不阻塞 UI**：G4-06。
 
 ## 4. 執行命令、exit code、測試數
@@ -107,7 +108,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 
 ## 7. 限制、阻擋、未測項目
 
-- **Windows 實機人工驗收**：NOT RUN。驗收清單見 `reports/P4/windows-acceptance.md`（W01–W31，經第三輪獨立核對修正，§11）。G4-04 實機：套用約 0.15 秒，人工來不及按取消，清單 W26 多半只能標 NOT RUN（§9 U14）。IME（注音／倉頡實機輸入）、快捷鍵實按、中文 UI 字型、12 個 E2E 流程的人工操作皆未做。
+- **Windows 實機人工驗收**：2026-11-02 完成，commit `8d1f0ed`，37／37 PASS、FAIL 0、NOT RUN 0（`reports/P4/windows-acceptance.md`，結果由驗收人填入 Artifact 頁面的資料庫，Claude 讀出後逐項寫入清單）。環境：Windows 11 26H2、縮放 150%、1920×1080、微軟注音、系統管理員帳號（非一般使用者，清單要求記錄；以一般帳號執行的行為未驗）。限制：(1) 證據只有驗收人自填的結果與備註，**未提交截圖**（清單建議放 `reports/P4/evidence/windows/`，該資料夾不存在），Claude 無法獨立確認；(2) W16a–W16f 的「其他」輸入法欄填 PASS，但環境只記錄微軟注音，未記錄另一個輸入法的名稱；(3) 備註：W09「ㄅㄨ」（意義不明，照錄）；W10 焦點留在輸入欄時 Ctrl+Z 沒有被輸入欄吃掉（與 U12 描述不同，§9 U12）；W11 Ctrl+Shift+Z 沒作用（符合 U12）；W16f 有些罕用字、簡體字無法顯示（§9 U17）；(4) W26 清單預期人手來不及取消、多半標 NOT RUN，驗收人標 PASS，未記錄是看到「已取消，未提交變更」或其他情形（§9 U14）；(5) 倉頡等其他輸入法、一般使用者帳號、其他縮放比例未驗。
 - **macOS 實機**：NOT RUN（ADR-0021 §3、P3 U1）。
 - **UI 中文字形**：offscreen 平台的字型資料庫沒有任何繁中字型（實測 `QFontDatabase.families(TraditionalChinese)` 為 0），
   介面元件的中文是否顯示正確無法自動驗證。
@@ -136,7 +137,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 
 | # | 內容 | 影響 | 需誰確認 |
 | --- | --- | --- | --- |
-| U1 | Windows 實機人工驗收（IME、快捷鍵、中文 UI 字型、E2E）尚未執行；macOS 實機依 ADR-0021 NOT RUN | G4 要求「兩平台實機」，目前只有 offscreen 證據 | 工程師安排 Windows 實機驗收；macOS 依 P3 U1 |
+| U1 | Windows 實機人工驗收（IME、快捷鍵、中文 UI 字型、E2E）尚未執行；macOS 實機依 ADR-0021 NOT RUN | G4 要求「兩平台實機」，目前只有 offscreen 證據 | **Windows 已驗收**（2026-11-02，`8d1f0ed`）：37／37 PASS，限制見 §7（無截圖、另一輸入法未記名稱、系統管理員帳號）；備註衍生 U12、U14、U17 的待決事項；macOS 依 P3 U1 |
 | U2 | 第一版報告時下列行為改動沒有直接測試：暫存紀錄與啟動清除（P3 U9）；PREVIEW_UNRELIABLE 恰標出 7 份；`_valid`（f001）；editable_region 副本（f006）；復原失敗關閉文件；preview_edit 的 worker 層行為 | — | **已處理**（工程師 2026-10-30 決定合併前補）：G4-08、G4-09 共 21 項，反向驗證見 §4 |
 | U3 | G4-02 只在 Qt 層模擬組字；實機輸入法在組字中按 Enter 由輸入法處理，offscreen 無法驗證 | IME 證據不完整 | 實機驗收（U1） |
 | U4 | `preview_edit` 會讓同文件其他未套用計畫失效；UI 一次只有一個計畫，目前沒有影響 | 未來多計畫 UI 須注意 | 備查 |
@@ -146,19 +147,20 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | U9 | 多份草稿時一次只詢問第一份（獨立核對 V11） | 其他草稿要到下次啟動才處理 | **已處理**（工程師 2026-10-30 決定改為全列）：`DraftDialog` 列出全部草稿、捨棄後再列出其餘；`tests/gui/test_drafts_ui.py` 2 項（修正前行為下失敗）。復原一份後其餘仍要到下次啟動才列出 |
 | U10 | 多實例同時執行：啟動清除不檢查暫存檔年齡、沒有單一實例鎖；`_record` 讀改寫未加鎖（第二輪核對 W2） | 另一實例的另存失敗（原檔與目的檔不受影響）；並行時可能遺失紀錄而退回 P3 清除方式 | **列 P7**（工程師 2026-10-30 決定）；已記入 THREAT_MODEL T3、§8 |
 | U11 | 按視窗 ✕ 正常關閉時 UI 不呼叫 `close_document`（`closeEvent` 只停 JobRunner），草稿不刪，下次啟動仍列出（第三輪核對，offscreen 實測） | 與 ADR-0020 §5「正常 close_document 時刪除」及 THREAT_MODEL T13「正常關閉即刪」不一致；草稿（含新文字）多留最多 7 天 | **已處理**（工程師 2026-10-30 決定修）：`closeEvent` 先取消進行中的請求、等背景執行緒結束，再 `close_document`（刪草稿）；測試 `tests/gui/test_drafts_ui.py::test_close_window_discards_draft`、`::test_close_window_while_busy`（修正前／拿掉取消時失敗，§4）；第四輪核對後補：取消重試、關閉前收下已完成結果（`::test_close_window_while_busy_between_calls`、`::test_close_window_delivers_finished_result`）；第五輪核對後補：關閉中不再跳出草稿對話框（`::test_close_window_does_not_offer_drafts`），ADR-0021 §2 註明關閉流程是「主執行緒不等待 worker」的例外；清單 W31 改為依 ADR 判定。未驗證：Windows 登出／關機時是否觸發 closeEvent（Qt session 行為，須實機） |
-| U12 | 快捷鍵：「重做」只綁第一組 Ctrl+Y（`setShortcut`），Ctrl+Shift+Z 無作用；套用後焦點在「尋找文字」欄，Ctrl+Z 由輸入欄處理而非文件復原；工具列提示不顯示快捷鍵 | 使用者可能以為復原失效 | **列 P7**（工程師 2026-10-30 決定）；清單 W10、W11、W24 標已知不符 |
+| U12 | 快捷鍵：「重做」只綁第一組 Ctrl+Y（`setShortcut`），Ctrl+Shift+Z 無作用；套用後焦點在「尋找文字」欄，Ctrl+Z 由輸入欄處理而非文件復原；工具列提示不顯示快捷鍵 | 使用者可能以為復原失效 | **列 P7**（工程師 2026-10-30 決定）；清單 W10、W11、W24 標已知不符。實機（2026-11-02）：W11 Ctrl+Shift+Z 無作用、W24 標 PASS，與已知相符；W10 備註「焦點在輸入欄時沒有吃掉 Ctrl+Z」，與 U12「輸入欄會吃掉 Ctrl+Z」不符，可能是輸入欄當時沒有可復原的編輯（Qt `QLineEdit` 有自己的復原堆疊，空堆疊時是否轉交視窗快捷鍵未查證），未查明；U12 描述是否修正，**待工程師決定** |
 | U13 | 開啟 0 頁文件（加密 U02）後頁面區仍顯示前一份文件與目標框 | 使用者可能點選到已關閉文件的框 | **列 P7**（工程師 2026-10-30 決定）；清單 W06 記錄 |
 | U15 | CI 偶發 pytest 崩潰（Windows 0xC0000005，run 41017732159；macOS Bus error，run 41376869342），原因未查明（§7） | 可能是測試環境或原生程式庫（pypdfium2／PyMuPDF／Qt）的偶發問題，也可能是產品碼觸發；未查明前無法排除 | 工程師 2026-11-02 決定合併前查明：已調查，無法重現、原因未查明（§7）；CI 已改為失敗時印完整 log。**接受殘餘**（工程師 2026-11-02 決定）：頻率約 1／163，其後 CI 全通過（41017732159 之後至 `497a86e` 前成功 20 次、取消 3 次不計，其中與 `497a86e` 程式碼相同者 16 次）；再發生時依完整堆疊另行處理。**2026-11-02 再發生**：run 41376869342（`44c41c2`）macos-15 Bus error，崩潰在 `test_drafts_ui.py::test_offer_drafts_lists_all_and_reoffers_after_discard`（主執行緒記憶體回收、背景執行緒 `recover_draft` 寫草稿），堆疊無 pypdfium2，頻率改為 2／174（§7）。接受殘餘所依據的「只有 1 次、最可能是 pypdfium2」已不成立；是否維持接受殘餘或合併前查明，**待工程師決定**。**工程師 2026-11-02 決定合併前查明（第二次崩潰後）**：壓測未重現（本機 Windows 700 次；macOS 385 次完成、1 次卡住）；追蹤發現測試留下的 `MainWindow` 在其他測試中才被 GC 回收，修正前 34 個中 24 個在背景執行緒觸發的 GC 中回收（量的是 Python 包裝物件的回收時機與執行緒）；`tests/gui/conftest.py` 改為每項測試收尾即在主執行緒銷毀（§7）。原因仍未證實；macOS 全套 pytest 另有 1 次卡住（原因不明，列 U16）。**附條件接受殘餘（工程師 2026-11-02 決定）**：修正後 CI 只要再崩潰一次即撤回接受，依完整堆疊重新調查（之後的崩潰不能再以測試留下的視窗解釋） |
 | U16 | macOS 全套 pytest 卡住 1 次：run 41385803445（U15 壓測，暫時分支）的第 6 次約 54 分鐘無輸出直到 job 逾時，未保存輸出，卡在何處不明；其後 80 次（run 41396708110）未再發生；正式 `ci` workflow 未見過（§7） | 正式 CI 卡住會以 30 分鐘逾時取消，原本不留堆疊 | **已處理證據收集**（工程師 2026-11-02 決定）：`pyproject.toml` 加 `faulthandler_timeout = 300`、`faulthandler_exit_on_timeout = true`（§7），只涵蓋卡在單一測試內的情形，能否抓到 run 41385803445 那種卡住未經驗證；原因未查明，再發生時依堆疊處理 |
-| U14 | G4-04 實際套用流程的取消，人工在實機來不及操作（套用約 0.15 秒） | G4-04 只有 offscreen 證據（worker 延遲模擬） | **列 P7**（工程師 2026-10-30 決定）；清單 W26 照實記錄 |
+| U14 | G4-04 實際套用流程的取消，人工在實機來不及操作（套用約 0.15 秒） | G4-04 只有 offscreen 證據（worker 延遲模擬） | **列 P7**（工程師 2026-10-30 決定）；清單 W26 照實記錄。實機（2026-11-02）W26 標 PASS，未記錄是否看到「已取消，未提交變更」；是取消成功或來不及取消而判 PASS 不明，是否請驗收人補記，**待工程師決定** |
+| U17 | Windows 實機 W16f（微軟注音選同音字）備註：有些罕用字、簡體字無法顯示（2026-11-02）。未記錄是哪些字、在輸入欄或頁面／預覽圖、顯示為方框或空白 | 可能是 UI 字型或模式 B 字型（Noto Sans TC）缺字；公文罕用字無法輸入或顯示會影響使用 | 補記哪些字與位置後判斷原因；處理方式（列 P7、合併前查明或備查）**待工程師決定** |
 | U6 | P3 延續：U3（重播 30 秒逾時）、U7（§8.3 效能）、U10（影像雜湊解讀）、U11（逾時路徑無測試）、U12（服務層 undo 失敗無測試） | 同 P3 報告 | 同 P3 報告 |
 
 ## 10. 關卡結果
 
-- CI：ci.yml 最後變更於 `5d131f3`（U15）；`c3c3524` 改 GUI 測試收尾（U15），`69cbdc4` 加 pytest faulthandler 逾時（U16），其後只改報告；`0fd7070` 的 run 41407315420（push）、41407321597（pull_request）windows-latest 360 passed、macos-15 360 passed；`07700c0` 的 run 41404337580（push）、41404342839（pull_request）windows-latest 360 passed、macos-15 360 passed；`44c41c2` 的 run 41376869342（push）macos-15 pytest 崩潰（Bus error，U15 第二次，§7）、windows-latest 360 passed，run 41376874900（pull_request）雙平台 360 passed；`497a86e` 的 run 41373728592（push）、41373734102（pull_request）windows-latest 360 passed、macos-15 360 passed；U15 重跑 8 次見 §7；程式證據 run [41029981106](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41029981106)（commit `ffcecc3`，第六輪核對 A4、A5 處理後）windows-latest 360 passed、macos-15 360 passed；run [41028316187](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41028316187)（commit `5b3f148`，U11 第五輪核對處理後）windows-latest 360 passed、macos-15 360 passed；run [41022660909](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41022660909)（commit `51c3c0d`，U11 第四輪補修後）windows-latest 359 passed、macos-15 359 passed；run [41017277282](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41017277282)（commit `5d4a5df`，U11 修正後）windows-latest 357 passed、macos-15 357 passed；run [41011809272](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41011809272)（commit `cb40fdf`，第二輪核對處理後）windows-latest 355 passed、macos-15 355 passed；run 41010683123（commit `efc3ddf`，U5，只改文件）雙平台 354 passed；run [41005065222](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41005065222)（commit `b9a383e`，U9 修正後）windows-latest 354 passed、macos-15 354 passed；run 41004289165（`77a6348`）352 passed；run 41001063910（commit `c234632`，U7 修正後）雙平台 350 passed；run 40998022034（commit `ecc067b`）雙平台 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
-- **關卡結果：BLOCKED**。G4-01～G4-09 都有自動測試，本機與 CI 雙平台通過；但 G4 要求兩平台實機，Windows 實機人工驗收尚未執行（U1），
+- CI：ci.yml 最後變更於 `5d131f3`（U15）；`c3c3524` 改 GUI 測試收尾（U15），`69cbdc4` 加 pytest faulthandler 逾時（U16），其後只改報告；`8d1f0ed`（Windows 實機驗收所用 commit）的 run 41409043376（push）、41409049958（pull_request）windows-latest 360 passed、macos-15 360 passed；`0fd7070` 的 run 41407315420（push）、41407321597（pull_request）windows-latest 360 passed、macos-15 360 passed；`07700c0` 的 run 41404337580（push）、41404342839（pull_request）windows-latest 360 passed、macos-15 360 passed；`44c41c2` 的 run 41376869342（push）macos-15 pytest 崩潰（Bus error，U15 第二次，§7）、windows-latest 360 passed，run 41376874900（pull_request）雙平台 360 passed；`497a86e` 的 run 41373728592（push）、41373734102（pull_request）windows-latest 360 passed、macos-15 360 passed；U15 重跑 8 次見 §7；程式證據 run [41029981106](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41029981106)（commit `ffcecc3`，第六輪核對 A4、A5 處理後）windows-latest 360 passed、macos-15 360 passed；run [41028316187](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41028316187)（commit `5b3f148`，U11 第五輪核對處理後）windows-latest 360 passed、macos-15 360 passed；run [41022660909](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41022660909)（commit `51c3c0d`，U11 第四輪補修後）windows-latest 359 passed、macos-15 359 passed；run [41017277282](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41017277282)（commit `5d4a5df`，U11 修正後）windows-latest 357 passed、macos-15 357 passed；run [41011809272](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41011809272)（commit `cb40fdf`，第二輪核對處理後）windows-latest 355 passed、macos-15 355 passed；run 41010683123（commit `efc3ddf`，U5，只改文件）雙平台 354 passed；run [41005065222](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41005065222)（commit `b9a383e`，U9 修正後）windows-latest 354 passed、macos-15 354 passed；run 41004289165（`77a6348`）352 passed；run 41001063910（commit `c234632`，U7 修正後）雙平台 350 passed；run 40998022034（commit `ecc067b`）雙平台 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
+- **關卡結果：BLOCKED**。G4-01～G4-09 都有自動測試，本機與 CI 雙平台通過；Windows 實機人工驗收 2026-11-02 完成，37／37 PASS（U1，限制見 §7），尚待獨立核對；U12、U14、U17 有待工程師決定的事項；macOS 實機 NOT RUN（ADR-0021 §3）。
   U2 已補測試。
-- **下一段可開始：否**。條件：Windows 實機驗收完成（含 G4-03 檔案對話框與實機輸入法組字中按 Enter），結果寫回本報告後由未參與實作者再做一次獨立核對，並依結果更新本節關卡結果；macOS 依 ADR-0021 §3 附條件。U15（CI 偶發崩潰）工程師曾接受殘餘（2026-11-02），其後同日在 macOS 再發生一次（run 41376869342，§7）；工程師決定合併前查明，已修正測試收尾（§7），崩潰未重現、原因未證實；工程師 2026-11-02 決定附條件接受殘餘（再崩潰即撤回）。U16（macOS 卡住 1 次）已加逾時堆疊收集，原因未查明。
+- **下一段可開始：否**。條件：Windows 實機驗收已完成並寫回本報告（2026-11-02）；尚須由未參與實作者再做一次獨立核對、工程師決定 U12、U14、U17 的待決事項，並依結果更新本節關卡結果；macOS 依 ADR-0021 §3 附條件。U15（CI 偶發崩潰）工程師曾接受殘餘（2026-11-02），其後同日在 macOS 再發生一次（run 41376869342，§7）；工程師決定合併前查明，已修正測試收尾（§7），崩潰未重現、原因未證實；工程師 2026-11-02 決定附條件接受殘餘（再崩潰即撤回）。U16（macOS 卡住 1 次）已加逾時堆疊收集，原因未查明。
 
 ## 11. 獨立核對紀錄
 
