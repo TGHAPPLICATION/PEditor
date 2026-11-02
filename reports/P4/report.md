@@ -5,8 +5,8 @@
 
 ## 1. 階段／commit／日期
 
-- 階段：P4　分支：`p4-desktop-ui`　commit：`28d89b5`（實作與 G4 測試）、`ecc067b`（U2 補測試，G4-08、G4-09）、`2aafaf3`（核對出入處理）、`c234632`（U7 修正）、`77a6348`（U8）、`b9a383e`（U9）、`efc3ddf`（U5，THREAT_MODEL）、`cb40fdf`（第二輪核對出入處理，見 §11）、`f601f84`（實機驗收清單，第三輪核對）、`5d4a5df`（U11）、`51c3c0d`（U11 第四輪核對補修）、`5b3f148`（U11 第五輪核對處理）、`ffcecc3`（第六輪核對 A4、A5）、`3f712aa`（第七輪核對 B1–B3）、`46febae`（第八輪核對 C1–C3，只改文件）、`314314a`（PR 核對處理）、`5d131f3`（CI 失敗時印完整 log，U15）、`c6a86d9`／`497a86e`（U15 調查與接受殘餘）、`1c4c88a`（第十一輪核對處理）　日期：2026-10-30～11-02
-- 撰寫：Claude Code；審查：待工程師；獨立核對：2026-10-30～11-02 十二輪（第一輪 `ecc067b`、第二輪 `efc3ddf` 針對 U5、第三輪 `00f8a7d` 針對實機驗收清單、第四輪 `90dcf84` 針對 U11、第五輪 `e2c8cf4` 針對 U11 補修、第六輪 `5b3f148` 針對第五輪處理、第七輪 `60d0cab` 針對 A4／A5、第八輪 `3f712aa` 針對 B1–B3、第九輪 `0ddc265` 針對 C1–C3、第十輪 PR #11、第十一輪 U15 `497a86e`、第十二輪 `f9ff456`），前五輪結論「有出入」、第六輪無程式上的 must-fix、第七、八輪無 must-fix、第九輪無出入、第十、十一輪有出入、第十二輪無 must-fix，處理見 §11
+- 階段：P4　分支：`p4-desktop-ui`　commit：`28d89b5`（實作與 G4 測試）、`ecc067b`（U2 補測試，G4-08、G4-09）、`2aafaf3`（核對出入處理）、`c234632`（U7 修正）、`77a6348`（U8）、`b9a383e`（U9）、`efc3ddf`（U5，THREAT_MODEL）、`cb40fdf`（第二輪核對出入處理，見 §11）、`f601f84`（實機驗收清單，第三輪核對）、`5d4a5df`（U11）、`51c3c0d`（U11 第四輪核對補修）、`5b3f148`（U11 第五輪核對處理）、`ffcecc3`（第六輪核對 A4、A5）、`3f712aa`（第七輪核對 B1–B3）、`46febae`（第八輪核對 C1–C3，只改文件）、`314314a`（PR 核對處理）、`5d131f3`（CI 失敗時印完整 log，U15）、`c6a86d9`／`497a86e`（U15 調查與接受殘餘）、`1c4c88a`（第十一輪核對處理）、`c70b012`（第十二輪核對處理）、本次 commit（第十三輪核對處理）　日期：2026-10-30～11-02
+- 撰寫：Claude Code；審查：待工程師；獨立核對：2026-10-30～11-02 十三輪（第一輪 `ecc067b`、第二輪 `efc3ddf` 針對 U5、第三輪 `00f8a7d` 針對實機驗收清單、第四輪 `90dcf84` 針對 U11、第五輪 `e2c8cf4` 針對 U11 補修、第六輪 `5b3f148` 針對第五輪處理、第七輪 `60d0cab` 針對 A4／A5、第八輪 `3f712aa` 針對 B1–B3、第九輪 `0ddc265` 針對 C1–C3、第十輪 PR #11、第十一輪 U15 `497a86e`、第十二輪 `f9ff456`、第十三輪 `c70b012`），前五輪結論「有出入」、第六輪無程式上的 must-fix、第七、八輪無 must-fix、第九輪無出入、第十、十一輪有出入、第十二、十三輪無 must-fix，處理見 §11
 - 輸入：spec v1.1 P4／G4／§7／§9、ADR-0001～0021、manifest、P3 報告 §9 延續項目（U2、U4 f001／f006、U9）、`docs/traceability.md` 預登記的 G4-01～G4-07
 - S1／S2 工程師決定（2026-10-29，ADR-0021）：預覽維持 MuPDF，偵測 CID 不在 charset 時提示 `PREVIEW_UNRELIABLE`；
   UI 只呼叫 DocumentService 公開 API、單一背景執行緒；新增 worker 操作 `preview_edit`；macOS 只有 CI 證據，實機項目標 NOT RUN。
@@ -150,7 +150,7 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 
 ## 10. 關卡結果
 
-- CI：最後一次 CI 設定變更後（commit `497a86e`，含 `5d131f3` 的 ci.yml 修改；其後只改報告）的 run 41373728592（push）、41373734102（pull_request）windows-latest 360 passed、macos-15 360 passed；U15 重跑 8 次見 §7；程式證據 run [41029981106](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41029981106)（commit `ffcecc3`，第六輪核對 A4、A5 處理後）windows-latest 360 passed、macos-15 360 passed；run [41028316187](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41028316187)（commit `5b3f148`，U11 第五輪核對處理後）windows-latest 360 passed、macos-15 360 passed；run [41022660909](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41022660909)（commit `51c3c0d`，U11 第四輪補修後）windows-latest 359 passed、macos-15 359 passed；run [41017277282](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41017277282)（commit `5d4a5df`，U11 修正後）windows-latest 357 passed、macos-15 357 passed；run [41011809272](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41011809272)（commit `cb40fdf`，第二輪核對處理後）windows-latest 355 passed、macos-15 355 passed；run 41010683123（commit `efc3ddf`，U5，只改文件）雙平台 354 passed；run [41005065222](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41005065222)（commit `b9a383e`，U9 修正後）windows-latest 354 passed、macos-15 354 passed；run 41004289165（`77a6348`）352 passed；run 41001063910（commit `c234632`，U7 修正後）雙平台 350 passed；run 40998022034（commit `ecc067b`）雙平台 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
+- CI：ci.yml 最後變更於 `5d131f3`（U15），其後只改報告；`497a86e` 的 run 41373728592（push）、41373734102（pull_request）windows-latest 360 passed、macos-15 360 passed；U15 重跑 8 次見 §7；程式證據 run [41029981106](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41029981106)（commit `ffcecc3`，第六輪核對 A4、A5 處理後）windows-latest 360 passed、macos-15 360 passed；run [41028316187](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41028316187)（commit `5b3f148`，U11 第五輪核對處理後）windows-latest 360 passed、macos-15 360 passed；run [41022660909](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41022660909)（commit `51c3c0d`，U11 第四輪補修後）windows-latest 359 passed、macos-15 359 passed；run [41017277282](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41017277282)（commit `5d4a5df`，U11 修正後）windows-latest 357 passed、macos-15 357 passed；run [41011809272](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41011809272)（commit `cb40fdf`，第二輪核對處理後）windows-latest 355 passed、macos-15 355 passed；run 41010683123（commit `efc3ddf`，U5，只改文件）雙平台 354 passed；run [41005065222](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41005065222)（commit `b9a383e`，U9 修正後）windows-latest 354 passed、macos-15 354 passed；run 41004289165（`77a6348`）352 passed；run 41001063910（commit `c234632`，U7 修正後）雙平台 350 passed；run 40998022034（commit `ecc067b`）雙平台 349 passed；先前 run 40994221324（commit `28d89b5`）雙平台 328 passed。
 - **關卡結果：BLOCKED**。G4-01～G4-09 都有自動測試，本機與 CI 雙平台通過；但 G4 要求兩平台實機，Windows 實機人工驗收尚未執行（U1），
   U2 已補測試。
 - **下一段可開始：否**。條件：Windows 實機驗收完成（含 G4-03 檔案對話框與實機輸入法組字中按 Enter），結果寫回本報告後由未參與實作者再做一次獨立核對，並依結果更新本節關卡結果；macOS 依 ADR-0021 §3 附條件。U15（CI 偶發崩潰）已由工程師接受殘餘（2026-11-02）。
@@ -308,4 +308,14 @@ E2E 確認預覽後 UI 的 revision 仍為 0、前後圖不同、之後可正常
 | G3 | §7 (5) 的 163 未寫截止點、未說明只計 `ci` workflow | 補「截至 `c6a86d9` 之前、只計 `ci` workflow」 |
 | G4 | `import300.txt` 只有一行摘要，沒有指令與逐次輸出，且 scratchpad 不進 repo | §7 (4) 註明「僅保存摘要、不進 repo」並寫出指令 |
 | G5 | §1 日期仍為 2026-10-30；P2 attempt 1「1 failed、271 passed」只能靠 P2 報告（job log 被 gh 擋下）；PR 已 CLEAN，只靠 draft 擋合併（E3） | §1 日期改為 2026-10-30～11-02；其餘備查 |
+
+第十三輪（2026-11-02，HEAD `c70b012`，針對第十二輪 G1–G5）：未參與實作的 Claude 子代理人只讀核對 G1–G5 與 diff 一致，20／3／16（以 `src`、`tests` 比對程式碼相同）與 163（`c6a86d9` 之前建立、排除取消；以 `497a86e` 為截止則 164）和 GitHub 紀錄相符，摘要檔不在 repo；`c70b012` 的 CI（run 41374961468、41374966881）雙平台 360 passed、CodeQL 通過。結論「無 must-fix」，處理如下：
+
+| # | 出入 | 處理 |
+| --- | --- | --- |
+| H1 | §1 commit 清單列了 `1c4c88a`（第十一輪核對處理）卻沒列同性質的 `c70b012`，與 D3 慣例不一致 | 補列；核對處理 commit 一律列入，只補 hash 或 CI 證據的報告 commit 不列 |
+| H2 | §10「最後一次 CI 設定變更後（commit `497a86e`）」用詞不精確：設定變更在 `5d131f3`，`497a86e` 只改報告 | 改為「ci.yml 最後變更於 `5d131f3`，其後只改報告；`497a86e` 的 run …」 |
+| H3 | 匯入 300 次的指令只寫在報告、摘要檔未保存；「程式碼相同」只比 `src`／`tests`（`5d131f3` 前 7 次 ci.yml 不同）；PR 說明的 163 未寫截止點；PR 只靠 draft 擋合併 | 備查 |
+
+依工程師 2026-11-02 決定，本段不再另做獨立核對，下一次核對在 Windows 實機結果寫回本報告後進行。
 
