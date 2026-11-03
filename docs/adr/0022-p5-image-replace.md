@@ -3,7 +3,7 @@
 - 狀態：已接受（2026-11-03，工程師於 P5 S1／S2 決定「照建議」）
 - 日期：2026-11-03
 - 決策者：工程師
-- 需人工確認：否（已確認）；實作時與 S2 說明不同之處列在「實作差異」，待工程師審查
+- 需人工確認：否（已確認）；「實作差異」與 P5 報告 U1–U5 由工程師 2026-11-03 決定「照建議」
 
 ## 背景
 
@@ -26,6 +26,7 @@ P5 不改判定規則（不放寬支援範圍）。
   不支援或損壞回 `UNSUPPORTED_FEATURE`，超過上限回 `RESOURCE_LIMIT`。
 - 不新增 Pillow 執行期相依（Pillow 目前只在 dev 群組）。
 - 主行程只保留 command log 與未套用計畫用到的新圖，其餘在下次登記時兩端一起釋放。
+- JPEG 的 EXIF 方向標記（0x0112）不是 1 時，計畫附警告「相片含方向資訊（EXIF），替換時不套用；若方向不對，請先轉正再替換」；不自動轉正（P5 報告 U4）。
 
 ### 2. 比例：變換矩陣不動，等比置中、兩側補透明
 
@@ -40,6 +41,7 @@ P5 不改判定規則（不放寬支援範圍）。
 - 新圖沒有透明部分：不帶 SMask；原圖的 SMask 不沿用（那是舊圖的形狀），原圖有 SMask 時計畫附警告。
 - MuPDF 解碼的透明通道為預乘色彩，SMask 以 `/Matte` 黑色宣告（PDF 預乘遮罩），不逐點還原。
 - JPEG 不需補邊時原樣嵌入（DCTDecode，位元組與新圖檔相同）；其餘解碼後以 Flate 壓縮嵌入。
+- 解碼、補邊、壓縮的結果留在 worker 的新圖物件上（同一補邊參數），預覽建好後套用與重播直接重用，不再重新解碼與壓縮（P5 報告 U3）。
 
 ### 4. copy-on-write
 
@@ -71,7 +73,7 @@ P5 不改判定規則（不放寬支援範圍）。
 - 遮罩：沿用原 SMask（形狀與新圖無關，尺寸不同時須重採樣）→ 未採用。
 - 介面：只做 core 與整合測試（P6–P8 沒排介面工作，功能到發布時沒有入口）→ 未採用。
 
-## 實作差異（相對 S2 說明，待工程師審查）
+## 實作差異（相對 S2 說明；工程師 2026-11-03 接受，P5 報告 U1）
 
 1. **檔案大小上限 50 MB → 32 MB**：新圖以 base64 經 IPC 傳送，50 MB 會超過單則訊息上限 64 MiB（ADR-0004）；
    改傳路徑給 worker 讀檔又會讓草稿與重播依賴原圖檔不變，故降為 32 MB。
@@ -83,6 +85,6 @@ P5 不改判定規則（不放寬支援範圍）。
 - 新增 `src/peditor/worker/image.py`；修改 `worker/edit.py`（apply／preview／replay 依 op 分派）、`worker/analyzer.py`
   （記錄每個圖片目標的出現位置）、`worker/export.py`、`worker/server.py`、`core/protocol.py`（`register_asset`、
   `plan_image_edit`）、`core/editplan.py`、`core/limits.py`、`core/service.py`、`core/drafts.py`、`ui/app.py`、`ui/messages.py`。
-- 限制：不讀 JPEG 的 EXIF 方向（手機照片可能橫躺，預覽可見）；ICC 色彩描述檔不保留（以 DeviceGray／DeviceRGB 嵌入）；
+- 限制：JPEG 的 EXIF 方向只提示、不套用（PNG 的 eXIf 區塊不讀）；預乘遮罩只驗證 MuPDF 與 PDFium，其他閱讀器列 P8 實機檢查（P5 報告 U2）；需補邊的大圖預覽仍慢（24 MP 約 6.7 秒），列 P7（U3）；ICC 色彩描述檔不保留（以 DeviceGray／DeviceRGB 嵌入）；
   PNG 調色盤圖解碼後以 RGB 嵌入（檔案較大）；16 位元 PNG 降為 8 位元。
 - 新的不可信輸入（使用者提供的圖片檔，在 worker 內以 MuPDF 解碼）記入 THREAT_MODEL。
