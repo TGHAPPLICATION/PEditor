@@ -5,7 +5,8 @@
 
 ## 1. 階段／commit／日期
 
-- 階段：P5　分支：`p5-image-replace`　commit：`c1a1c87`（實作與 G5 測試）、`d5dc648`（補測試：共用 content stream、圖片頁文字變動偵測）、`bdc355f`（U3 快取、U4 EXIF 提示）　日期：2026-11-03
+- 階段：P5　分支：`p5-image-replace`　commit：`c1a1c87`（實作與 G5 測試）、`d5dc648`（補測試：共用 content stream、圖片頁文字變動偵測）、`cfee71a`（證據包與產生腳本 `scripts/p5_evidence.py`）、`bdc355f`（U3 快取、U4 EXIF 提示）、`a584ca8`（第一輪核對 N1、N6、N7）　日期：2026-11-03
+- 只改報告、traceability 或 CI 紀錄的 commit（`11cb4c7`、`86d47bf`、`89614e0` 等）依 P4 慣例不列。
 - 撰寫：Claude Code；審查：待工程師；獨立核對：待（CLAUDE.md：由未參與實作的子代理人核對）
 - 輸入：spec v1.1 P5／G5／§7／§8／§9、ADR-0001～0021（重點 ADR-0009）、manifest I01–I09、`docs/traceability.md` 預登記的 G5-01～G5-04、P4 報告 §10（下一段可開始：是，附條件）
 - S1／S2 工程師決定（2026-11-03「照建議」，ADR-0022）：
@@ -30,16 +31,16 @@
 ## 3. 需求 → test ID → fixture／hash → 結果
 
 fixture hash（前 12 碼）：I01 `7a8001d4d803`、I02 `3e241f7b6fef`、I03 `7bd88c07864d`、I04 `04a408c4cee4`、I05 `a4b27c478ce9`、I06 `fd2c9cc50675`、I07 `e88b9a7270f1`、I09 `ddc12162a6d8`。
-「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝run [41593863258](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41593863258)（commit `cfee71a`）windows-latest 398 passed、macos-15 398 passed。
+「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝CI 待補（第一輪核對處理後推送）。
 
 | 需求 ID | test ID | fixture | 本機 | CI |
 | --- | --- | --- | --- | --- |
 | G5-01 | `tests/integration/test_edit_image.py::test_all_supported_image_cases`（7 組）：只有選定的 `Do` 改名；新圖尺寸與像素；MuPDF、PDFium 遮罩外差異 ≤0.01%、可見範圍中心為新圖；沒有其他地方用的原圖不保留 | I01–I07 | PASS | PASS |
-| G5-02 | `::test_only_selected_occurrence_changed`（I02 跨頁、I03 同頁）：另一個出現位置仍指向原圖（位元組相同），選定的指向新圖；`::test_shared_content_stream_rejected`：content stream 被另一頁共用時拒絕 | I02、I03、測試內樣本 | PASS | PASS |
+| G5-02 | `::test_only_selected_occurrence_changed`（I02 跨頁、I03 同頁）：另一個出現位置仍指向原圖（位元組相同），選定的指向新圖；`::test_shared_content_stream_rejected`：content stream 被另一頁共用時拒絕；`::test_form_sharing_page_resources_keeps_original`：沒有自己 /Resources 的 Form 沿用頁面資源畫同名原圖時，不移除原名稱、Form 內仍是原圖（核對 N1） | I02、I03、測試內樣本 | PASS | PASS |
 | G5-03 | `::test_other_pages_unchanged_and_bbox`：I02 第 2 頁雙引擎逐像素相同、內容差異只在第 1 頁；I01–I07 替換後外框與可見範圍誤差 ≤0.5 pt（實測 0） | I01–I07 | PASS | PASS |
 | G5-04 | `::test_reject_unsupported_mask_clip`（I09 非矩形剪裁 UNSUPPORTED_LAYOUT；補邊後 72 MP 回 RESOURCE_LIMIT）；`tests/unit/test_image_asset.py`（8 項：格式、GIF／BMP／CMYK／無損 JPEG、截斷與 CRC 錯誤、像素上限在解碼前檢查、大小上限、參數白名單、EXIF 方向） | I09、I01、測試內圖片 | PASS | PASS |
 | G5-05 | `::test_aspect_fit_and_smask`：正方形新圖放入 2:1 外框補透明（SMask、`/Matte`），雙引擎左側露出白色頁面；I04 不透明新圖不帶 SMask、半透明新圖產生新 SMask；I05 JPEG 原樣嵌入；I06 擷取文字不變。`::test_image_text_check_detects_changed_text`：文字有變動時另存前驗證能偵測；`::test_built_image_reused_after_preview`：預覽後套用與重播不再解碼壓縮（U3）；`::test_exif_orientation_warned`：EXIF 方向 6 提示、一般 JPEG 不提示（U4） | I01、I04、I05、I06 | PASS | PASS |
-| G5-06 | `tests/integration/test_image_service.py`（4 項：預覽不提交、undo／redo、worker 重啟重播；草稿含新圖檔、復原、正常關閉刪除、新圖檔遺失視為損壞；錯誤不含路徑、未使用新圖釋放；與文字修改共用 log）；`test_drafts.py::test_draft_structure_validated` 新增 3 組 | I01、I03、I06 | PASS | PASS |
+| G5-06 | `tests/integration/test_image_service.py`（5 項：逾期草稿連新圖檔一起刪（核對 N7）；預覽不提交、undo／redo、worker 重啟重播；草稿含新圖檔、復原、正常關閉刪除、新圖檔遺失視為損壞；錯誤不含路徑、未使用新圖釋放；與文字修改共用 log）；`test_drafts.py::test_draft_structure_validated` 新增 3 組 | I01、I03、I06 | PASS | PASS |
 | G5-07 | `tests/gui/test_image_ui.py`（2 項：點選圖片、選新圖、前後對照、套用、復原、重做、另存到中文與空白檔名；I09 顯示原因、GIF 顯示原因） | I01、I03、I09 | PASS（offscreen） | PASS |
 
 實機：G5 不在 ADR-0003 規定須實機的關卡（G4、G7、G8）；圖片 UI 的實機操作與原生檔案對話框 NOT RUN（§7）。
@@ -51,11 +52,12 @@ uv run ruff check . && uv run ruff format --check .   → exit 0
 uv run pytest -q                                        → exit 0，396 passed（Windows 製作機，c1a1c87）
 uv run pytest -q                                        → exit 0，398 passed（Windows 製作機，d5dc648 補 2 項）
 uv run pytest -q                                        → exit 0，404 passed（Windows 製作機，bdc355f，U3／U4 補 6 項）
+uv run pytest -q                                        → exit 0，406 passed（Windows 製作機，a584ca8，第一輪核對補 2 項）
 uv run python scripts/p5_evidence.py reports/P5/evidence → exit 0
 ```
 
-- P5 新增 44 項測試：`test_edit_image.py` 16 項（含參數化 9 組）、`test_image_asset.py` 19 項（參數化 13 組）、`test_image_service.py` 4 項、`test_image_ui.py` 2 項、`test_drafts.py` 新增 3 組。P4 既有 360 項未修改預期（`test_drafts.py` 只在參數清單末尾加 3 組），全數通過。
-- **反向驗證**（`scripts` 外的臨時腳本，逐一改壞實作、跑對應測試、再以 `git checkout` 還原，工作區乾淨）：13 項改動全部被測試抓到（M12、M13 為 U3／U4 處理後補做；第一次做 M12 時以 `git checkout` 還原，誤把尚未提交的 U3／U4 修改一併還原，重新套用、先提交後再做）——
+- P5 新增 46 項測試：`test_edit_image.py` 17 項（含參數化 9 組）、`test_image_asset.py` 19 項（參數化 13 組）、`test_image_service.py` 5 項、`test_image_ui.py` 2 項、`test_drafts.py` 新增 3 組。P4 既有 360 項未修改預期（`test_drafts.py` 只在參數清單末尾加 3 組），全數通過。
+- **反向驗證**（`scripts` 外的臨時腳本，逐一改壞實作、跑對應測試、再以 `git checkout` 還原，工作區乾淨）：16 項改動全部被測試抓到（M12、M13 為 U3／U4 處理後補做，M14–M16 為第一輪核對處理後補做；第一次做 M12 時以 `git checkout` 還原，誤把尚未提交的 U3／U4 修改一併還原，重新套用、先提交後再做）——
 
   | # | 改壞的內容 | 失敗的測試 |
   | --- | --- | --- |
@@ -72,9 +74,12 @@ uv run python scripts/p5_evidence.py reports/P5/evidence → exit 0
   | M11 | 另存不檢查圖片頁文字 | `test_image_text_check_detects_changed_text` |
   | M12 | 每次都重新解碼壓縮（不重用，`bdc355f` 後） | `test_built_image_reused_after_preview` |
   | M13 | 不提示 EXIF 方向（`bdc355f` 後） | `test_exif_orientation_warned` |
+  | M14 | 判斷移除原名稱時排除 Form 內的使用（N1 修正前的行為） | `test_form_sharing_page_resources_keeps_original` |
+  | M15 | 逾期草稿只刪 JSON（N7 修正前的行為） | `test_expired_draft_purges_its_images` |
+  | M16 | `register_asset` 不檢查參數白名單 | `test_register_asset_keep_and_bad_data` |
 
 - 本機 pytest 收集階段會印出一次 `Windows fatal exception: access violation`（`pypdfium2` 載入 pdfium 時，faulthandler 回報已處理的例外）；單獨 `python -X faulthandler -c "import pypdfium2"` 也會出現且 exit 0，與 P5 程式無關，測試照常完成。
-- CI：run [41593863258](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41593863258)（commit `cfee71a`）windows-latest 398 passed、macos-15 398 passed。
+- CI：CI 待補（第一輪核對處理後推送）；先前 run 41593863258（`cfee71a`）、41594346667（`11cb4c7`）雙平台 398 passed，41607137231（`86d47bf`）雙平台 404 passed，只作歷史紀錄。
 
 ## 5. 真修改證據
 
@@ -91,6 +96,7 @@ uv run python scripts/p5_evidence.py reports/P5/evidence → exit 0
 | I07 | `/Im4 Do` → `/PEditorI1 Do` | 新增、移除 | 否 | 0／0 | (255,0,255) | 警告：原圖經剪裁 |
 | I09 | — | — | — | — | — | 拒絕 `UNSUPPORTED_LAYOUT` |
 
+- `summary.json` 的 `output_sha256` 只對應當次產出：輸出檔 trailer `/ID` 為隨機值，重產後雜湊不同；`visual.json`、`compare.png` 可逐位元組重產（第一輪核對 N5）。
 - 每案另存驗證都通過：完整重寫、無增量歷史、無不可達物件、qpdf 問題數不增、MuPDF 不需修復；圖片頁擷取文字與原檔相同（`text_changed` 為空）。
 - 「原圖保留」以輸出中是否有與原圖 raw 位元組相同的串流判定：只有其他出現位置仍使用時保留（I02、I03）。
 - 遮罩為 manifest 事前宣告的 `editable_region_pt`（可見範圍 ±2 pt）再外擴 2 pt，不是看完差異才決定。
@@ -141,8 +147,8 @@ uv run python scripts/p5_evidence.py reports/P5/evidence → exit 0
 
 ## 10. 關卡結果
 
-- **關卡結果：BLOCKED**。G5-01～G5-07 本機全部通過，反向驗證 11 項全部被抓到；CI 雙平台 398 passed（run 41593863258）；U1–U5 已由工程師決定並處理（§9）；尚缺獨立核對（CLAUDE.md）。
-- **下一段可開始：否**（條件：獨立核對出入處理完、工程師決定並更新本節）。
+- **關卡結果：BLOCKED**。G5-01～G5-07 本機全部通過，反向驗證 16 項全部被抓到；CI 待補（第一輪核對處理後推送）；U1–U5 已由工程師決定並處理（§9）；已經第一輪獨立核對（§11），N1–N7 已處理；待工程師審查決定關卡結果。
+- **下一段可開始：否**（條件：工程師決定並更新本節）。
 
 ## 11. 獨立核對紀錄
 
@@ -156,10 +162,10 @@ ruff 通過、pytest 404 passed；CI run 41593863258（`cfee71a`）、4159434666
 
 | # | 內容 | 處理 |
 | --- | --- | --- |
-| N1（should-fix） | `image.py` 判斷可否移除原名稱時只看頁面層級的 `Do`；沒有自己 /Resources 的 Form（沿用頁面資源）內部用同名畫原圖時，替換頁面層級那次仍移除原名稱，Form 內的圖消失（自建樣本重現：計畫 ready、套用成功，另存被 `visual_outside_mask` 擋下） | 待工程師決定 |
-| N2（should-fix） | §10 寫「反向驗證 11 項」，§4 表為 M1–M13 共 13 項 | 待工程師決定 |
-| N3（should-fix） | 報告 §1／§3／§4／§10 與 traceability G5 的 CI 證據引用 run 41593863258（`cfee71a`，398 passed），不涵蓋 `bdc355f` 的程式與 6 項新測試 | 待工程師決定 |
-| N4（should-fix，小） | §1 commit 清單缺 `cfee71a`、`11cb4c7`、`86d47bf` | 待工程師決定 |
-| N5（備查） | `summary.json` 的 `output_sha256` 因 trailer `/ID` 隨機，每次重產不同 | 待工程師決定 |
-| N6（備查） | `test_image_service.py` docstring 寫草稿新圖檔 0600，但沒有權限斷言 | 待工程師決定 |
-| N7（備查） | (a) 過期草稿 purge 只刪 JSON，對應 `.img` 要到下一輪 purge 才刪；(b) `register_asset` 未知參數直接忽略，未走白名單 | 待工程師決定 |
+| N1（should-fix） | `image.py` 判斷可否移除原名稱時只看頁面層級的 `Do`；沒有自己 /Resources 的 Form（沿用頁面資源）內部用同名畫原圖時，替換頁面層級那次仍移除原名稱，Form 內的圖消失（自建樣本重現：計畫 ready、套用成功，另存被 `visual_outside_mask` 擋下） | 工程師決定全部照建議處理（2026-11-03）。修正（`a584ca8`）：同頁任何同名使用（含 Form 內）都保留原名稱；測試 `test_form_sharing_page_resources_keeps_original`（反向驗證 M14）；ADR-0022 §4、THREAT_MODEL T11 補寫移除條件 |
+| N2（should-fix） | §10 寫「反向驗證 11 項」，§4 表為 M1–M13 共 13 項 | §10 改為實際項數（現為 M1–M16 共 16 項） |
+| N3（should-fix） | 報告 §1／§3／§4／§10 與 traceability G5 的 CI 證據引用 run 41593863258（`cfee71a`，398 passed），不涵蓋 `bdc355f` 的程式與 6 項新測試 | 改引用處理後最新 commit 的 CI run（§3、§4、§10、traceability）；舊 run 只作歷史紀錄 |
+| N4（should-fix，小） | §1 commit 清單缺 `cfee71a`、`11cb4c7`、`86d47bf` | §1 補 `cfee71a`（含證據產生腳本）與 `a584ca8`；只改報告的 commit 依 P4 慣例不列並註明 |
+| N5（備查） | `summary.json` 的 `output_sha256` 因 trailer `/ID` 隨機，每次重產不同 | §5 註明 |
+| N6（備查） | `test_image_service.py` docstring 寫草稿新圖檔 0600，但沒有權限斷言 | `a584ca8`：`test_image_draft_recovery` 加權限斷言（非 Windows 才檢查，同 `test_drafts.py`） |
+| N7（備查） | (a) 過期草稿 purge 只刪 JSON，對應 `.img` 要到下一輪 purge 才刪；(b) `register_asset` 未知參數直接忽略，未走白名單 | `a584ca8`：(a) purge 刪逾期草稿時改呼叫 `discard`，連新圖檔一起刪，測試 `test_expired_draft_purges_its_images`（M15）；(b) `register_asset` 只收 data、keep，測試加一例（M16） |
