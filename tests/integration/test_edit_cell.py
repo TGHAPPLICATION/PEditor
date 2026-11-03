@@ -8,6 +8,7 @@ MuPDF（ADR-0015 例外除外）與 PDFium 各自渲染，manifest 事前宣告�
 """
 
 import io
+import re
 
 import pikepdf
 import pymupdf
@@ -234,5 +235,26 @@ def test_empty_cell_rejected(tmp_path):
         assert not plan["ready"] and "空白格：只修改既有文字，不新增內容" in plan["warnings"]
         filled = next(c for c in cells if (c["row"], c["col"]) == (1, 0))
         assert filled["capability"]["status"] == "support"
+    finally:
+        document.close()
+
+
+def test_rules_check_detects_changed_borders(tmp_path):
+    """另存前驗證：改格的頁面格線若有變動（模擬拿掉一條線、改線寬）即判為失敗。"""
+    original, output, plan, target, report = _edit("B04", tmp_path)
+    document = analyzer.open_document(str(visual.FILES / "B04.pdf"))
+    try:
+        document.applied = [{"page_index": 0, "mask": plan["allowed_change_mask"],
+                             "new_text": "", "kind": "cell"}]  # fmt: skip
+        assert export.rules_check(document, output) == []
+        for old, new in ((rb"0\.5\s+w", b"0.75 w"), (rb"l\s+S", b"l n")):
+            with pikepdf.open(io.BytesIO(output)) as pdf:
+                contents = pdf.pages[0].obj.Contents
+                streams = list(contents) if isinstance(contents, pikepdf.Array) else [contents]
+                for stream in streams:
+                    stream.write(re.sub(old, new, stream.read_bytes(), count=1))
+                buf = io.BytesIO()
+                pdf.save(buf)
+            assert export.rules_check(document, buf.getvalue()) == [0], old
     finally:
         document.close()
