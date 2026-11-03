@@ -146,4 +146,20 @@ uv run python scripts/p5_evidence.py reports/P5/evidence → exit 0
 
 ## 11. 獨立核對紀錄
 
-尚未進行。
+第一輪（2026-11-03，HEAD `86d47bf`，範圍 `81d51d5..86d47bf`）：未參與實作的 Claude 子代理人核對（暫時腳本放在 repo 外，工作區乾淨）。
+自行驗證屬實：I01–I07 只有選定的 `Do` 改名，I02 第 2 頁與 I03 的 `/fzImg0` 仍指向原圖（raw 雜湊相同），未再使用的原圖從輸出移除，外框誤差 0；
+自建樣本（同名同頁兩次且資源跨頁共用、圖片在第 2 個 content stream、同一 stream 列兩次、EXIF 方向 6／8、半透明 PNG 補邊）行為正確；
+像素與大小上限在解碼前檢查；測試數 404（P5 新增 44）；反向驗證以 monkeypatch 抽驗 M1、M2、M3、M10、M12，報告列的失敗測試都在其中；
+證據包重產除輸出雜湊外一致；`uv.lock`、`pyproject.toml` 未改，P4 測試預期未改，錯誤訊息不含路徑；§9 U1–U5 與工程師決定一致；
+ruff 通過、pytest 404 passed；CI run 41593863258（`cfee71a`）、41594346667（`11cb4c7`）雙平台 398 passed，41607137231（`86d47bf`）雙平台 404 passed。
+結論「有出入」（無 must-fix）：
+
+| # | 內容 | 處理 |
+| --- | --- | --- |
+| N1（should-fix） | `image.py` 判斷可否移除原名稱時只看頁面層級的 `Do`；沒有自己 /Resources 的 Form（沿用頁面資源）內部用同名畫原圖時，替換頁面層級那次仍移除原名稱，Form 內的圖消失（自建樣本重現：計畫 ready、套用成功，另存被 `visual_outside_mask` 擋下） | 待工程師決定 |
+| N2（should-fix） | §10 寫「反向驗證 11 項」，§4 表為 M1–M13 共 13 項 | 待工程師決定 |
+| N3（should-fix） | 報告 §1／§3／§4／§10 與 traceability G5 的 CI 證據引用 run 41593863258（`cfee71a`，398 passed），不涵蓋 `bdc355f` 的程式與 6 項新測試 | 待工程師決定 |
+| N4（should-fix，小） | §1 commit 清單缺 `cfee71a`、`11cb4c7`、`86d47bf` | 待工程師決定 |
+| N5（備查） | `summary.json` 的 `output_sha256` 因 trailer `/ID` 隨機，每次重產不同 | 待工程師決定 |
+| N6（備查） | `test_image_service.py` docstring 寫草稿新圖檔 0600，但沒有權限斷言 | 待工程師決定 |
+| N7（備查） | (a) 過期草稿 purge 只刪 JSON，對應 `.img` 要到下一輪 purge 才刪；(b) `register_asset` 未知參數直接忽略，未走白名單 | 待工程師決定 |
