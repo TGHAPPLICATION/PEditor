@@ -150,7 +150,11 @@ def _good_draft(draft_id):
      {"log": {}}, {"position": True}, {"position": 2}, {"position": -1},
      {"log": [{"params": [], "base_revision": 0}]}, {"log": [{"params": {}, "base_revision": -1}]},
      {"log": [{"params": {}, "base_revision": False}]}, {"log": ["x"]},
-     {"saved_at": float("nan")}, {"saved_at": 1_000_000.0 + 61}],
+     {"saved_at": float("nan")}, {"saved_at": 1_000_000.0 + 61},
+     # 圖片替換（ADR-0022）：未知 op、asset_id 格式錯誤、新圖檔不存在
+     {"log": [{"op": "x", "params": {}, "base_revision": 0}]},
+     {"log": [{"op": "image", "params": {"asset_id": "abc"}, "base_revision": 0}]},
+     {"log": [{"op": "image", "params": {"asset_id": "0" * 64}, "base_revision": 0}]}],
 )  # fmt: skip
 def test_draft_structure_validated(tmp_path, change):
     """P3 triage f001：結構不符或時間無效的草稿視為損壞，不載入、不列出並刪除。"""

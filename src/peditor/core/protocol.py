@@ -47,6 +47,8 @@ OPERATIONS = frozenset(
         "render_page",
         "find_text",
         "plan_text_edit",
+        "register_asset",  # 圖片替換的新圖（ADR-0022）
+        "plan_image_edit",
         "apply_edit",
         "preview_edit",  # 前後對照，不提交（ADR-0021 §2）
         "replay",  # undo／redo 與 worker 重啟後還原（ADR-0020 §1）

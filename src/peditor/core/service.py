@@ -9,6 +9,8 @@ P3（ADR-0020）：command log 與 undo／redo 在此；另存以 destination_to
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import os
 import queue
 import subprocess
@@ -19,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from peditor.core.drafts import DraftStore
-from peditor.core.limits import REQUEST_TIMEOUT_S
+from peditor.core.limits import MAX_IMAGE_BYTES, REQUEST_TIMEOUT_S
 from peditor.core.protocol import (
     MAX_MESSAGE_BYTES,
     PROTOCOL_VERSION,
@@ -52,11 +54,18 @@ class _Doc:
     worker_id: str | None
     revision: int = 0
     # command log：每筆 {"params": plan_text_edit 參數, "base_revision": 規劃時的 revision}
-    # （ADR-0020 §1）
+    # （ADR-0020 §1）；圖片替換另加 "op": "image"，params 為 plan_image_edit 參數（ADR-0022）
     log: list[dict] = field(default_factory=list)
     position: int = 0  # 已套用的筆數；log[position:] 為可重做
     plans: dict[str, dict] = field(default_factory=dict)  # plan_id → 尚未套用的 log 項目
     draft_id: str | None = None
+    # 已登記的新圖位元組（asset_id＝SHA-256）；worker 重啟或草稿復原時重新登記
+    assets: dict[str, bytes] = field(default_factory=dict)
+
+
+def _used_assets(entries) -> set[str]:
+    """command log 項目（或尚未套用的計畫）用到的新圖。"""
+    return {e["params"]["asset_id"] for e in entries if e.get("op") == "image"}
 
 
 class _WorkerProcess:
@@ -171,6 +180,39 @@ class DocumentService:
             }  # fmt: skip
         return plan
 
+    def register_image(self, document_id: str, path: str | os.PathLike) -> dict:
+        """登記圖片替換的新圖（spec §7 local_asset_id；ADR-0022）：主行程只讀位元組，
+        格式、像素上限與解碼都在 worker。回傳 asset_id、format、width、height、has_alpha。"""
+        doc = self._require(document_id, None)
+        try:
+            with open(path, "rb") as fh:
+                data = fh.read(MAX_IMAGE_BYTES + 1)
+        except OSError:  # 不讓含路徑的系統錯誤外流（CLAUDE.md）
+            raise ServiceError("INVALID_REQUEST", "無法讀取圖片檔") from None
+        if len(data) > MAX_IMAGE_BYTES:
+            raise ServiceError("RESOURCE_LIMIT", "圖片檔超過大小上限")
+        asset_id = hashlib.sha256(data).hexdigest()
+        keep = sorted(_used_assets([*doc.log, *doc.plans.values()]))  # 其餘的新圖兩端一起釋放
+        params = {"data": base64.b64encode(data).decode("ascii"), "keep": keep}
+        result = self._doc_call(document_id, "register_asset", params, None)
+        if result.get("asset_id") != asset_id:
+            raise ServiceError("VALIDATION_FAILED", "圖片登記結果不一致")
+        doc.assets = {k: v for k, v in doc.assets.items() if k in keep}
+        doc.assets[asset_id] = data
+        return result
+
+    def plan_image_edit(
+        self, document_id: str, target_id: str, asset_id: str, expected_revision: int | None = None
+    ):
+        """替換單一圖片出現位置（spec §7 plan_image_edit；ADR-0022）。"""
+        params = {"target_id": target_id, "asset_id": asset_id}
+        plan = self._doc_call(document_id, "plan_image_edit", params, expected_revision)
+        if plan.get("ready"):
+            self._docs[document_id].plans[plan["plan_id"]] = {
+                "op": "image", "params": params, "base_revision": plan["preconditions"]["revision"]
+            }  # fmt: skip
+        return plan
+
     def preview_edit(self, document_id: str, plan_id: str, expected_revision: int) -> dict:
         """前後對照圖（PNG base64）與改動區域像素框；不提交、revision 不變（ADR-0021 §2）。"""
         return self._doc_call(document_id, "preview_edit", {"plan_id": plan_id}, expected_revision)
@@ -266,6 +308,12 @@ class DocumentService:
             raise ServiceError("REVISION_CONFLICT", "原檔已與草稿不同")
         doc = self._docs[document_id]
         log, position = draft["log"], draft["position"]
+        doc.assets = dict(draft.get("assets", {}))
+        try:
+            self._register_assets(doc.worker_id, doc.assets)
+        except BaseException:
+            self.close_document(document_id)
+            raise
         if position:
             # revision 須大於 log 中任何規劃時版本，之後的 target_id 才不會與舊版本混淆
             revision = max(e["base_revision"] for e in log) + 1
@@ -349,6 +397,11 @@ class DocumentService:
         warning = self._save_draft(doc)
         return {**result, "warnings": [warning]} if warning else result
 
+    def _register_assets(self, worker_document_id: str, assets: dict[str, bytes]) -> None:
+        for data in assets.values():
+            self._call("register_asset", document_id=worker_document_id,
+                       params={"data": base64.b64encode(data).decode("ascii")})  # fmt: skip
+
     def _save_draft(self, doc: _Doc) -> str | None:
         """寫入或刪除草稿；失敗時回傳警告文字（不含路徑）。"""
         if self.drafts is None or doc.draft_id is None:
@@ -357,7 +410,9 @@ class DocumentService:
             if doc.position == 0:  # 沒有已套用的編輯：不留草稿
                 self.drafts.discard(doc.draft_id)
             else:
-                self.drafts.save(doc.draft_id, doc.path, doc.sha256, doc.log, doc.position)
+                used = _used_assets(doc.log)
+                assets = {k: v for k, v in doc.assets.items() if k in used}
+                self.drafts.save(doc.draft_id, doc.path, doc.sha256, doc.log, doc.position, assets)
         except ProtocolError as exc:
             return f"復原草稿未更新：{exc.message}"
         return None
@@ -378,6 +433,11 @@ class DocumentService:
             if reopened["sha256"] != doc.sha256:
                 self._call("close_document", document_id=reopened["document_id"])
                 raise ServiceError("REVISION_CONFLICT", "檔案已被外部修改")
+            try:  # 新圖隨 worker 重啟消失：先重新登記，重播與之後的規劃才找得到
+                self._register_assets(reopened["document_id"], doc.assets)
+            except ServiceError:
+                self._call("close_document", document_id=reopened["document_id"])
+                raise
             if doc.revision != reopened["revision"]:
                 restore = {"commands": doc.log[: doc.position], "revision": doc.revision,
                            "reset": False}  # fmt: skip

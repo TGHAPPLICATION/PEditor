@@ -1,4 +1,5 @@
 """桌面主視窗（P4、ADR-0021）：開檔、縮圖、預覽、點選文字、替換、前後對照、undo／redo、另存、進度與取消。
+P5（ADR-0022）：點選圖片、選擇新圖片（PNG／JPEG）、前後對照後套用。
 
 UI 只呼叫 DocumentService 的公開 API，不匯入 PDF 程式庫、不組 PDF 指令（spec §9、G1-01）。
 所有 DocumentService 呼叫經 JobRunner 在背景執行緒進行，主執行緒不等待 worker（G4-06）；
@@ -55,8 +56,8 @@ def _pixmap(rendered: dict) -> QPixmap:
 
 
 class PageView(QGraphicsView):
-    """頁面圖與文字目標框。點選以 bbox 判定命中，回傳的是 target；
-    內容由 target_id 定位，不以 bbox 定位（ADR-0021 §2）。"""
+    """頁面圖與文字、圖片目標框。點選以 bbox 判定命中（圖片用可見範圍），回傳的是 target；
+    內容由 target_id 定位，不以 bbox 定位（ADR-0021 §2）。重疊時取面積最小者（圖片上的文字）。"""
 
     target_clicked = Signal(dict)
 
@@ -74,15 +75,16 @@ class PageView(QGraphicsView):
         scene.addItem(QGraphicsPixmapItem(_pixmap(rendered)))
         geom = page["page_geometry"]
         self._geometry = PageGeometry(tuple(geom["cropbox"]), geom["rotation"])
-        self._targets = [t for t in page["text_targets"] if t.get("bbox")]
+        self._targets = [{**t, "kind": "text"} for t in page["text_targets"] if t.get("bbox")]
+        self._targets += [{**t, "kind": "image", "bbox": t["visible_bbox"]}
+                          for t in page.get("image_targets", [])]  # fmt: skip
         to_view = self._geometry.page_to_view(PAGE_DPI / 72)
         for target in self._targets:
             x0, y0, x1, y1 = bbox_of(to_view, tuple(target["bbox"]))
-            color = (
-                QColor(0, 120, 215)
-                if target["capability"]["status"] == "support"
-                else QColor(160, 160, 160)
-            )
+            if target["capability"]["status"] != "support":
+                color = QColor(160, 160, 160)
+            else:
+                color = QColor(0, 120, 215) if target["kind"] == "text" else QColor(230, 120, 0)
             item = scene.addRect(QRectF(x0, y0, x1 - x0, y1 - y0), QPen(color, 1))
             item.setData(0, target["target_id"])
         scene.setSceneRect(QRectF(0, 0, rendered["width"], rendered["height"]))
@@ -161,10 +163,12 @@ class EditPanel(QWidget):
         self.find_text.setPlaceholderText("尋找文字（可跨段落選取）")
         self.find_button = QPushButton("尋找")
         self.find_button.setObjectName("find")
-        for widget in (QLabel("選取的文字"), self.selected, QLabel("新文字"), self.new_text,
-                       self.preview_button, self.info, QLabel("修改前"), self.before,
-                       QLabel("修改後"), self.after, self.apply_button, self.find_text,
-                       self.find_button):  # fmt: skip
+        self.image_button = QPushButton("選擇新圖片…")
+        self.image_button.setObjectName("replace_image")
+        for widget in (QLabel("選取的內容"), self.selected, QLabel("新文字"), self.new_text,
+                       self.preview_button, self.image_button, self.info, QLabel("修改前"),
+                       self.before, QLabel("修改後"), self.after, self.apply_button,
+                       self.find_text, self.find_button):  # fmt: skip
             layout.addWidget(widget)
         layout.addStretch(1)
 
@@ -218,6 +222,7 @@ class MainWindow(QMainWindow):
         ask_open: Callable[[], str | None] | None = None,
         ask_save: Callable[[], str | None] | None = None,
         ask_draft: Callable[[list[dict]], tuple[str, str] | None] | None = None,
+        ask_image: Callable[[], str | None] | None = None,
     ) -> None:
         super().__init__()
         self.setWindowTitle(f"PEditor {__version__}")
@@ -227,12 +232,13 @@ class MainWindow(QMainWindow):
         self._ask_open = ask_open or self._dialog_open
         self._ask_save = ask_save or self._dialog_save
         self._ask_draft = ask_draft or self._dialog_draft
+        self._ask_image = ask_image or self._dialog_image
         self.document_id: str | None = None
         self.revision = 0
         self.page_count = 0
         self.page_index = 0
         self.page: dict | None = None
-        self.selection: dict | None = None  # {"target_id", "text", "capability"}
+        self.selection: dict | None = None  # {"target_id", "text", "capability", "kind"}
         self.plan: dict | None = None
         self.last_error: ServiceError | None = None
 
@@ -249,6 +255,7 @@ class MainWindow(QMainWindow):
         self.panel.new_text.returnPressed.connect(self.request_preview)
         self.panel.apply_button.clicked.connect(self.apply_plan)
         self.panel.find_button.clicked.connect(self.find)
+        self.panel.image_button.clicked.connect(self.replace_image_dialog)
         self.notice = QLabel("")
         self.notice.setObjectName("notice")
         self.notice.setWordWrap(True)
@@ -303,8 +310,10 @@ class MainWindow(QMainWindow):
         self.actions["cancel"].setEnabled(busy)
         editable = (self.selection is not None and not busy
                     and self.selection["capability"]["status"] == "support")  # fmt: skip
-        self.panel.preview_button.setEnabled(editable)
-        self.panel.new_text.setEnabled(editable)
+        is_image = self.selection is not None and self.selection.get("kind") == "image"
+        self.panel.preview_button.setEnabled(editable and not is_image)
+        self.panel.new_text.setEnabled(editable and not is_image)
+        self.panel.image_button.setEnabled(editable and is_image)
         self.panel.apply_button.setEnabled(editable and self.plan is not None
                                            and self.plan.get("ready", False))  # fmt: skip
         self.panel.find_button.setEnabled(opened and not busy)
@@ -388,7 +397,7 @@ class MainWindow(QMainWindow):
     def _clear_selection(self) -> None:
         self.selection = None
         self.plan = None
-        self.panel.selected.setText("尚未選取文字")
+        self.panel.selected.setText("尚未選取文字或圖片")
         self.panel.new_text.clear()
         self.panel.info.clear()
         self.panel.before.clear()
@@ -398,12 +407,19 @@ class MainWindow(QMainWindow):
     def select_target(self, target: dict) -> None:
         if self.busy:
             return
-        self.selection = {"target_id": target["target_id"], "text": target["text"],
-                          "capability": target["capability"]}  # fmt: skip
+        kind = target.get("kind", "text")
+        text = target.get("text", "") if kind == "text" else ""
+        self.selection = {"target_id": target["target_id"], "text": text,
+                          "capability": target["capability"], "kind": kind}  # fmt: skip
         self.plan = None
         self.view.highlight(target["target_id"])
-        self.panel.selected.setText(target["text"])
-        self.panel.new_text.setText(target["text"])
+        if kind == "image":
+            x0, y0, x1, y1 = target["bbox"]
+            self.panel.selected.setText(f"圖片（{x1 - x0:.0f} × {y1 - y0:.0f} pt）")
+            self.panel.new_text.clear()
+        else:
+            self.panel.selected.setText(text)
+            self.panel.new_text.setText(text)
         if target["capability"]["status"] == "support":
             self.panel.info.setText("")
         else:
@@ -440,16 +456,39 @@ class MainWindow(QMainWindow):
         self._status("預覽中…")
         self._run(work, lambda result: self._previewed(*result))
 
+    def replace_image_dialog(self) -> None:
+        """選擇新圖片後登記、規劃並預覽（ADR-0022）；套用與文字修改共用「套用」。"""
+        if self.selection is None or self.selection.get("kind") != "image" or self.busy:
+            return
+        path = self._ask_image()
+        if not path:
+            return
+        doc, revision, target_id = self.document_id, self.revision, self.selection["target_id"]
+
+        def work():
+            asset = self.service.register_image(doc, path)
+            plan = self.service.plan_image_edit(doc, target_id, asset["asset_id"], revision)
+            if not plan["ready"]:
+                return plan, None
+            return plan, self.service.preview_edit(doc, plan["plan_id"], revision)
+
+        self._status("預覽中…")
+        self._run(work, lambda result: self._previewed(*result))
+
     def _previewed(self, plan: dict, preview: dict | None) -> None:
         self.plan = plan
         if preview is None:
             self.panel.info.setText("無法修改：" + reasons_text(plan["unsupported_reasons"]))
             self._status("無法修改")
         else:
-            lines = [
-                f"模式 {plan['mode']}"
-                + ("（沿用原字型）" if plan["mode"] == "A" else "（字型替換）")
-            ]
+            if plan["mode"] == "image":
+                width, height = plan["geometry"]["image_size"]
+                lines = [f"替換圖片（新圖 {width} × {height} 像素，位置與大小不變）"]
+            else:
+                lines = [
+                    f"模式 {plan['mode']}"
+                    + ("（沿用原字型）" if plan["mode"] == "A" else "（字型替換）")
+                ]
             lines += plan.get("warnings", [])
             self.panel.info.setText("\n".join(lines))
             x0, y0, x1, y1 = preview["box"]
@@ -542,6 +581,10 @@ class MainWindow(QMainWindow):
 
     def _dialog_save(self) -> str | None:
         path, _ = QFileDialog.getSaveFileName(self, "另存新檔", "", "PDF (*.pdf)")
+        return path or None
+
+    def _dialog_image(self) -> str | None:
+        path, _ = QFileDialog.getOpenFileName(self, "選擇新圖片", "", "圖片 (*.png *.jpg *.jpeg)")
         return path or None
 
     def _dialog_draft(self, drafts: list[dict]) -> tuple[str, str] | None:

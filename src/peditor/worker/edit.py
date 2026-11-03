@@ -371,7 +371,12 @@ def apply_edit(document: analyzer.Document, plan_id, expected_revision) -> dict:
     # 任一步失敗都以開啟自的位元組回滾：物件編號不變，target_id 仍有效（ADR-0020 §2；f003、R3-1）
     current, revision = document.current, document.revision
     try:
-        _rewrite(document, pending)
+        if _op(pending) == "image":
+            from peditor.worker import image
+
+            image.rewrite(document, pending)
+        else:
+            _rewrite(document, pending)
         if sync is not None:
             element.ActualText = pikepdf.String(sync.new)
         document.commit()
@@ -386,9 +391,24 @@ def apply_edit(document: analyzer.Document, plan_id, expected_revision) -> dict:
     plan = pending.plan
     document.applied.append({
         "page_index": plan.target["page_index"], "mask": list(plan.allowed_change_mask),
-        "new_text": plan.new_text,
+        "new_text": plan.new_text, "kind": _op(pending),
     })  # fmt: skip
     return {"new_revision": document.revision, "command_id": secrets.token_hex(8)}
+
+
+def _op(pending) -> str:
+    """計畫種類：text（文字）或 image（圖片替換，ADR-0022）。"""
+    return getattr(pending, "op", "text")
+
+
+def _planner(op: str):
+    if op == "image":
+        from peditor.worker import image
+
+        return image.plan_image_edit
+    if op == "text":
+        return plan_text_edit
+    raise ProtocolError("INVALID_REQUEST", "重播參數錯誤")
 
 
 PREVIEW_DPI = 100
@@ -410,7 +430,7 @@ def preview_edit(document: analyzer.Document, plan_id) -> dict:
     finally:
         document.reopen(current, revision)
         document.applied = applied
-    plan = plan_text_edit(document, pending.params)
+    plan = _planner(_op(pending))(document, pending.params)
     if not plan["ready"]:
         raise ProtocolError("VALIDATION_FAILED", "預覽後無法重新規劃")
     document.plans[plan_id] = document.plans.pop(plan["plan_id"])
@@ -424,6 +444,7 @@ def preview_edit(document: analyzer.Document, plan_id) -> dict:
 
 def replay(document: analyzer.Document, commands, revision, reset) -> dict:
     """依 command log 重新規劃並套用（undo／redo、worker 重啟後還原；ADR-0020 §1）。
+    每筆的 op 為 text（預設）或 image（ADR-0022）。
 
     reset 為真時先回到開檔時的原始位元組。每筆先把 revision 設回該筆規劃時的版本
     （target_id 含 revision），全部成功後設為 revision；任一筆失敗即回到重播前的狀態。
@@ -440,7 +461,7 @@ def replay(document: analyzer.Document, commands, revision, reset) -> dict:
             if not isinstance(base, int) or not isinstance(command.get("params"), dict):
                 raise ProtocolError("INVALID_REQUEST", "重播參數錯誤")
             document.reopen(document.current, base)
-            plan = plan_text_edit(document, command["params"])
+            plan = _planner(command.get("op", "text"))(document, command["params"])
             if not plan["ready"]:
                 raise ProtocolError("VALIDATION_FAILED", "重播時計畫無法套用")
             apply_edit(document, plan["plan_id"], base)

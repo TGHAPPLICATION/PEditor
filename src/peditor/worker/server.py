@@ -60,6 +60,14 @@ class Worker:
             from peditor.worker import edit
 
             return edit.plan_text_edit(document, params)
+        if operation == "register_asset":
+            from peditor.worker import image
+
+            return image.register_asset(document, params)
+        if operation == "plan_image_edit":
+            from peditor.worker import image
+
+            return image.plan_image_edit(document, params)
         if operation == "apply_edit":
             from peditor.worker import edit
 
