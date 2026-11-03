@@ -4,15 +4,19 @@ from __future__ import annotations
 
 REASONS = {
     "UNSUPPORTED_ENCODING": "字型編碼無法可靠對應文字（缺少或不一致的 ToUnicode），無法安全修改",
-    "UNSUPPORTED_LAYOUT": "版面不支援（直排、旋轉、Form 內文字、換行顯示或跨段落等）",
-    "UNSUPPORTED_FEATURE": "含不支援的功能（例如 /ActualText、XFA、PDF/A 或跨標記內容）",
+    "UNSUPPORTED_LAYOUT": (
+        "版面不支援（直排、旋轉、Form 內的文字或圖片、非矩形剪裁、換行顯示或跨段落等）"
+    ),
+    "UNSUPPORTED_FEATURE": (
+        "含不支援的功能（例如 /ActualText、XFA、PDF/A、跨標記內容），或不支援的圖片格式"
+    ),
     "GLYPH_MISSING": "原字型與內建字型（Noto Sans TC）都缺少部分新字",
     "TEXT_OVERFLOW": "新文字會超出可改動區域；不會自動縮小字級",
     "SHARED_RESOURCE_UNSAFE": "這段內容被多處共用，修改會連帶改動其他位置",
     "SIGNED_DOCUMENT": "文件含數位簽章，修改會使簽章失效，不提供編輯",
     "ENCRYPTED_DOCUMENT": "文件已加密，不提供編輯",
     "REVISION_CONFLICT": "檔案或文件版本已改變，請重新開啟後再試",
-    "RESOURCE_LIMIT": "文件超過處理上限或處理逾時",
+    "RESOURCE_LIMIT": "文件或圖片超過處理上限（大小、像素），或處理逾時",
     "VALIDATION_FAILED": "修改後的驗證未通過，未寫入任何變更",
     "SAVE_FAILED": "無法另存",
     "CANCELLED": "已取消，未提交變更",

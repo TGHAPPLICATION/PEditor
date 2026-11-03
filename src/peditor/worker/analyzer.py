@@ -29,7 +29,7 @@ from peditor.core.limits import (
 )
 from peditor.core.protocol import ProtocolError
 from peditor.worker import fonts as fontmod
-from peditor.worker.content import PageContent, TextRun, image_rect, interpret
+from peditor.worker.content import ImageUse, PageContent, TextRun, image_rect, interpret
 
 LOCATE_TOL = 0.5  # G1：字形定位與 PyMuPDF 擷取位置的容許誤差（pt）
 _SUPPORTED_IMAGE_FILTERS = frozenset({"/DCTDecode", "/FlateDecode"})
@@ -50,6 +50,10 @@ class Document:
     pages: dict[int, dict] = field(default_factory=dict)
     # 每頁全部文字運算子（含不可見）與 target_id → 索引；供 span 解析（ADR-0018），不回傳給呼叫端
     runs: dict[int, tuple[list[TextRun], dict[str, int]]] = field(default_factory=dict)
+    # 每頁圖片 target_id → 出現位置（供圖片替換，ADR-0022）
+    images: dict[int, dict[str, ImageUse]] = field(default_factory=dict)
+    # 已登記的新圖（asset_id → 圖片；ADR-0022）；重新開啟不清除，undo／redo 重播需要
+    assets: dict[str, object] = field(default_factory=dict)
     plans: dict[str, object] = field(default_factory=dict)  # plan_id → 待套用的計畫（worker 內部）
     original: bytes = b""  # 開啟時的檔案內容（另存驗證的 qpdf 基準與內容差異；spec §8.1、§8.2）
     current: bytes = b""  # 目前工作文件開啟自的位元組（套用失敗時以此回滾；ADR-0020 §2）
@@ -87,6 +91,7 @@ class Document:
         self.revision = revision
         self.pages.clear()
         self.runs.clear()
+        self.images.clear()
         self.plans.clear()
 
 
@@ -533,6 +538,7 @@ def _analyze_page(document: Document, page_index: int) -> dict:
     document.runs[page_index] = (content.runs, run_index)
 
     image_targets = []
+    image_index: dict[str, ImageUse] = {}
     for use in content.images:
         reasons = list(doc_reasons)
         rect = bbox_of(to_page, image_rect(use))
@@ -565,6 +571,8 @@ def _analyze_page(document: Document, page_index: int) -> dict:
             "filters": filters,
             "capability": _capability(reasons),
         })  # fmt: skip
+        image_index[image_targets[-1]["target_id"]] = use
+    document.images[page_index] = image_index
 
     page_reasons = list(doc_reasons)
     error_reasons = []

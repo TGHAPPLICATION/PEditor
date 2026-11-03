@@ -21,6 +21,10 @@ MAX_CMAP_BYTES = 4 * 1024 * 1024  # 單一 ToUnicode CMap 解壓後大小
 MAX_CODE_EXPANSION = 4 * 65536  # 單一字型 /W 或 ToUnicode 展開的字碼總數
 MAX_OBJECT_WALK = 10_000  # 走訪表單欄位樹、書籤樹的節點數
 
+# P5 圖片替換（ADR-0022）：使用者提供的圖片檔
+MAX_IMAGE_BYTES = 32 * 1024 * 1024  # 以 base64 經 IPC 傳送，須在 MAX_MESSAGE_BYTES 之內
+MAX_IMAGE_PIXELS = 50_000_000  # spec P7「單張影像 50 MP」；含補透明邊後的尺寸
+
 
 class LimitExceeded(Exception):
     """解析工作量超過上限；呼叫端應回報 RESOURCE_LIMIT，不得繼續以部分結果判定可編輯。"""

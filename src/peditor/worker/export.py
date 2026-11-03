@@ -7,6 +7,7 @@ worker 只做「完整重寫、驗證通過才建立新檔寫出」；暫存檔�
 - qpdf 結構檢查（pikepdf check_pdf_syntax）問題數不得多於原檔（§8.2）；重開不需修復、頁數不變。
 - 內容差異：逐頁、逐 content stream 比對解析後的運算子（§8.1-1）。
 - 文字與視覺（P3，ADR-0020 §4）：新文字可擷取；改動頁在可改動區域外沒有超標像素差異。
+- 圖片替換（P5，ADR-0022）：只有圖片替換的頁面，擷取文字與原檔完全相同（例如被圖片蓋住的文字）。
 """
 
 from __future__ import annotations
@@ -204,6 +205,19 @@ def text_check(document: analyzer.Document, data: bytes) -> list[dict]:
     return missing
 
 
+def image_text_check(document: analyzer.Document, data: bytes) -> list[int]:
+    """只有圖片替換（沒有文字編輯）的頁面，輸出的擷取文字須與原檔相同；回傳不同的頁。"""
+    image_pages = {a["page_index"] for a in document.applied if a.get("kind") == "image"}
+    text_pages = {a["page_index"] for a in document.applied if a.get("kind") != "image"}
+    changed = []
+    with pymupdf.open(stream=document.original, filetype="pdf") as old, \
+            pymupdf.open(stream=data, filetype="pdf") as new:  # fmt: skip
+        for page_index in sorted(image_pages - text_pages):
+            if old[page_index].get_text() != new[page_index].get_text():
+                changed.append(page_index)
+    return changed
+
+
 def _overlap(a, b) -> bool:
     return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
 
@@ -304,9 +318,12 @@ def export_document(document: analyzer.Document, destination) -> dict:
         pages = {c["page_index"] for c in report["content_changes"] + report["resource_changes"]}
         pages |= {a["page_index"] for a in document.applied}
         report["text_missing"] = text_check(document, data)
+        report["text_changed"] = image_text_check(document, data)
         report["visual_failed"] = visual_check(document, data, pages)
         if report["text_missing"]:
             report["failures"].append("text_missing")
+        if report["text_changed"]:
+            report["failures"].append("text_changed")
         if report["visual_failed"]:
             report["failures"].append("visual_outside_mask")
         report["ok"] = not report["failures"]

@@ -1,0 +1,50 @@
+{
+  "output_hash": "255270c4a08b789e41ce884f83b9b930daecd215f67a7dd642f9b91d0ee2c654",
+  "validation_report": {
+    "sha256": "255270c4a08b789e41ce884f83b9b930daecd215f67a7dd642f9b91d0ee2c654",
+    "qpdf_baseline": 0,
+    "qpdf_output": 0,
+    "qpdf_new_problems": [],
+    "incremental": false,
+    "unreachable_objects": 0,
+    "mupdf_repaired": false,
+    "failures": [],
+    "ok": true,
+    "content_changes": [
+      {
+        "page_index": 0,
+        "stream_order": 0,
+        "kind": "replace",
+        "before_ops": [
+          50,
+          51
+        ],
+        "after_ops": [
+          50,
+          51
+        ],
+        "before": [
+          "/Image14 Do"
+        ],
+        "after": [
+          "/PEditorI1 Do"
+        ]
+      }
+    ],
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "XObject",
+        "added": [
+          "/PEditorI1"
+        ],
+        "removed": [
+          "/Image14"
+        ]
+      }
+    ],
+    "text_missing": [],
+    "text_changed": [],
+    "visual_failed": []
+  }
+}

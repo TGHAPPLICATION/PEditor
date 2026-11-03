@@ -17,6 +17,8 @@ from peditor.core.protocol import ProtocolError
 MAX_NEW_TEXT = 200  # 字元；固定框內替換，不做長文排版
 POLICIES = frozenset({"prefer_a", "a_only"})  # ADR-0001：預設 A、A 不可行才 B；a_only 為嚴格 A
 PLAN_PARAMS = frozenset({"target_id", "new_text", "policy", "editable_region"})
+IMAGE_PLAN_PARAMS = frozenset({"target_id", "asset_id"})  # ADR-0022
+_ASSET_ID_RE = re.compile(r"^[0-9a-f]{64}$")
 
 _TARGET_RE = re.compile(
     r"^(?P<kind>[ti]):r(?P<rev>\d+):p(?P<page>\d+):s(?P<num>\d+)\.(?P<gen>\d+)"
@@ -129,6 +131,18 @@ def validate_plan_params(params: dict) -> dict:
     }
 
 
+def validate_image_params(params: dict) -> dict:
+    """plan_image_edit 的參數白名單與型別（ADR-0022）；asset_id 為新圖的 SHA-256。"""
+    if set(params) - IMAGE_PLAN_PARAMS:
+        raise ProtocolError("INVALID_REQUEST", "不支援的參數")
+    target_id, asset_id = params.get("target_id"), params.get("asset_id")
+    if not isinstance(target_id, str) or parse_target_id(target_id).kind != "i":
+        raise ProtocolError("INVALID_REQUEST", "target_id 必須是圖片目標")
+    if not isinstance(asset_id, str) or not _ASSET_ID_RE.match(asset_id):
+        raise ProtocolError("INVALID_REQUEST", "asset_id 格式錯誤")
+    return {"target_id": target_id, "asset_id": asset_id}
+
+
 @dataclass
 class EditPlan:
     """spec §7 EditPlan；unsupported_reasons 非空即為拒絕的計畫（不可套用）。"""
@@ -139,7 +153,7 @@ class EditPlan:
     target: dict  # span_id、page_index、selected_text、change（實際改動範圍）
     new_text: str
     policy: str
-    mode: str | None  # "A"、"B"；拒絕時為 None
+    mode: str | None  # "A"、"B"、"image"（圖片替換，ADR-0022）；拒絕時為 None
     font_policy: str
     allowed_change_mask: list[float] | None  # 可改動區域（頁面座標 pt）
     geometry: dict = field(default_factory=dict)
@@ -150,7 +164,7 @@ class EditPlan:
 
     @property
     def ready(self) -> bool:
-        return not self.unsupported_reasons and self.mode in ("A", "B")
+        return not self.unsupported_reasons and self.mode in ("A", "B", "image")
 
     def to_dict(self) -> dict:
         return {**asdict(self), "ready": self.ready}
