@@ -1,0 +1,65 @@
+{
+  "plan_id": "4aac7c27e8f4553b",
+  "document_id": "e6cf09d213fbebf2",
+  "preconditions": {
+    "sha256": "04a408c4cee4c6c9a950fd42da24982276c72a27b71ddd9913b279f0e13748e0",
+    "revision": 0
+  },
+  "target": {
+    "target_id": "i:r0:p0:s4.0:o50:f:g5baafffbbae1",
+    "page_index": 0,
+    "name": "/Image14",
+    "bbox": [
+      72.0,
+      115.5,
+      221.9,
+      190.45
+    ],
+    "visible_bbox": [
+      72.0,
+      115.5,
+      221.9,
+      190.45
+    ]
+  },
+  "new_text": "",
+  "policy": "image",
+  "mode": "image",
+  "font_policy": "keep_original",
+  "allowed_change_mask": [
+    72.0,
+    115.5,
+    221.9,
+    190.45
+  ],
+  "geometry": {
+    "image_size": [
+      300,
+      150
+    ],
+    "canvas": [
+      300,
+      150
+    ],
+    "offset": [
+      0,
+      0
+    ]
+  },
+  "resource_changes": [
+    {
+      "page_index": 0,
+      "kind": "XObject",
+      "added": "/PEditorI1",
+      "removed": "/Image14",
+      "format": "png",
+      "smask": false
+    }
+  ],
+  "font_changes": [],
+  "warnings": [
+    "原圖的透明遮罩不沿用；新圖沒有透明部分"
+  ],
+  "unsupported_reasons": [],
+  "ready": true
+}

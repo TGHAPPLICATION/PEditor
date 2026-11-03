@@ -1,0 +1,63 @@
+{
+  "plan_id": "029330d991eaf055",
+  "document_id": "d542d6891134aa77",
+  "preconditions": {
+    "sha256": "7bd88c07864dae3809ffbaf915c67a3515dbed0c3f884e82386757fcfa5fa678",
+    "revision": 0
+  },
+  "target": {
+    "target_id": "i:r0:p0:s10.0:o2:f:g49375406d99e",
+    "page_index": 0,
+    "name": "/fzImg1",
+    "bbox": [
+      300.0,
+      72.0,
+      400.0,
+      172.0
+    ],
+    "visible_bbox": [
+      300.0,
+      72.0,
+      400.0,
+      172.0
+    ]
+  },
+  "new_text": "",
+  "policy": "image",
+  "mode": "image",
+  "font_policy": "keep_original",
+  "allowed_change_mask": [
+    300.0,
+    72.0,
+    400.0,
+    172.0
+  ],
+  "geometry": {
+    "image_size": [
+      200,
+      200
+    ],
+    "canvas": [
+      200,
+      200
+    ],
+    "offset": [
+      0,
+      0
+    ]
+  },
+  "resource_changes": [
+    {
+      "page_index": 0,
+      "kind": "XObject",
+      "added": "/PEditorI1",
+      "removed": "/fzImg1",
+      "format": "png",
+      "smask": false
+    }
+  ],
+  "font_changes": [],
+  "warnings": [],
+  "unsupported_reasons": [],
+  "ready": true
+}

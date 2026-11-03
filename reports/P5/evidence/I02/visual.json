@@ -1,0 +1,28 @@
+{
+  "mupdf": {
+    "outside_fraction": 0.0,
+    "outside_limit": 0.0001,
+    "center_pixel_after": [
+      255,
+      0,
+      255
+    ],
+    "other_pages_over_total": {
+      "1": 0
+    },
+    "text_unchanged": true
+  },
+  "pdfium": {
+    "outside_fraction": 0.0,
+    "outside_limit": 0.0001,
+    "center_pixel_after": [
+      255,
+      0,
+      255
+    ],
+    "other_pages_over_total": {
+      "1": 0
+    },
+    "text_unchanged": true
+  }
+}

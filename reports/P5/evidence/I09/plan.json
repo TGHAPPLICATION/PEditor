@@ -1,0 +1,43 @@
+{
+  "plan_id": "4dca4babc66a02c9",
+  "document_id": "6b30404746fec2f2",
+  "preconditions": {
+    "sha256": "ddc12162a6d8864dd8c129cfef4046da3acc60930719653499e9f122ba242701",
+    "revision": 0
+  },
+  "target": {
+    "target_id": "i:r0:p0:s2.0:o68:f:g88190135a9bf",
+    "page_index": 0,
+    "name": "/Im9",
+    "bbox": [
+      168.58,
+      359.89,
+      384.21,
+      483.39
+    ],
+    "visible_bbox": [
+      168.58,
+      359.91,
+      384.21,
+      483.39
+    ]
+  },
+  "new_text": "",
+  "policy": "image",
+  "mode": null,
+  "font_policy": "keep_original",
+  "allowed_change_mask": [
+    168.58,
+    359.91,
+    384.21,
+    483.39
+  ],
+  "geometry": {},
+  "resource_changes": [],
+  "font_changes": [],
+  "warnings": [],
+  "unsupported_reasons": [
+    "UNSUPPORTED_LAYOUT"
+  ],
+  "ready": false
+}

@@ -1,0 +1,65 @@
+{
+  "plan_id": "1a169ddb330e569d",
+  "document_id": "a3ba95f9073fb6a4",
+  "preconditions": {
+    "sha256": "e88b9a7270f145e6becd6a90c79e04e01f7fa07add832a5ab812241c24661b4c",
+    "revision": 0
+  },
+  "target": {
+    "target_id": "i:r0:p0:s2.0:o12:f:g63776b0ce23d",
+    "page_index": 0,
+    "name": "/Im4",
+    "bbox": [
+      -18.7,
+      24.05,
+      434.8,
+      364.1
+    ],
+    "visible_bbox": [
+      72.0,
+      92.1,
+      344.1,
+      296.15
+    ]
+  },
+  "new_text": "",
+  "policy": "image",
+  "mode": "image",
+  "font_policy": "keep_original",
+  "allowed_change_mask": [
+    72.0,
+    92.1,
+    344.1,
+    296.15
+  ],
+  "geometry": {
+    "image_size": [
+      907,
+      680
+    ],
+    "canvas": [
+      907,
+      680
+    ],
+    "offset": [
+      0,
+      0
+    ]
+  },
+  "resource_changes": [
+    {
+      "page_index": 0,
+      "kind": "XObject",
+      "added": "/PEditorI1",
+      "removed": "/Im4",
+      "format": "png",
+      "smask": false
+    }
+  ],
+  "font_changes": [],
+  "warnings": [
+    "原圖經剪裁：新圖只顯示原剪裁範圍內的部分"
+  ],
+  "unsupported_reasons": [],
+  "ready": true
+}

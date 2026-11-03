@@ -1,0 +1,522 @@
+[
+  {
+    "case": "I01",
+    "expected": "support",
+    "ready": true,
+    "source_sha256": "7a8001d4d803a6adeab18ae0c60526c54e29a3b829ae24f358233776cb2763c4",
+    "new_image_sha256": "8559f92942a663ee27b5176c132a1953e21c524b38c924824dcbbd902c613e01",
+    "output_sha256": "a753435aad768100b5593197760020377dc741bc306ea74237e115ea70090fb0",
+    "validation_ok": true,
+    "content_changes": [
+      [
+        0,
+        [
+          "/fzImg0 Do"
+        ],
+        [
+          "/PEditorI1 Do"
+        ]
+      ]
+    ],
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "XObject",
+        "added": [
+          "/PEditorI1"
+        ],
+        "removed": [
+          "/fzImg0"
+        ]
+      }
+    ],
+    "geometry": {
+      "image_size": [
+        400,
+        200
+      ],
+      "canvas": [
+        400,
+        200
+      ],
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "warnings": [],
+    "original_image_retained": false,
+    "visual": {
+      "mupdf": {
+        "outside_fraction": 0.0,
+        "outside_limit": 0.0001,
+        "center_pixel_after": [
+          255,
+          0,
+          255
+        ],
+        "other_pages_over_total": {},
+        "text_unchanged": true
+      },
+      "pdfium": {
+        "outside_fraction": 0.0,
+        "outside_limit": 0.0001,
+        "center_pixel_after": [
+          255,
+          0,
+          255
+        ],
+        "other_pages_over_total": {},
+        "text_unchanged": true
+      }
+    }
+  },
+  {
+    "case": "I02",
+    "expected": "support",
+    "ready": true,
+    "source_sha256": "3e241f7b6fef346c708fd785c9d7ea02c899140fb5f8a21e919ea4860e381fe2",
+    "new_image_sha256": "6287976c36692af30205b0f941bab5aebc43c13022823576ee111ef578f31561",
+    "output_sha256": "9e8df2dcc4aed2930d8ab1430fcc7b84bd92c35fab578fc6d9c42fd4d072792c",
+    "validation_ok": true,
+    "content_changes": [
+      [
+        0,
+        [
+          "/fzImg0 Do"
+        ],
+        [
+          "/PEditorI1 Do"
+        ]
+      ]
+    ],
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "XObject",
+        "added": [
+          "/PEditorI1"
+        ],
+        "removed": [
+          "/fzImg0"
+        ]
+      }
+    ],
+    "geometry": {
+      "image_size": [
+        200,
+        200
+      ],
+      "canvas": [
+        200,
+        200
+      ],
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "warnings": [],
+    "original_image_retained": true,
+    "visual": {
+      "mupdf": {
+        "outside_fraction": 0.0,
+        "outside_limit": 0.0001,
+        "center_pixel_after": [
+          255,
+          0,
+          255
+        ],
+        "other_pages_over_total": {
+          "1": 0
+        },
+        "text_unchanged": true
+      },
+      "pdfium": {
+        "outside_fraction": 0.0,
+        "outside_limit": 0.0001,
+        "center_pixel_after": [
+          255,
+          0,
+          255
+        ],
+        "other_pages_over_total": {
+          "1": 0
+        },
+        "text_unchanged": true
+      }
+    }
+  },
+  {
+    "case": "I03",
+    "expected": "support",
+    "ready": true,
+    "source_sha256": "7bd88c07864dae3809ffbaf915c67a3515dbed0c3f884e82386757fcfa5fa678",
+    "new_image_sha256": "6287976c36692af30205b0f941bab5aebc43c13022823576ee111ef578f31561",
+    "output_sha256": "875aa78c01209d4e256f8e3bf3e2e08f0af979141d26e38649fb118ffabdecaa",
+    "validation_ok": true,
+    "content_changes": [
+      [
+        0,
+        [
+          "/fzImg1 Do"
+        ],
+        [
+          "/PEditorI1 Do"
+        ]
+      ]
+    ],
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "XObject",
+        "added": [
+          "/PEditorI1"
+        ],
+        "removed": [
+          "/fzImg1"
+        ]
+      }
+    ],
+    "geometry": {
+      "image_size": [
+        200,
+        200
+      ],
+      "canvas": [
+        200,
+        200
+      ],
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "warnings": [],
+    "original_image_retained": true,
+    "visual": {
+      "mupdf": {
+        "outside_fraction": 0.0,
+        "outside_limit": 0.0001,
+        "center_pixel_after": [
+          255,
+          0,
+          255
+        ],
+        "other_pages_over_total": {},
+        "text_unchanged": true
+      },
+      "pdfium": {
+        "outside_fraction": 0.0,
+        "outside_limit": 0.0001,
+        "center_pixel_after": [
+          255,
+          0,
+          255
+        ],
+        "other_pages_over_total": {},
+        "text_unchanged": true
+      }
+    }
+  },
+  {
+    "case": "I04",
+    "expected": "support",
+    "ready": true,
+    "source_sha256": "04a408c4cee4c6c9a950fd42da24982276c72a27b71ddd9913b279f0e13748e0",
+    "new_image_sha256": "8be311ddaacb4cdad5a63e56d032b05ec8ba1dba06c3dec2f5de31228817ed03",
+    "output_sha256": "255270c4a08b789e41ce884f83b9b930daecd215f67a7dd642f9b91d0ee2c654",
+    "validation_ok": true,
+    "content_changes": [
+      [
+        0,
+        [
+          "/Image14 Do"
+        ],
+        [
+          "/PEditorI1 Do"
+        ]
+      ]
+    ],
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "XObject",
+        "added": [
+          "/PEditorI1"
+        ],
+        "removed": [
+          "/Image14"
+        ]
+      }
+    ],
+    "geometry": {
+      "image_size": [
+        300,
+        150
+      ],
+      "canvas": [
+        300,
+        150
+      ],
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "warnings": [
+      "原圖的透明遮罩不沿用；新圖沒有透明部分"
+    ],
+    "original_image_retained": false,
+    "visual": {
+      "mupdf": {
+        "outside_fraction": 0.0,
+        "outside_limit": 0.0001,
+        "center_pixel_after": [
+          255,
+          0,
+          255
+        ],
+        "other_pages_over_total": {},
+        "text_unchanged": true
+      },
+      "pdfium": {
+        "outside_fraction": 0.0,
+        "outside_limit": 0.0001,
+        "center_pixel_after": [
+          255,
+          0,
+          255
+        ],
+        "other_pages_over_total": {},
+        "text_unchanged": true
+      }
+    }
+  },
+  {
+    "case": "I05",
+    "expected": "support",
+    "ready": true,
+    "source_sha256": "a4b27c478ce986052549978581a3772381914fa5fa4690cb8efde7f99e58bb69",
+    "new_image_sha256": "3d2f4aba7a797ae54985590ddb91d20f661c9964920e82258d30865f13facee8",
+    "output_sha256": "1f03013dceffe3631fd70a6530cd9608b35ef411b812297e2ee790c06521091e",
+    "validation_ok": true,
+    "content_changes": [
+      [
+        0,
+        [
+          "/Im4 Do"
+        ],
+        [
+          "/PEditorI1 Do"
+        ]
+      ]
+    ],
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "XObject",
+        "added": [
+          "/PEditorI1"
+        ],
+        "removed": [
+          "/Im4"
+        ]
+      }
+    ],
+    "geometry": {
+      "image_size": [
+        454,
+        340
+      ],
+      "canvas": [
+        454,
+        340
+      ],
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "warnings": [],
+    "original_image_retained": false,
+    "visual": {
+      "mupdf": {
+        "outside_fraction": 0.0,
+        "outside_limit": 0.0001,
+        "center_pixel_after": [
+          255,
+          0,
+          255
+        ],
+        "other_pages_over_total": {},
+        "text_unchanged": true
+      },
+      "pdfium": {
+        "outside_fraction": 0.0,
+        "outside_limit": 0.0001,
+        "center_pixel_after": [
+          255,
+          0,
+          255
+        ],
+        "other_pages_over_total": {},
+        "text_unchanged": true
+      }
+    }
+  },
+  {
+    "case": "I06",
+    "expected": "support",
+    "ready": true,
+    "source_sha256": "fd2c9cc506756cbe4ddf67582f42ed1c7bfb04e5f5134925a8fe782c9439603c",
+    "new_image_sha256": "69e72824975bd5e639dbd5e69548686a1636859d730b7ba5125ba9e58cb33494",
+    "output_sha256": "faaa9db18c7b2bc37e3690fde50dc5fba2b98ba1d0460bd4e0dd3903827c6180",
+    "validation_ok": true,
+    "content_changes": [
+      [
+        0,
+        [
+          "/Image14 Do"
+        ],
+        [
+          "/PEditorI1 Do"
+        ]
+      ]
+    ],
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "XObject",
+        "added": [
+          "/PEditorI1"
+        ],
+        "removed": [
+          "/Image14"
+        ]
+      }
+    ],
+    "geometry": {
+      "image_size": [
+        300,
+        90
+      ],
+      "canvas": [
+        300,
+        90
+      ],
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "warnings": [],
+    "original_image_retained": false,
+    "visual": {
+      "mupdf": {
+        "outside_fraction": 0.0,
+        "outside_limit": 0.0001,
+        "center_pixel_after": [
+          255,
+          0,
+          255
+        ],
+        "other_pages_over_total": {},
+        "text_unchanged": true
+      },
+      "pdfium": {
+        "outside_fraction": 0.0,
+        "outside_limit": 0.0001,
+        "center_pixel_after": [
+          255,
+          0,
+          255
+        ],
+        "other_pages_over_total": {},
+        "text_unchanged": true
+      }
+    }
+  },
+  {
+    "case": "I07",
+    "expected": "support",
+    "ready": true,
+    "source_sha256": "e88b9a7270f145e6becd6a90c79e04e01f7fa07add832a5ab812241c24661b4c",
+    "new_image_sha256": "6111a3d1baee1078e28dec660d13d95bfcaae233f84eb83ef7101ca13b7fde3d",
+    "output_sha256": "55a6fe0b2734b3242fc18a0d4bc715c964dd2268ba9d707b596c529e20e9dc89",
+    "validation_ok": true,
+    "content_changes": [
+      [
+        0,
+        [
+          "/Im4 Do"
+        ],
+        [
+          "/PEditorI1 Do"
+        ]
+      ]
+    ],
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "XObject",
+        "added": [
+          "/PEditorI1"
+        ],
+        "removed": [
+          "/Im4"
+        ]
+      }
+    ],
+    "geometry": {
+      "image_size": [
+        907,
+        680
+      ],
+      "canvas": [
+        907,
+        680
+      ],
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "warnings": [
+      "原圖經剪裁：新圖只顯示原剪裁範圍內的部分"
+    ],
+    "original_image_retained": false,
+    "visual": {
+      "mupdf": {
+        "outside_fraction": 0.0,
+        "outside_limit": 0.0001,
+        "center_pixel_after": [
+          255,
+          0,
+          255
+        ],
+        "other_pages_over_total": {},
+        "text_unchanged": true
+      },
+      "pdfium": {
+        "outside_fraction": 0.0,
+        "outside_limit": 0.0001,
+        "center_pixel_after": [
+          255,
+          0,
+          255
+        ],
+        "other_pages_over_total": {},
+        "text_unchanged": true
+      }
+    }
+  },
+  {
+    "case": "I09",
+    "expected": "reject",
+    "ready": false,
+    "reasons": [
+      "UNSUPPORTED_LAYOUT"
+    ]
+  }
+]
