@@ -1,5 +1,6 @@
 """桌面主視窗（P4、ADR-0021）：開檔、縮圖、預覽、點選文字、替換、前後對照、undo／redo、另存、進度與取消。
 P5（ADR-0022）：點選圖片、選擇新圖片（PNG／JPEG）、前後對照後套用。
+P6（ADR-0023）：點到表格格內文字時改以儲存格編輯（一次一行）；「手動選格」拉框選格，仍經能力判定。
 
 UI 只呼叫 DocumentService 的公開 API，不匯入 PDF 程式庫、不組 PDF 指令（spec §9、G1-01）。
 所有 DocumentService 呼叫經 JobRunner 在背景執行緒進行，主執行緒不等待 worker（G4-06）；
@@ -18,6 +19,7 @@ from PySide6.QtCore import QDateTime, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPen, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
+    QComboBox,
     QDialog,
     QFileDialog,
     QGraphicsPixmapItem,
@@ -60,6 +62,7 @@ class PageView(QGraphicsView):
     內容由 target_id 定位，不以 bbox 定位（ADR-0021 §2）。重疊時取面積最小者（圖片上的文字）。"""
 
     target_clicked = Signal(dict)
+    box_selected = Signal(list)  # 手動選格：拉出的範圍（頁面空間 pt）
 
     def __init__(self) -> None:
         super().__init__()
@@ -67,11 +70,15 @@ class PageView(QGraphicsView):
         self._geometry: PageGeometry | None = None
         self._targets: list[dict] = []
         self._selected: QGraphicsRectItem | None = None
+        self.box_mode = False
+        self._drag_start = None
+        self._drag_item: QGraphicsRectItem | None = None
 
     def show_page(self, rendered: dict, page: dict) -> None:
         scene = self.scene()
         scene.clear()
         self._selected = None
+        self._drag_item = None
         scene.addItem(QGraphicsPixmapItem(_pixmap(rendered)))
         geom = page["page_geometry"]
         self._geometry = PageGeometry(tuple(geom["cropbox"]), geom["rotation"])
@@ -118,10 +125,36 @@ class PageView(QGraphicsView):
 
     def mousePressEvent(self, event) -> None:  # noqa: N802 — Qt 介面
         pos = self.mapToScene(event.position().toPoint())
+        if self.box_mode and self._geometry is not None:
+            self._drag_start = pos
+            if self._drag_item is not None:
+                self.scene().removeItem(self._drag_item)
+            pen = QPen(QColor(0, 150, 0), 1, Qt.PenStyle.DashLine)
+            self._drag_item = self.scene().addRect(QRectF(pos, pos), pen)
+            return
         target = self.target_at(pos.x(), pos.y())
         if target is not None:
             self.target_clicked.emit(target)
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:  # noqa: N802 — Qt 介面
+        if self._drag_start is not None and self._drag_item is not None:
+            pos = self.mapToScene(event.position().toPoint())
+            self._drag_item.setRect(QRectF(self._drag_start, pos).normalized())
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802 — Qt 介面
+        if self._drag_start is not None:
+            start, end = self._drag_start, self.mapToScene(event.position().toPoint())
+            self._drag_start = None
+            zoom = PAGE_DPI / 72
+            corners = [self._geometry.view_to_page(p.x(), p.y(), zoom) for p in (start, end)]
+            xs, ys = [c[0] for c in corners], [c[1] for c in corners]
+            if max(xs) - min(xs) > 1 and max(ys) - min(ys) > 1:
+                self.box_selected.emit([min(xs), min(ys), max(xs), max(ys)])
+            return
+        super().mouseReleaseEvent(event)
 
 
 class TextInput(QLineEdit):
@@ -165,7 +198,11 @@ class EditPanel(QWidget):
         self.find_button.setObjectName("find")
         self.image_button = QPushButton("選擇新圖片…")
         self.image_button.setObjectName("replace_image")
-        for widget in (QLabel("選取的內容"), self.selected, QLabel("新文字"), self.new_text,
+        self.line_choice = QComboBox()  # 儲存格的第幾行（ADR-0023：一次改一行）
+        self.line_choice.setObjectName("cell_line")
+        self.line_choice.setVisible(False)
+        for widget in (QLabel("選取的內容"), self.selected, self.line_choice, QLabel("新文字"),
+                       self.new_text,
                        self.preview_button, self.image_button, self.info, QLabel("修改前"),
                        self.before, QLabel("修改後"), self.after, self.apply_button,
                        self.find_text, self.find_button):  # fmt: skip
@@ -238,7 +275,10 @@ class MainWindow(QMainWindow):
         self.page_count = 0
         self.page_index = 0
         self.page: dict | None = None
-        self.selection: dict | None = None  # {"target_id", "text", "capability", "kind"}
+        # {"target_id", "text", "capability", "kind"}；
+        # kind 為 cell／manual_cell 時另有 "cell"、"line_index"
+        self.selection: dict | None = None
+        self.cells_by_target: dict[str, tuple[dict, int]] = {}  # 文字目標 → （格, 行號）
         self.plan: dict | None = None
         self.last_error: ServiceError | None = None
 
@@ -256,6 +296,8 @@ class MainWindow(QMainWindow):
         self.panel.apply_button.clicked.connect(self.apply_plan)
         self.panel.find_button.clicked.connect(self.find)
         self.panel.image_button.clicked.connect(self.replace_image_dialog)
+        self.panel.line_choice.currentIndexChanged.connect(self._line_chosen)
+        self.view.box_selected.connect(self.select_box)
         self.notice = QLabel("")
         self.notice.setObjectName("notice")
         self.notice.setWordWrap(True)
@@ -281,6 +323,7 @@ class MainWindow(QMainWindow):
             ("save", "另存新檔", QKeySequence.StandardKey.SaveAs, self.save_dialog),
             ("undo", "復原", QKeySequence.StandardKey.Undo, self.undo),
             ("redo", "重做", QKeySequence.StandardKey.Redo, self.redo),
+            ("manual_cell", "手動選格", QKeySequence(), self._toggle_box_mode),
             ("cancel", "取消", QKeySequence(Qt.Key.Key_Escape), self.cancel),
         ):
             action = QAction(text, self)
@@ -308,6 +351,8 @@ class MainWindow(QMainWindow):
         self.actions["undo"].setEnabled(opened and not busy and history["undo"] > 0)
         self.actions["redo"].setEnabled(opened and not busy and history["redo"] > 0)
         self.actions["cancel"].setEnabled(busy)
+        self.actions["manual_cell"].setCheckable(True)
+        self.actions["manual_cell"].setEnabled(opened and not busy)
         editable = (self.selection is not None and not busy
                     and self.selection["capability"]["status"] == "support")  # fmt: skip
         is_image = self.selection is not None and self.selection.get("kind") == "image"
@@ -384,6 +429,12 @@ class MainWindow(QMainWindow):
 
     def _page_loaded(self, index: int, page: dict, rendered: dict) -> None:
         self.page_index, self.page = index, page
+        self.cells_by_target = {
+            target_id: (cell, i)
+            for cell in page.get("cell_targets", [])
+            for i, line in enumerate(cell["lines"])
+            for target_id in line["target_ids"]
+        }
         self.view.show_page(rendered, page)
         notes = [NOTICES[n] for n in page.get("notices", []) if n in NOTICES]
         reasons = page["capabilities"]["reasons"]
@@ -398,6 +449,7 @@ class MainWindow(QMainWindow):
         self.selection = None
         self.plan = None
         self.panel.selected.setText("尚未選取文字或圖片")
+        self.panel.line_choice.setVisible(False)
         self.panel.new_text.clear()
         self.panel.info.clear()
         self.panel.before.clear()
@@ -408,6 +460,11 @@ class MainWindow(QMainWindow):
         if self.busy:
             return
         kind = target.get("kind", "text")
+        if kind == "text" and target["target_id"] in self.cells_by_target:
+            cell, line_index = self.cells_by_target[target["target_id"]]
+            self._select_cell(cell, line_index, "cell", target["target_id"])
+            return
+        self.panel.line_choice.setVisible(False)
         text = target.get("text", "") if kind == "text" else ""
         self.selection = {"target_id": target["target_id"], "text": text,
                           "capability": target["capability"], "kind": kind}  # fmt: skip
@@ -428,6 +485,55 @@ class MainWindow(QMainWindow):
         self.panel.after.clear()
         self._refresh_actions()
 
+    def _select_cell(self, cell: dict, line_index: int, kind: str, highlight: str | None) -> None:
+        """儲存格選取（ADR-0023）：顯示格位置與行；能力判定不支援時顯示原因、不能預覽。"""
+        lines = cell["lines"]
+        text = lines[line_index]["text"] if lines else ""
+        self.selection = {"target_id": cell.get("cell_id"), "text": text, "kind": kind,
+                          "capability": cell["capability"], "cell": cell,
+                          "line_index": line_index}  # fmt: skip
+        self.plan = None
+        self.view.highlight(highlight)
+        where = ("手動選格" if kind == "manual_cell"
+                 else f"表格第 {cell['row'] + 1} 列第 {cell['col'] + 1} 欄")  # fmt: skip
+        self.panel.selected.setText(f"{where}：{text}" if text else where)
+        choice = self.panel.line_choice
+        choice.blockSignals(True)
+        choice.clear()
+        choice.addItems([f"第 {i + 1} 行：{line['text']}" for i, line in enumerate(lines)])
+        choice.setCurrentIndex(line_index if lines else -1)
+        choice.blockSignals(False)
+        choice.setVisible(len(lines) > 1)
+        self.panel.new_text.setText(text)
+        if cell["capability"]["status"] == "support":
+            self.panel.info.setText("")
+        else:
+            self.panel.info.setText("無法編輯：" + reasons_text(cell["capability"]["reasons"]))
+        self.panel.before.clear()
+        self.panel.after.clear()
+        self._refresh_actions()
+
+    def _line_chosen(self, index: int) -> None:
+        if self.selection is not None and "cell" in self.selection and index >= 0:
+            self._select_cell(self.selection["cell"], index, self.selection["kind"], None)
+
+    def _toggle_box_mode(self) -> None:
+        self.view.box_mode = self.actions["manual_cell"].isChecked()
+        self._status("在頁面上拉出儲存格範圍" if self.view.box_mode else "")
+
+    def select_box(self, box: list) -> None:
+        """手動選格：框選範圍交 worker 判定（不能有線穿過、不能跨格、文字須完整在框內）。"""
+        if self.document_id is None or self.busy:
+            return
+        doc, revision, index = self.document_id, self.revision, self.page_index
+
+        def done(cell: dict) -> None:
+            self.actions["manual_cell"].setChecked(False)
+            self.view.box_mode = False
+            self._select_cell({**cell, "cell_box": box}, 0, "manual_cell", None)
+
+        self._run(lambda: self.service.assess_cell_box(doc, index, box, revision), done)
+
     def find(self) -> None:
         text = self.panel.find_text.text()
         if not text or self.document_id is None:
@@ -447,8 +553,18 @@ class MainWindow(QMainWindow):
         doc, revision = self.document_id, self.revision
         target_id, new_text = self.selection["target_id"], self.panel.new_text.text()
 
+        selection = self.selection
+
         def work():
-            plan = self.service.plan_text_edit(doc, target_id, new_text, "prefer_a", revision)
+            if selection["kind"] in ("cell", "manual_cell"):
+                cell = selection["cell"]
+                plan = self.service.plan_cell_edit(
+                    doc, cell.get("cell_id"), new_text, selection["line_index"], "prefer_a",
+                    revision, cell_box=cell.get("cell_box"),
+                    page_index=self.page_index if cell.get("cell_box") else None,
+                )  # fmt: skip
+            else:
+                plan = self.service.plan_text_edit(doc, target_id, new_text, "prefer_a", revision)
             if not plan["ready"]:
                 return plan, None
             return plan, self.service.preview_edit(doc, plan["plan_id"], revision)
