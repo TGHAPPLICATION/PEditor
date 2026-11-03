@@ -16,7 +16,7 @@ import hashlib
 from dataclasses import dataclass
 
 from peditor.core.geometry import Matrix, apply
-from peditor.core.limits import MAX_TABLE_CELLS
+from peditor.core.limits import MAX_RULE_PAIRS, MAX_TABLE_CELLS
 from peditor.worker.content import PageContent
 
 MAX_THICKNESS = 2.0  # 填色矩形視為線的最大厚度（pt）
@@ -63,9 +63,10 @@ def rules(content: PageContent, to_page: Matrix) -> Rules:
             raw.append(Line(True, (min(ys) + max(ys)) / 2, min(xs), max(xs), height))
         elif width <= MAX_THICKNESS and height > width:
             raw.append(Line(False, (min(xs) + max(xs)) / 2, min(ys), max(ys), width))
-    return Rules(
-        _merge([r for r in raw if r.horizontal]), _merge([r for r in raw if not r.horizontal])
-    )
+    hs, vs = _merge([r for r in raw if r.horizontal]), _merge([r for r in raw if not r.horizontal])
+    if len(hs) * len(vs) > MAX_RULE_PAIRS:  # 交會判定為平方級：線太多即不偵測
+        return Rules([], [], truncated=True)
+    return Rules(hs, vs)
 
 
 def _merge(lines: list[Line]) -> list[Line]:

@@ -81,6 +81,9 @@ def test_limits(monkeypatch):
     assert _cells(_grid_strokes([0, 100, 200, 300], [0, 30, 60])) == []
     found = table.rules(PageContent(paths_truncated=True), IDENTITY)
     assert found.truncated and table.detect(found) == []
+    monkeypatch.setattr(table, "MAX_RULE_PAIRS", 3)  # 2 條水平 × 2 條垂直＝4 組交會判定
+    found = table.rules(_grid_strokes([0, 100], [0, 30]), IDENTITY)
+    assert found.truncated and table.detect(found) == []
 
 
 def test_interpreter_records_paths(monkeypatch):

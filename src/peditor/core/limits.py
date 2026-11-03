@@ -28,6 +28,7 @@ MAX_IMAGE_PIXELS = 50_000_000  # spec P7「單張影像 50 MP」；含補透明�
 # P6 表格格線偵測（ADR-0023）
 MAX_RULE_PATHS = 20_000  # 每頁記錄的直線段＋填色矩形；超過即不做表格偵測
 MAX_TABLE_CELLS = 10_000  # 單一表格的格線網格格數上限
+MAX_RULE_PAIRS = 1_000_000  # 水平線數×垂直線數（交會判定的工作量）；超過即不做表格偵測
 
 
 class LimitExceeded(Exception):
