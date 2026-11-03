@@ -1,0 +1,82 @@
+{
+  "plan_id": "6bb04db7b235db12",
+  "document_id": "0e07710f1f07485f",
+  "preconditions": {
+    "sha256": "7861dc6039a9f302553a34d6c36a9311372f10fb9573bb67f1d549eb464ac3ed",
+    "revision": 0
+  },
+  "target": {
+    "span_id": "span:t:r0:p0:s11.0:o37:f:g48d32172d506:c0-8",
+    "page_index": 0,
+    "selected_text": "第二行：市府大樓",
+    "change": {
+      "target_ids": [
+        "t:r0:p0:s11.0:o37:f:g48d32172d506"
+      ],
+      "glyph_range": [
+        [
+          5,
+          6
+        ]
+      ],
+      "old_text": "府",
+      "new_text": "政"
+    },
+    "cell": {
+      "cell_id": "c:r0:p0:t0:0.0:g71580be618d7",
+      "row": 0,
+      "col": 0,
+      "manual": false,
+      "inner_bbox": [
+        72.5,
+        100.5,
+        271.5,
+        159.5
+      ],
+      "line_index": 1
+    }
+  },
+  "new_text": "第二行：市政大樓",
+  "policy": "prefer_a",
+  "mode": "B",
+  "font_policy": "replace_with_packaged",
+  "allowed_change_mask": [
+    72.5,
+    122.82,
+    271.5,
+    159.5
+  ],
+  "geometry": {
+    "baseline_start": [
+      133.0,
+      136.0
+    ],
+    "baseline_end": [
+      144.0,
+      136.0
+    ],
+    "font_size": 11.0,
+    "pdfium_width_residual_pt": 0.0
+  },
+  "resource_changes": [
+    {
+      "page_index": 0,
+      "kind": "Font",
+      "added": "/PEditorB1",
+      "font": "NotoSansTC-Regular"
+    }
+  ],
+  "font_changes": [
+    {
+      "from": "AAAAAA+NotoSerifTC-ExtraLight",
+      "to": "NotoSansTC-Regular",
+      "text": "政"
+    }
+  ],
+  "warnings": [
+    "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+    "選取範圍內原字型與 Noto Sans TC 並存（只重建實際改動的字）"
+  ],
+  "unsupported_reasons": [],
+  "ready": true
+}

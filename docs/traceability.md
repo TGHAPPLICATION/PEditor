@@ -115,10 +115,13 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 
 | 需求 ID | spec | 需求 | 預定 test ID | fixture | 狀態 |
 | --- | --- | --- | --- | --- | --- |
-| G6-01 | G6 | 宣告支援 B 案例全部通過 | `tests/integration/test_edit_cell.py::test_all_supported_cell_cases` | B01–B05 | PLANNED |
-| G6-02 | G6 | 邊線幾何／筆畫寬不變，其他格擷取與視覺不變 | `tests/integration/test_edit_cell.py::test_borders_and_other_cells_unchanged` | B01、B02 | PLANNED |
-| G6-03 | G6 | 溢出阻擋 | `tests/integration/test_edit_cell.py::test_cell_overflow_rejected` | B01 | PLANNED |
-| G6-04 | G6 | 人工選定格仍需能力判定 | `tests/integration/test_edit_cell.py::test_manual_cell_requires_assessment` | B06 | PLANNED |
+| G6-01 | G6 | 宣告支援 B 案例全部通過（目標格偵測與 manifest 可改動區域 ≤0.5 pt；雙引擎擷取到新文字；遮罩外差異 ≤0.01%） | `tests/integration/test_edit_cell.py::test_all_supported_cell_cases`（5 組） | B01–B05 | PASS（本機 Windows）；CI 待補 |
+| G6-02 | G6 | 邊線幾何／筆畫寬不變，其他格（含同格其他行）擷取與視覺不變；另存前格線比對 | `tests/integration/test_edit_cell.py::test_borders_and_other_cells_unchanged`（5 組） | B01–B05 | PASS（本機 Windows）；CI 待補 |
+| G6-03 | G6 | 溢出阻擋 | `tests/integration/test_edit_cell.py::test_cell_overflow_rejected`（2 組） | B01、B04 | PASS（本機 Windows）；CI 待補 |
+| G6-04 | G6、ADR-0013、ADR-0023 §1、§3 | 人工選定格仍需能力判定；合併格（偵測或框選）拒絕；格線推估（三種畫線方式、合併格、未封閉區域、斜線、Form、上限） | `tests/integration/test_edit_cell.py::test_manual_cell_requires_assessment`、`tests/unit/test_table_grid.py`（9 項）、`tests/integration/test_analyzer.py::test_capability_matches_manifest`（B 組目標格；B06 移出 DEFERRED） | B06、測試內樣本 | PASS（本機 Windows）；CI 待補 |
+| G6-05 | ADR-0023 §2 | 多行格一次只改指定行，可改動區域不含同格其他行；空白格拒絕 | `tests/integration/test_edit_cell.py::test_multiline_cell_line_layout`（2 組）、`::test_empty_cell_rejected` | B02、B05、測試內樣本 | PASS（本機 Windows）；CI 待補 |
+| G6-06 | ADR-0023 §4 | 經 DocumentService：預覽不提交、undo／redo、worker 重啟重播、復原草稿、人工框選 | `tests/integration/test_cell_service.py`（3 項） | B04、測試內樣本 | PASS（本機 Windows）；CI 待補 |
+| G6-07 | ADR-0023 §5 | 桌面儲存格編輯（點格內文字、行選擇、合併格顯示原因、手動選格） | `tests/gui/test_cell_ui.py`（3 項） | B04、B05、B06、測試內樣本 | PASS（本機 Windows offscreen）；CI 待補；實機 NOT RUN |
 
 ## G7：離線與安全強化（P7，兩平台實機）
 

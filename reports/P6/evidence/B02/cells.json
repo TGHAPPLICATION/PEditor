@@ -1,0 +1,92 @@
+[
+  {
+    "cell_id": "c:r0:p0:t0:0.0:g71580be618d7",
+    "table": 0,
+    "row": 0,
+    "col": 0,
+    "row_span": 1,
+    "col_span": 1,
+    "bbox": [
+      72.0,
+      100.0,
+      272.0,
+      160.0
+    ],
+    "inner_bbox": [
+      72.5,
+      100.5,
+      271.5,
+      159.5
+    ],
+    "lines": [
+      {
+        "text": "第一行：辦理地點",
+        "target_ids": [
+          "t:r0:p0:s11.0:o30:f:gf1e3865b5c7a"
+        ],
+        "bbox": [
+          78.0,
+          108.32,
+          166.0,
+          119.32
+        ]
+      },
+      {
+        "text": "第二行：市府大樓",
+        "target_ids": [
+          "t:r0:p0:s11.0:o37:f:g48d32172d506"
+        ],
+        "bbox": [
+          78.0,
+          126.32,
+          166.0,
+          137.32
+        ]
+      }
+    ],
+    "empty": false,
+    "capability": {
+      "status": "support",
+      "reasons": []
+    }
+  },
+  {
+    "cell_id": "c:r0:p0:t0:0.1:ga2d85d8f1ef1",
+    "table": 0,
+    "row": 0,
+    "col": 1,
+    "row_span": 1,
+    "col_span": 1,
+    "bbox": [
+      272.0,
+      100.0,
+      422.0,
+      160.0
+    ],
+    "inner_bbox": [
+      272.5,
+      100.5,
+      421.5,
+      159.5
+    ],
+    "lines": [
+      {
+        "text": "鄰格不可改",
+        "target_ids": [
+          "t:r0:p0:s11.0:o44:f:g79d315d44d11"
+        ],
+        "bbox": [
+          278.0,
+          108.32,
+          333.0,
+          119.32
+        ]
+      }
+    ],
+    "empty": false,
+    "capability": {
+      "status": "support",
+      "reasons": []
+    }
+  }
+]

@@ -1,0 +1,299 @@
+[
+  {
+    "case": "B01",
+    "expected": "support",
+    "ready": true,
+    "mode": "A",
+    "cell": [
+      1,
+      1,
+      1,
+      1
+    ],
+    "line_index": 0,
+    "new_line": "21",
+    "source_sha256": "1a409bb195b5062c49630c3fb674862e9034f67369c894d103d3f39192bb4f4f",
+    "output_sha256": "e54daaeacc366cdde9b536b324d2772a15713e2e0c5b1d391f2712a4c6941e2d",
+    "validation_ok": true,
+    "rules_changed": [],
+    "content_changes": 1,
+    "resource_changes": [],
+    "font_changes": [],
+    "warnings": [],
+    "evidence": {
+      "target_after": {
+        "mupdf": "21",
+        "pdfium": "21"
+      },
+      "protected_text_unchanged": true,
+      "rules_unchanged": true,
+      "rules_count": 8,
+      "visual": {
+        "pdfium": {
+          "outside_fraction": 0.0,
+          "outside_limit": 0.0001,
+          "protected_over_total": 0
+        }
+      }
+    }
+  },
+  {
+    "case": "B02",
+    "expected": "support",
+    "ready": true,
+    "mode": "B",
+    "cell": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "line_index": 1,
+    "new_line": "第二行：市政大樓",
+    "source_sha256": "7861dc6039a9f302553a34d6c36a9311372f10fb9573bb67f1d549eb464ac3ed",
+    "output_sha256": "516b4383b86bbbb5f10bf443e72e9486b6d36f36d80432ab5ff76f565cc9667a",
+    "validation_ok": true,
+    "rules_changed": [],
+    "content_changes": 1,
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ],
+    "font_changes": [
+      {
+        "from": "AAAAAA+NotoSerifTC-ExtraLight",
+        "to": "NotoSansTC-Regular",
+        "text": "政"
+      }
+    ],
+    "warnings": [
+      "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+      "選取範圍內原字型與 Noto Sans TC 並存（只重建實際改動的字）"
+    ],
+    "evidence": {
+      "target_after": {
+        "mupdf": "第一行：辦理地點第二行：市政大樓",
+        "pdfium": "第一行：辦理地點第二行：市政大樓"
+      },
+      "protected_text_unchanged": true,
+      "rules_unchanged": true,
+      "rules_count": 5,
+      "visual": {
+        "mupdf": {
+          "outside_fraction": 0.0,
+          "outside_limit": 0.0001,
+          "protected_over_total": 0
+        },
+        "pdfium": {
+          "outside_fraction": 0.0,
+          "outside_limit": 0.0001,
+          "protected_over_total": 0
+        }
+      }
+    }
+  },
+  {
+    "case": "B03",
+    "expected": "support",
+    "ready": true,
+    "mode": "B",
+    "cell": [
+      1,
+      1,
+      1,
+      1
+    ],
+    "line_index": 0,
+    "new_line": "15",
+    "source_sha256": "74bd86c71d2c7dde99fc3d60828f35876e75c017ecb34dfbf708245024cfdace",
+    "output_sha256": "f53917570edcde80452ae1195fcff7a806a3a26d743bbdbbc4c7d07ee0c290b0",
+    "validation_ok": true,
+    "rules_changed": [],
+    "content_changes": 1,
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ],
+    "font_changes": [
+      {
+        "from": "BCDEEE+Noto-Sans-TC",
+        "to": "NotoSansTC-Regular",
+        "text": "5"
+      }
+    ],
+    "warnings": [
+      "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+      "選取範圍內原字型與 Noto Sans TC 並存（只重建實際改動的字）"
+    ],
+    "evidence": {
+      "target_after": {
+        "mupdf": "15",
+        "pdfium": "15"
+      },
+      "protected_text_unchanged": true,
+      "rules_unchanged": true,
+      "rules_count": 8,
+      "visual": {
+        "mupdf": {
+          "outside_fraction": 0.0,
+          "outside_limit": 0.0001,
+          "protected_over_total": 0
+        },
+        "pdfium": {
+          "outside_fraction": 0.0,
+          "outside_limit": 0.0001,
+          "protected_over_total": 0
+        }
+      }
+    }
+  },
+  {
+    "case": "B04",
+    "expected": "support",
+    "ready": true,
+    "mode": "B",
+    "cell": [
+      2,
+      1,
+      1,
+      1
+    ],
+    "line_index": 0,
+    "new_line": "250",
+    "source_sha256": "db65ca0699c0f4a5560aba3b9d07c5203350dbfd1ddc0a39fffda7153eb025cd",
+    "output_sha256": "ceb9234e2043214dde95e01dcf94c70aab71be2f65286bc9d924ed3ceebbe0a0",
+    "validation_ok": true,
+    "rules_changed": [],
+    "content_changes": 1,
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ],
+    "font_changes": [
+      {
+        "from": "CAAAAA+NotoSerifTC-Regular",
+        "to": "NotoSansTC-Regular",
+        "text": "25"
+      }
+    ],
+    "warnings": [
+      "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+      "選取範圍內原字型與 Noto Sans TC 並存（只重建實際改動的字）"
+    ],
+    "evidence": {
+      "target_after": {
+        "mupdf": "250",
+        "pdfium": "250"
+      },
+      "protected_text_unchanged": true,
+      "rules_unchanged": true,
+      "rules_count": 8,
+      "visual": {
+        "mupdf": {
+          "outside_fraction": 0.0,
+          "outside_limit": 0.0001,
+          "protected_over_total": 0
+        },
+        "pdfium": {
+          "outside_fraction": 0.0,
+          "outside_limit": 0.0001,
+          "protected_over_total": 0
+        }
+      }
+    }
+  },
+  {
+    "case": "B05",
+    "expected": "support",
+    "ready": true,
+    "mode": "B",
+    "cell": [
+      1,
+      2,
+      1,
+      1
+    ],
+    "line_index": 1,
+    "new_line": "第貳行",
+    "source_sha256": "e6cb11e5a75593aef6c35c08729582035677cf6bc131135bf692c143efead2e2",
+    "output_sha256": "a4459fa1b582b0db8609c2082177722c021b52723e69591e7a76e1b92d4f905d",
+    "validation_ok": true,
+    "rules_changed": [],
+    "content_changes": 1,
+    "resource_changes": [
+      {
+        "page_index": 0,
+        "kind": "Font",
+        "added": [
+          "/PEditorB1"
+        ],
+        "removed": []
+      }
+    ],
+    "font_changes": [
+      {
+        "from": "BCDEEE+Noto-Sans-TC",
+        "to": "NotoSansTC-Regular",
+        "text": "貳"
+      }
+    ],
+    "warnings": [
+      "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+      "選取範圍內原字型與 Noto Sans TC 並存（只重建實際改動的字）",
+      "已同步更新結構樹 /ActualText（ADR-0017）"
+    ],
+    "evidence": {
+      "target_after": {
+        "mupdf": "第一行第貳行",
+        "pdfium": "第一行第貳行"
+      },
+      "protected_text_unchanged": true,
+      "rules_unchanged": true,
+      "rules_count": 7,
+      "visual": {
+        "mupdf": {
+          "outside_fraction": 0.0,
+          "outside_limit": 0.0001,
+          "protected_over_total": 0
+        },
+        "pdfium": {
+          "outside_fraction": 0.0,
+          "outside_limit": 0.0001,
+          "protected_over_total": 0
+        }
+      }
+    }
+  },
+  {
+    "case": "B06",
+    "expected": "reject",
+    "ready": false,
+    "reasons": [
+      "UNSUPPORTED_LAYOUT"
+    ],
+    "cell": [
+      1,
+      0,
+      1,
+      2
+    ]
+  }
+]
