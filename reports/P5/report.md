@@ -31,7 +31,7 @@
 ## 3. 需求 → test ID → fixture／hash → 結果
 
 fixture hash（前 12 碼）：I01 `7a8001d4d803`、I02 `3e241f7b6fef`、I03 `7bd88c07864d`、I04 `04a408c4cee4`、I05 `a4b27c478ce9`、I06 `fd2c9cc50675`、I07 `e88b9a7270f1`、I09 `ddc12162a6d8`。
-「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝CI 待補（第一輪核對處理後推送）。
+「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝run [41609744423](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41609744423)（commit `a1fca9d`）windows-latest 406 passed、macos-15 406 passed。
 
 | 需求 ID | test ID | fixture | 本機 | CI |
 | --- | --- | --- | --- | --- |
@@ -79,7 +79,7 @@ uv run python scripts/p5_evidence.py reports/P5/evidence → exit 0
   | M16 | `register_asset` 不檢查參數白名單 | `test_register_asset_keep_and_bad_data` |
 
 - 本機 pytest 收集階段會印出一次 `Windows fatal exception: access violation`（`pypdfium2` 載入 pdfium 時，faulthandler 回報已處理的例外）；單獨 `python -X faulthandler -c "import pypdfium2"` 也會出現且 exit 0，與 P5 程式無關，測試照常完成。
-- CI：CI 待補（第一輪核對處理後推送）；先前 run 41593863258（`cfee71a`）、41594346667（`11cb4c7`）雙平台 398 passed，41607137231（`86d47bf`）雙平台 404 passed，只作歷史紀錄。
+- CI：run [41609744423](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41609744423)（commit `a1fca9d`）windows-latest 406 passed、macos-15 406 passed；先前 run 41593863258（`cfee71a`）、41594346667（`11cb4c7`）雙平台 398 passed，41607137231（`86d47bf`）雙平台 404 passed，只作歷史紀錄。
 
 ## 5. 真修改證據
 
@@ -147,7 +147,7 @@ uv run python scripts/p5_evidence.py reports/P5/evidence → exit 0
 
 ## 10. 關卡結果
 
-- **關卡結果：BLOCKED**。G5-01～G5-07 本機全部通過，反向驗證 16 項全部被抓到；CI 待補（第一輪核對處理後推送）；U1–U5 已由工程師決定並處理（§9）；已經第一輪獨立核對（§11），N1–N7 已處理；待工程師審查決定關卡結果。
+- **關卡結果：BLOCKED**。G5-01～G5-07 本機全部通過，反向驗證 16 項全部被抓到；run [41609744423](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41609744423)（commit `a1fca9d`）windows-latest 406 passed、macos-15 406 passed；U1–U5 已由工程師決定並處理（§9）；已經第一輪獨立核對（§11），N1–N7 已處理；待工程師審查決定關卡結果。
 - **下一段可開始：否**（條件：工程師決定並更新本節）。
 
 ## 11. 獨立核對紀錄
