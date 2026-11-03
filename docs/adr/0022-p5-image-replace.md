@@ -48,7 +48,7 @@ P5 不改判定規則（不放寬支援範圍）。
 - 新增圖片 XObject 與新資源名稱（`/PEditorI<n>`），只把選定的那一個 `Do` 改成新名稱；原圖物件不動，
   同頁或其他頁的其他出現位置仍指向原圖。頁面 /Resources 與其 /XObject 先複製一份給這頁。
 - 目標 content stream 被其他頁或重複列出共用時拒絕（`SHARED_RESOURCE_UNSAFE`，同 P2 文字）。
-- 這頁已沒有其他頁面層級的 `Do` 用到原名稱、且頁面沒有 Type3 字型（可能借用頁面資源）時，移除原名稱；
+- 這頁已沒有其他 `Do` 用到原名稱（含 Form 內同名的使用：沒有自己 /Resources 的 Form 會沿用頁面資源，保守起見一律保留；P5 報告 §11 N1）、且頁面沒有 Type3 字型（可能借用頁面資源）時，移除原名稱；
   原圖若也沒有其他地方使用，完整另存時不再保留在檔案中。
 - target_id 沿用 P1（含 revision、頁、content stream、運算子索引、Form 路徑、幾何 hash）；計畫只收 target_id 與
   asset_id（白名單），不接受路徑或 PDF 指令。

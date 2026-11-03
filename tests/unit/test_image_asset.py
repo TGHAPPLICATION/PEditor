@@ -108,6 +108,8 @@ def test_register_asset_keep_and_bad_data():
     assert list(doc.assets) == [second["asset_id"]] and first["asset_id"] != second["asset_id"]
     assert _code(image.register_asset, doc, {"data": "不是 base64"}) == "INVALID_REQUEST"
     assert _code(image.register_asset, doc, {}) == "INVALID_REQUEST"
+    good = base64.b64encode(_png()).decode()
+    assert _code(image.register_asset, doc, {"data": good, "path": "x.png"}) == "INVALID_REQUEST"
 
 
 def test_padding_geometry():

@@ -3,7 +3,9 @@
 新圖登記、預覽不提交、undo／redo、worker 重啟與復原草稿。
 """
 
+import hashlib
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
@@ -72,6 +74,8 @@ def test_image_draft_recovery(tmp_path):
         service.apply_edit(doc, plan["plan_id"], 0)
         assets = list(store_dir.glob("*.img"))
         assert len(assets) == 1 and assets[0].read_bytes() == image_path.read_bytes()
+        if sys.platform != "win32":
+            assert assets[0].stat().st_mode & 0o077 == 0  # 只有使用者可讀寫（N6）
     finally:
         service.close()  # 未 close_document：模擬異常結束
 
@@ -136,3 +140,16 @@ def test_image_and_text_edits_share_log(tmp_path):
         assert _names(service, doc, rev) == ["/Image14"]
         rev = service.undo(doc, rev)["new_revision"]
         assert service.history(doc) == {"revision": rev, "undo": 0, "redo": 2}
+
+
+def test_expired_draft_purges_its_images(tmp_path):
+    """N7：逾期草稿在清理時連同新圖檔一起刪除。"""
+    store = drafts.DraftStore(tmp_path, now=lambda: 1_000_000.0)
+    asset = b"image-bytes"
+    asset_id = hashlib.sha256(asset).hexdigest()
+    log = [{"op": "image", "params": {"target_id": "i:r0:p0:s1.0:o0:f:g000000000000",
+                                      "asset_id": asset_id}, "base_revision": 0}]  # fmt: skip
+    store.save("0123456789abcdef", "x.pdf", "0" * 64, log, 1, {asset_id: asset})
+    assert sorted(p.suffix for p in tmp_path.iterdir()) == [".img", ".json"]
+    later = drafts.DraftStore(tmp_path, now=lambda: 1_000_000.0 + drafts.RETENTION_S + 1)
+    assert later.list() == [] and list(tmp_path.iterdir()) == []

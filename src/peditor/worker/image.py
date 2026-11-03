@@ -67,6 +67,8 @@ class ImagePending:
 
 def register_asset(document: analyzer.Document, params: dict) -> dict:
     """登記新圖。keep 為要保留的其他 asset_id（主行程依 command log 決定）；未給時全部保留。"""
+    if set(params) - {"data", "keep"}:  # 參數白名單（P5 核對 N7）
+        raise ProtocolError("INVALID_REQUEST", "不支援的參數")
     data, keep = params.get("data"), params.get("keep")
     if not isinstance(data, str):
         raise ProtocolError("INVALID_REQUEST", "缺少圖片資料")
@@ -286,8 +288,9 @@ def plan_image_edit(document: analyzer.Document, params: dict) -> dict:
         return edit._store(document, plan, None)
     page = document.pike.pages[page_index]
     new_name = _new_name(page)
+    # 同名的其他使用（含 Form 內：沒有自己 /Resources 的 Form 沿用頁面資源；P5 核對 N1）都保留原名稱
     others = [u for u in document.images[page_index].values()
-              if u is not use and u.name == use.name and not u.form_path]  # fmt: skip
+              if u is not use and u.name == use.name]  # fmt: skip
     remove_old = not others and not _has_type3(page)
     plan.mode = "image"
     plan.geometry = {"image_size": [asset.width, asset.height],

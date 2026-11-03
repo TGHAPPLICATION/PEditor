@@ -12,6 +12,7 @@ import io
 import secrets
 
 import pikepdf
+import pymupdf
 import pytest
 import visual
 from PIL import Image
@@ -367,3 +368,47 @@ def test_exif_orientation_warned():
             assert plan["ready"] and (warning in plan["warnings"]) is expected
         finally:
             document.close()
+
+
+def _form_inherits_resources_pdf(path):
+    """頁面直接畫 /Im0；沒有 /Resources 的 Form（沿用頁面資源）內部也畫 /Im0（核對 N1）。"""
+    pdf = pikepdf.new()
+    green = pdf.make_indirect(pikepdf.Stream(pdf, bytes((0, 160, 0)) * 200, {
+        "/Type": pikepdf.Name.XObject, "/Subtype": pikepdf.Name.Image, "/Width": 20,
+        "/Height": 10, "/ColorSpace": pikepdf.Name.DeviceRGB, "/BitsPerComponent": 8}))  # fmt: skip
+    form = pdf.make_indirect(pikepdf.Stream(pdf, b"q 100 0 0 50 0 0 cm /Im0 Do Q", {
+        "/Type": pikepdf.Name.XObject, "/Subtype": pikepdf.Name.Form,
+        "/BBox": [0, 0, 100, 50]}))  # fmt: skip
+    pdf.add_blank_page(page_size=(400, 300))
+    page = pdf.pages[0]
+    page.obj.Resources = pikepdf.Dictionary(
+        {"/XObject": pikepdf.Dictionary({"/Im0": green, "/Fm0": form})}
+    )
+    page.obj.Contents = pdf.make_stream(
+        b"q 100 0 0 50 50 50 cm /Im0 Do Q q 1 0 0 1 200 150 cm /Fm0 Do Q"
+    )
+    pdf.save(path)
+
+
+def test_form_sharing_page_resources_keeps_original(tmp_path):
+    """N1：Form 沿用頁面資源畫同名原圖時，替換頁面層級那次不移除原名稱，Form 內的圖不變。"""
+    source = tmp_path / "form_inherit.pdf"
+    _form_inherits_resources_pdf(source)
+    document = analyzer.open_document(str(source))
+    try:
+        target = next(t for t in analyzer.inspect_page(document, 0)["image_targets"]
+                      if not t["form_path"])  # fmt: skip
+        asset = image.register_asset(document, {"data": base64.b64encode(png((40, 20))).decode()})
+        plan = image.plan_image_edit(document, {"target_id": target["target_id"],
+                                                "asset_id": asset["asset_id"]})  # fmt: skip
+        assert plan["ready"] and plan["resource_changes"][0]["removed"] is None
+        edit.apply_edit(document, plan["plan_id"], 0)
+        dest = tmp_path / "out.pdf"
+        report = export.export_document(document, str(dest))["validation_report"]
+        assert report["ok"], report["failures"]
+    finally:
+        document.close()
+    with pymupdf.open(dest) as doc:
+        pix = doc[0].get_pixmap(dpi=72)
+        assert pix.pixel(250, 125) == (0, 160, 0)  # Form 內仍是原圖
+        assert pix.pixel(100, 225) == MAGENTA  # 頁面層級改為新圖

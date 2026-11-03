@@ -160,9 +160,9 @@ class DraftStore:
                     self._remove_if_old(path)
                     continue
                 if not _valid(data, name[:-5]) or self._expired(data):
-                    try:
-                        path.unlink(missing_ok=True)
-                    except OSError:
+                    try:  # 連同新圖檔一起刪（P5 核對 N7）
+                        self.discard(name[:-5])
+                    except ProtocolError:
                         pass  # 下次列出或建立草稿區時再試
 
     def _names(self) -> list[str]:
