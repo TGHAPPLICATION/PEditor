@@ -258,3 +258,19 @@ def test_rules_check_detects_changed_borders(tmp_path):
             assert export.rules_check(document, buf.getvalue()) == [0], old
     finally:
         document.close()
+
+
+def test_text_crossing_border_rejected(tmp_path):
+    """G6-04：文字跨過格線時，兩邊的格都拒絕（不知道該屬哪一格，改了會動到鄰格）。"""
+    path = tmp_path / "crossing.pdf"
+    table_pdf(path, [["Item", "Qty"], ["A very long product name", "12"]])
+    document = analyzer.open_document(str(path))
+    try:
+        cells = {
+            (c["row"], c["col"]): c for c in analyzer.inspect_page(document, 0)["cell_targets"]
+        }
+        assert cells[(1, 0)]["capability"]["reasons"] == ["UNSUPPORTED_LAYOUT"]
+        assert cells[(1, 1)]["capability"]["reasons"] == ["UNSUPPORTED_LAYOUT"]
+        assert cells[(0, 0)]["capability"]["status"] == "support"
+    finally:
+        document.close()
