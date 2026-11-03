@@ -1,0 +1,238 @@
+"""表格儲存格改字（G6；spec P6、ADR-0013、ADR-0023）。
+
+格線推估、一次改一行、邊線與其他格不變、溢出與合併格拒絕。
+
+真修改證據沿用 P2（模式 A／B）：內容只改目標行的文字運算子；另存驗證含格線比對（rules_check）；
+MuPDF（ADR-0015 例外除外）與 PDFium 各自渲染，manifest 事前宣告的可改動區域 +2 pt 外差異 ≤0.01%，
+其他格（含同格其他行）擷取文字相同、像素無超標差異。
+"""
+
+import io
+
+import pikepdf
+import pymupdf
+import pypdfium2
+import pytest
+import visual
+from cell_samples import cell_box, table_pdf
+
+from peditor.core.protocol import ProtocolError
+from peditor.worker import analyzer, cell, edit, export, table
+from peditor.worker.content import interpret
+
+SUPPORTED = ("B01", "B02", "B03", "B04", "B05")
+
+
+def _row(fid):
+    return visual.manifest()[fid]
+
+
+def _floats(text):
+    return [float(v) for v in text.split(",")]
+
+
+def _target_cell(page, row):
+    r, c = map(int, row["target"].removeprefix("cell(").removesuffix(")").split(","))
+    return next(t for t in page["cell_targets"] if (t["row"], t["col"]) == (r, c))
+
+
+def _line_index(cell_target, old):
+    return next(i for i, line in enumerate(cell_target["lines"]) if old in line["text"])
+
+
+def _edit(fid, tmp_path):
+    """以 manifest 的原文／新文改目標格的那一行並另存。
+
+    回傳（原檔, 輸出, 計畫, 目標格, 驗證報告）。
+    """
+    row = _row(fid)
+    document = analyzer.open_document(str(visual.FILES / f"{fid}.pdf"))
+    try:
+        target = _target_cell(analyzer.inspect_page(document, 0), row)
+        index = _line_index(target, row["original_text"])
+        new_line = target["lines"][index]["text"].replace(row["original_text"], row["new_text"])
+        plan = cell.plan_cell_edit(document, {"cell_id": target["cell_id"], "line_index": index,
+                                              "new_text": new_line})  # fmt: skip
+        assert plan["ready"], plan["unsupported_reasons"]
+        edit.apply_edit(document, plan["plan_id"], 0)
+        dest = tmp_path / f"{fid}-out.pdf"
+        report = export.export_document(document, str(dest))["validation_report"]
+        return document.original, dest.read_bytes(), plan, target, report
+    finally:
+        document.close()
+
+
+def _texts_in(data: bytes, box) -> dict[str, str]:
+    """兩引擎各自擷取 box（頁面空間）內的文字。"""
+    with pymupdf.open(stream=data, filetype="pdf") as doc:
+        mu = doc[0].get_text(clip=pymupdf.Rect(*box))
+    pdf = pypdfium2.PdfDocument(data)
+    try:
+        page = pdf[0]
+        height = page.get_height()
+        textpage = page.get_textpage()
+        pd = textpage.get_text_bounded(left=box[0], bottom=height - box[3], right=box[2],
+                                       top=height - box[1])  # fmt: skip
+    finally:
+        pdf.close()
+    return {"mupdf": "".join(mu.split()), "pdfium": "".join(pd.split())}
+
+
+def _rules(data: bytes):
+    with pikepdf.open(io.BytesIO(data)) as pdf:
+        page = pdf.pages[0]
+        found = table.rules(interpret(page), analyzer.page_geometry(page).pdf_to_page())
+        return [(r.horizontal, round(r.pos, 3), round(r.a, 3), round(r.b, 3), round(r.width, 3))
+                for r in found.horizontal + found.vertical]  # fmt: skip
+
+
+@pytest.mark.parametrize("fid", SUPPORTED)
+def test_all_supported_cell_cases(fid, tmp_path):
+    """G6-01：B01–B05 目標格偵測正確（格線中線與 manifest 可改動區域 ≤0.5 pt）、可改，
+    雙引擎擷取到新文字。"""
+    row = _row(fid)
+    original, output, plan, target, report = _edit(fid, tmp_path)
+    assert report["ok"], report["failures"]
+    assert report["rules_changed"] == [] and report["text_missing"] == []
+    region = _floats(row["editable_region_pt"])
+    assert max(abs(a - b) for a, b in zip(target["bbox"], region, strict=True)) <= 0.5
+    assert plan["mode"] in ("A", "B") and plan["target"]["cell"]["cell_id"] == target["cell_id"]
+    assert all(c["page_index"] == 0 for c in report["content_changes"])
+    texts = _texts_in(output, target["inner_bbox"])
+    for engine, text in texts.items():
+        assert row["new_text"] in text and row["original_text"] not in text, (engine, text)
+    mask = visual.mask_pixels(original, 0, region)
+    for engine in visual.engines(fid):
+        stats = visual.diff_stats(visual.render(engine, original), visual.render(engine, output),
+                                  mask)  # fmt: skip
+        assert stats["outside_fraction"] <= visual.OUTSIDE_LIMIT, (engine, stats)
+
+
+@pytest.mark.parametrize("fid", SUPPORTED)
+def test_borders_and_other_cells_unchanged(fid, tmp_path):
+    """G6-02：格線位置、範圍與線寬完全不變；其他格與同格其他行的擷取文字相同、像素無超標差異。"""
+    original, output, plan, target, report = _edit(fid, tmp_path)
+    assert _rules(original) == _rules(output)
+    document = analyzer.open_document(str(visual.FILES / f"{fid}.pdf"))
+    try:
+        cells = analyzer.inspect_page(document, 0)["cell_targets"]
+    finally:
+        document.close()
+    protected = [c["inner_bbox"] for c in cells if c["cell_id"] != target["cell_id"]]
+    index = plan["target"]["cell"]["line_index"]
+    protected += [line["bbox"] for i, line in enumerate(target["lines"]) if i != index]
+    assert len(protected) >= 2
+    for box in protected:
+        assert _texts_in(original, box) == _texts_in(output, box), box
+    for engine in visual.engines(fid):
+        before, after = visual.render(engine, original), visual.render(engine, output)
+        for box in protected:
+            x0, y0, x1, y1 = visual.mask_pixels(original, 0, box)
+            crop = (x0 + 3, y0 + 3, x1 - 3, y1 - 3)  # 內縮，排除格線本身的邊緣像素
+            stats = visual.diff_stats(before.crop(crop), after.crop(crop))
+            assert stats["over_total"] == 0, (engine, box, stats)
+
+
+@pytest.mark.parametrize("fid", ("B01", "B04"))
+def test_cell_overflow_rejected(fid):
+    """G6-03：新文字超出格內緣回 TEXT_OVERFLOW，不縮字、不換行。"""
+    row = _row(fid)
+    document = analyzer.open_document(str(visual.FILES / f"{fid}.pdf"))
+    try:
+        target = _target_cell(analyzer.inspect_page(document, 0), row)
+        plan = cell.plan_cell_edit(document, {"cell_id": target["cell_id"],
+                                              "new_text": "1234567890" * 6})  # fmt: skip
+        assert not plan["ready"] and plan["unsupported_reasons"] == ["TEXT_OVERFLOW"]
+    finally:
+        document.close()
+
+
+def test_manual_cell_requires_assessment(tmp_path):
+    """G6-04：B06 合併格（偵測或人工框選）都拒絕；人工框選跨格、有線穿過、切到文字也拒絕；
+    無框線表格以人工框選可改，仍經能力判定與溢出檢查。"""
+    row = _row("B06")
+    document = analyzer.open_document(str(visual.FILES / "B06.pdf"))
+    try:
+        page = analyzer.inspect_page(document, 0)
+        merged = _target_cell(page, row)
+        assert (merged["row_span"], merged["col_span"]) == (1, 2)
+        assert merged["capability"] == {"status": row["expected"], "reasons": [row["reason_code"]]}
+        plan = cell.plan_cell_edit(document, {"cell_id": merged["cell_id"], "new_text": "X"})
+        assert not plan["ready"] and plan["unsupported_reasons"] == ["UNSUPPORTED_LAYOUT"]
+        manual = cell.assess_cell_box(document, {"cell_box": merged["inner_bbox"], "page_index": 0})
+        assert manual["capability"]["status"] == "reject"
+        others = [c for c in page["cell_targets"] if c["col_span"] == 1]
+        a, b = others[0]["inner_bbox"], others[1]["inner_bbox"]  # 第 1 列相鄰兩格
+        both = [min(a[0], b[0]), min(a[1], b[1]), max(a[2], b[2]), max(a[3], b[3])]
+        assert cell.assess_cell_box(document, {"cell_box": both, "page_index": 0})[
+            "capability"]["status"] == "reject"  # fmt: skip
+    finally:
+        document.close()
+
+    path = tmp_path / "borderless.pdf"
+    table_pdf(path, [["Item", "Qty"], ["Pen", "12"]], vertical=False)
+    document = analyzer.open_document(str(path))
+    try:
+        assert analyzer.inspect_page(document, 0)["cell_targets"] == []
+        box = cell_box(1, 1)
+        partial = [box[0], box[1], box[0] + 12, box[3]]  # 只框到「12」的一部分
+        assert cell.assess_cell_box(document, {"cell_box": partial, "page_index": 0})[
+            "capability"]["status"] == "reject"  # fmt: skip
+        tall = [box[0], box[1] - 30, box[2], box[3]]  # 中間有水平線穿過
+        assert cell.assess_cell_box(document, {"cell_box": tall, "page_index": 0})[
+            "capability"]["status"] == "reject"  # fmt: skip
+        inner = [box[0] + 1, box[1] + 1, box[2] - 1, box[3] - 1]
+        assessed = cell.assess_cell_box(document, {"cell_box": inner, "page_index": 0})
+        assert assessed["capability"]["status"] == "support"
+        assert [line["text"] for line in assessed["lines"]] == ["12"]
+        too_long = cell.plan_cell_edit(document, {"cell_box": inner, "page_index": 0,
+                                                  "new_text": "123456789012345"})  # fmt: skip
+        assert too_long["unsupported_reasons"] == ["TEXT_OVERFLOW"]
+        plan = cell.plan_cell_edit(document, {"cell_box": inner, "page_index": 0,
+                                              "new_text": "21"})  # fmt: skip
+        assert plan["ready"] and plan["target"]["cell"]["manual"]
+        edit.apply_edit(document, plan["plan_id"], 0)
+        dest = tmp_path / "out.pdf"
+        report = export.export_document(document, str(dest))["validation_report"]
+        assert report["ok"], report["failures"]
+    finally:
+        document.close()
+    assert "21" in _texts_in(dest.read_bytes(), inner)["mupdf"]
+
+
+@pytest.mark.parametrize("fid,line", [("B02", 1), ("B05", 1)])
+def test_multiline_cell_line_layout(fid, line, tmp_path):
+    """G6-05：多行格一次只改指定的一行；可改動區域不含同格其他行；
+    行號超出範圍回 INVALID_REQUEST。"""
+    original, output, plan, target, report = _edit(fid, tmp_path)
+    assert report["ok"] and plan["target"]["cell"]["line_index"] == line
+    other = target["lines"][1 - line]
+    mask = plan["allowed_change_mask"]
+    assert mask[1] >= other["bbox"][3] or mask[3] <= other["bbox"][1]  # 遮罩與另一行不重疊
+    assert _texts_in(original, other["bbox"]) == _texts_in(output, other["bbox"])
+    document = analyzer.open_document(str(visual.FILES / f"{fid}.pdf"))
+    try:
+        cell_id = _target_cell(analyzer.inspect_page(document, 0), _row(fid))["cell_id"]
+        with pytest.raises(ProtocolError) as info:
+            cell.plan_cell_edit(document, {"cell_id": cell_id, "line_index": 2, "new_text": "X"})
+        assert info.value.code == "INVALID_REQUEST"
+    finally:
+        document.close()
+
+
+def test_empty_cell_rejected(tmp_path):
+    """G6-05：空白格只能檢視，不新增文字（ADR-0023 §2）。"""
+    path = tmp_path / "empty.pdf"
+    table_pdf(path, [["Item", "Qty"], ["Pen", None]])
+    document = analyzer.open_document(str(path))
+    try:
+        cells = analyzer.inspect_page(document, 0)["cell_targets"]
+        assert len(cells) == 4
+        empty = next(c for c in cells if (c["row"], c["col"]) == (1, 1))
+        assert empty["empty"] and empty["capability"]["reasons"] == ["UNSUPPORTED_LAYOUT"]
+        plan = cell.plan_cell_edit(document, {"cell_id": empty["cell_id"], "new_text": "5"})
+        assert not plan["ready"] and "空白格：只修改既有文字，不新增內容" in plan["warnings"]
+        filled = next(c for c in cells if (c["row"], c["col"]) == (1, 0))
+        assert filled["capability"]["status"] == "support"
+    finally:
+        document.close()

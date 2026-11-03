@@ -18,6 +18,7 @@ from peditor.core.limits import (
     MAX_FORM_DEPTH,
     MAX_FORM_INVOCATIONS,
     MAX_GSTATE_DEPTH,
+    MAX_RULE_PATHS,
     LimitExceeded,
 )
 from peditor.worker.fonts import FontInfo, load_font
@@ -84,11 +85,32 @@ class ImageUse:
 
 
 @dataclass
+class Stroke:
+    """描邊的直線段（PDF 空間）與線寬；表格格線偵測用（P6、ADR-0023）。"""
+
+    p0: tuple[float, float]
+    p1: tuple[float, float]
+    width: float
+    form_path: tuple[str, ...]
+
+
+@dataclass
+class FilledRect:
+    """填色的 `re` 矩形四角（PDF 空間）；細長者視為格線（Word 以細矩形畫框線）。"""
+
+    corners: list[tuple[float, float]]
+    form_path: tuple[str, ...]
+
+
+@dataclass
 class PageContent:
     runs: list[TextRun] = field(default_factory=list)
     images: list[ImageUse] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)  # 解析失敗原因（不含原文）
     inline_images: int = 0
+    strokes: list[Stroke] = field(default_factory=list)
+    filled_rects: list[FilledRect] = field(default_factory=list)
+    paths_truncated: bool = False  # 線段超過 MAX_RULE_PATHS：不再記錄，不做表格偵測
 
 
 @dataclass
@@ -102,6 +124,7 @@ class _GState:
     scale: float = 1.0
     leading: float = 0.0
     rise: float = 0.0
+    line_width: float = 1.0
 
     def copy(self) -> _GState:
         new = _GState(**self.__dict__)
@@ -174,7 +197,11 @@ class _Interpreter:
                     self._path_op(op, ops, gs.ctm, path)
                 elif op in ("W", "W*"):
                     pending_clip = True
+                elif op == "w":
+                    gs.line_width = _num(ops[0])
                 elif op in _PAINT:
+                    if op != "n" and path:
+                        self._record_paths(op, path, gs, form_path)
                     if pending_clip and path:
                         if len(gs.clips) >= MAX_CLIPS:
                             raise LimitExceeded("clips")
@@ -272,6 +299,26 @@ class _Interpreter:
         return text_m
 
     # --- 路徑與 clip --------------------------------------------------
+    def _record_paths(self, op, path, gs: _GState, form_path) -> None:
+        """記錄描邊的直線段與填色矩形（不含曲線）；表格格線偵測用（ADR-0023）。"""
+        stroke = op in ("S", "s", "B", "B*", "b", "b*")
+        fill = op in ("f", "F", "f*", "B", "B*", "b", "b*")
+        a, b, c, d, _, _ = gs.ctm
+        width = abs(gs.line_width) * abs(a * d - b * c) ** 0.5
+        for pts, is_re, curved in path:
+            if curved:
+                continue
+            if len(self.result.strokes) + len(self.result.filled_rects) >= MAX_RULE_PATHS:
+                self.result.paths_truncated = True
+                return
+            if fill and is_re:
+                self.result.filled_rects.append(FilledRect(list(pts), form_path))
+            if stroke:
+                closed = is_re or op in ("s", "b", "b*")
+                points = [*pts, pts[0]] if closed and len(pts) > 2 else pts
+                for p0, p1 in zip(points, points[1:], strict=False):
+                    self.result.strokes.append(Stroke(p0, p1, width, form_path))
+
     @staticmethod
     def _path_op(op, ops, ctm: Matrix, path) -> None:
         nums = [_num(v) for v in ops]

@@ -205,7 +205,7 @@ def _valid(data, draft_id: str) -> bool:
     return all(isinstance(e, dict) and isinstance(e.get("params"), dict)
                and isinstance(e.get("base_revision"), int)
                and not isinstance(e.get("base_revision"), bool) and e["base_revision"] >= 0
-               and e.get("op", "text") in ("text", "image")
+               and e.get("op", "text") in ("text", "image", "cell")
                and (e.get("op") != "image" or (isinstance(e["params"].get("asset_id"), str)
                                                and _SHA256.match(e["params"]["asset_id"])))
                for e in log)  # fmt: skip

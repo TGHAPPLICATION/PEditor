@@ -49,6 +49,8 @@ OPERATIONS = frozenset(
         "plan_text_edit",
         "register_asset",  # 圖片替換的新圖（ADR-0022）
         "plan_image_edit",
+        "plan_cell_edit",  # 表格儲存格改字（ADR-0023）
+        "assess_cell_box",  # 人工框選格的能力判定（只讀）
         "apply_edit",
         "preview_edit",  # 前後對照，不提交（ADR-0021 §2）
         "replay",  # undo／redo 與 worker 重啟後還原（ADR-0020 §1）

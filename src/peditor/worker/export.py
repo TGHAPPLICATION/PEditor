@@ -8,6 +8,7 @@ worker 只做「完整重寫、驗證通過才建立新檔寫出」；暫存檔�
 - 內容差異：逐頁、逐 content stream 比對解析後的運算子（§8.1-1）。
 - 文字與視覺（P3，ADR-0020 §4）：新文字可擷取；改動頁在可改動區域外沒有超標像素差異。
 - 圖片替換（P5，ADR-0022）：只有圖片替換的頁面，擷取文字與原檔完全相同（例如被圖片蓋住的文字）。
+- 儲存格改字（P6，ADR-0023）：有改格的頁面，格線（位置、範圍、線寬）與原檔完全相同。
 """
 
 from __future__ import annotations
@@ -218,6 +219,31 @@ def image_text_check(document: analyzer.Document, data: bytes) -> list[int]:
     return changed
 
 
+def rules_check(document: analyzer.Document, data: bytes) -> list[int]:
+    """有儲存格改字的頁面，格線（合併後的位置、起訖、線寬，取到 0.01 pt）須與原檔相同。
+
+    回傳不同的頁。
+    """
+    from peditor.worker import table
+    from peditor.worker.content import interpret
+
+    pages = sorted({a["page_index"] for a in document.applied if a.get("kind") == "cell"})
+    changed = []
+    with pikepdf.open(io.BytesIO(document.original)) as old, pikepdf.open(io.BytesIO(data)) as new:
+        for page_index in pages:
+            found = []
+            for pdf in (old, new):
+                page = pdf.pages[page_index]
+                to_page = analyzer.page_geometry(page).pdf_to_page()
+                rules = table.rules(interpret(page), to_page)
+                lines = rules.horizontal + rules.vertical
+                found.append([(r.horizontal, round(r.pos, 2), round(r.a, 2), round(r.b, 2),
+                               round(r.width, 2)) for r in lines])  # fmt: skip
+            if found[0] != found[1]:
+                changed.append(page_index)
+    return changed
+
+
 def _overlap(a, b) -> bool:
     return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
 
@@ -319,11 +345,14 @@ def export_document(document: analyzer.Document, destination) -> dict:
         pages |= {a["page_index"] for a in document.applied}
         report["text_missing"] = text_check(document, data)
         report["text_changed"] = image_text_check(document, data)
+        report["rules_changed"] = rules_check(document, data)
         report["visual_failed"] = visual_check(document, data, pages)
         if report["text_missing"]:
             report["failures"].append("text_missing")
         if report["text_changed"]:
             report["failures"].append("text_changed")
+        if report["rules_changed"]:
+            report["failures"].append("rules_changed")
         if report["visual_failed"]:
             report["failures"].append("visual_outside_mask")
         report["ok"] = not report["failures"]

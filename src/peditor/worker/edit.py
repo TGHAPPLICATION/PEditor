@@ -58,6 +58,7 @@ class _Pending:
     font_name: str | None = None  # 模式 B 新增的字型資源名稱
     sync: tagged.ActualTextSync | None = None  # 需同步的結構元素 /ActualText（ADR-0017）
     params: dict | None = None  # 規劃參數（preview_edit 回滾後以此重新規劃）
+    op: str = "text"  # text 或 cell（儲存格改字，ADR-0023；params 為 plan_cell_edit 參數）
 
 
 def _span_target(document: analyzer.Document, target_id: str) -> SpanTarget:
@@ -397,7 +398,7 @@ def apply_edit(document: analyzer.Document, plan_id, expected_revision) -> dict:
 
 
 def _op(pending) -> str:
-    """計畫種類：text（文字）或 image（圖片替換，ADR-0022）。"""
+    """計畫種類：text（文字）、image（圖片替換，ADR-0022）或 cell（儲存格改字，ADR-0023）。"""
     return getattr(pending, "op", "text")
 
 
@@ -406,6 +407,10 @@ def _planner(op: str):
         from peditor.worker import image
 
         return image.plan_image_edit
+    if op == "cell":
+        from peditor.worker import cell
+
+        return cell.plan_cell_edit
     if op == "text":
         return plan_text_edit
     raise ProtocolError("INVALID_REQUEST", "重播參數錯誤")
@@ -444,7 +449,7 @@ def preview_edit(document: analyzer.Document, plan_id) -> dict:
 
 def replay(document: analyzer.Document, commands, revision, reset) -> dict:
     """依 command log 重新規劃並套用（undo／redo、worker 重啟後還原；ADR-0020 §1）。
-    每筆的 op 為 text（預設）或 image（ADR-0022）。
+    每筆的 op 為 text（預設）、image（ADR-0022）或 cell（ADR-0023）。
 
     reset 為真時先回到開檔時的原始位元組。每筆先把 revision 設回該筆規劃時的版本
     （target_id 含 revision），全部成功後設為 revision；任一筆失敗即回到重播前的狀態。
