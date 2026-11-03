@@ -1,7 +1,7 @@
 # P5 關卡報告：圖片替換
 
 > 依 spec §11 範本（`reports/TEMPLATE.md`）。未執行項目標 `NOT RUN`；CI 證據與實機證據分開記錄。
-> 本段測試在本機 Windows 製作機（GUI 為 offscreen）執行；CI 結果待推送後補上，**不是實機證據**。
+> 本段測試在本機 Windows 製作機（GUI 為 offscreen）與 CI 執行，**不是實機證據**。
 
 ## 1. 階段／commit／日期
 
@@ -21,25 +21,25 @@
 | --- | --- | --- | --- |
 | Windows 實機（製作機） | Windows 11 Pro 10.0.26300 x64 | 同 P0 | Python 3.13.16；PyMuPDF 1.28.2；pikepdf 10.14.0；PySide6 6.11.2；fontTools 4.66.0；pypdfium2 5.13.0、Pillow 13.0.0（只在測試）；Noto Sans TC（ADR-0008） |
 | macOS 實機 | NOT RUN（無實機，ADR-0003） | — | — |
-| CI windows | windows-latest x64 | GitHub 標準 runner | 待推送後補上 |
-| CI macos | macos-15 arm64 | GitHub 標準 runner | 待推送後補上 |
+| CI windows | windows-latest x64 | GitHub 標準 runner | 套件同上（`uv.lock`）；offscreen |
+| CI macos | macos-15 arm64 | GitHub 標準 runner | 套件同上（`uv.lock`）；offscreen |
 
 相依沒有變更（`uv.lock`、`pyproject.toml` 未改）。
 
 ## 3. 需求 → test ID → fixture／hash → 結果
 
 fixture hash（前 12 碼）：I01 `7a8001d4d803`、I02 `3e241f7b6fef`、I03 `7bd88c07864d`、I04 `04a408c4cee4`、I05 `a4b27c478ce9`、I06 `fd2c9cc50675`、I07 `e88b9a7270f1`、I09 `ddc12162a6d8`。
-「本機」＝Windows 製作機（GUI 為 offscreen）。
+「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝run [41593863258](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41593863258)（commit `cfee71a`）windows-latest 398 passed、macos-15 398 passed。
 
 | 需求 ID | test ID | fixture | 本機 | CI |
 | --- | --- | --- | --- | --- |
-| G5-01 | `tests/integration/test_edit_image.py::test_all_supported_image_cases`（7 組）：只有選定的 `Do` 改名；新圖尺寸與像素；MuPDF、PDFium 遮罩外差異 ≤0.01%、可見範圍中心為新圖；沒有其他地方用的原圖不保留 | I01–I07 | PASS | 待補 |
-| G5-02 | `::test_only_selected_occurrence_changed`（I02 跨頁、I03 同頁）：另一個出現位置仍指向原圖（位元組相同），選定的指向新圖；`::test_shared_content_stream_rejected`：content stream 被另一頁共用時拒絕 | I02、I03、測試內樣本 | PASS | 待補 |
-| G5-03 | `::test_other_pages_unchanged_and_bbox`：I02 第 2 頁雙引擎逐像素相同、內容差異只在第 1 頁；I01–I07 替換後外框與可見範圍誤差 ≤0.5 pt（實測 0） | I01–I07 | PASS | 待補 |
-| G5-04 | `::test_reject_unsupported_mask_clip`（I09 非矩形剪裁 UNSUPPORTED_LAYOUT；補邊後 72 MP 回 RESOURCE_LIMIT）；`tests/unit/test_image_asset.py`（7 項：格式、GIF／BMP／CMYK／無損 JPEG、截斷與 CRC 錯誤、像素上限在解碼前檢查、大小上限、參數白名單） | I09、I01、測試內圖片 | PASS | 待補 |
-| G5-05 | `::test_aspect_fit_and_smask`：正方形新圖放入 2:1 外框補透明（SMask、`/Matte`），雙引擎左側露出白色頁面；I04 不透明新圖不帶 SMask、半透明新圖產生新 SMask；I05 JPEG 原樣嵌入；I06 擷取文字不變。`::test_image_text_check_detects_changed_text`：文字有變動時另存前驗證能偵測 | I01、I04、I05、I06 | PASS | 待補 |
-| G5-06 | `tests/integration/test_image_service.py`（4 項：預覽不提交、undo／redo、worker 重啟重播；草稿含新圖檔、復原、正常關閉刪除、新圖檔遺失視為損壞；錯誤不含路徑、未使用新圖釋放；與文字修改共用 log）；`test_drafts.py::test_draft_structure_validated` 新增 3 組 | I01、I03、I06 | PASS | 待補 |
-| G5-07 | `tests/gui/test_image_ui.py`（2 項：點選圖片、選新圖、前後對照、套用、復原、重做、另存到中文與空白檔名；I09 顯示原因、GIF 顯示原因） | I01、I03、I09 | PASS（offscreen） | 待補 |
+| G5-01 | `tests/integration/test_edit_image.py::test_all_supported_image_cases`（7 組）：只有選定的 `Do` 改名；新圖尺寸與像素；MuPDF、PDFium 遮罩外差異 ≤0.01%、可見範圍中心為新圖；沒有其他地方用的原圖不保留 | I01–I07 | PASS | PASS |
+| G5-02 | `::test_only_selected_occurrence_changed`（I02 跨頁、I03 同頁）：另一個出現位置仍指向原圖（位元組相同），選定的指向新圖；`::test_shared_content_stream_rejected`：content stream 被另一頁共用時拒絕 | I02、I03、測試內樣本 | PASS | PASS |
+| G5-03 | `::test_other_pages_unchanged_and_bbox`：I02 第 2 頁雙引擎逐像素相同、內容差異只在第 1 頁；I01–I07 替換後外框與可見範圍誤差 ≤0.5 pt（實測 0） | I01–I07 | PASS | PASS |
+| G5-04 | `::test_reject_unsupported_mask_clip`（I09 非矩形剪裁 UNSUPPORTED_LAYOUT；補邊後 72 MP 回 RESOURCE_LIMIT）；`tests/unit/test_image_asset.py`（7 項：格式、GIF／BMP／CMYK／無損 JPEG、截斷與 CRC 錯誤、像素上限在解碼前檢查、大小上限、參數白名單） | I09、I01、測試內圖片 | PASS | PASS |
+| G5-05 | `::test_aspect_fit_and_smask`：正方形新圖放入 2:1 外框補透明（SMask、`/Matte`），雙引擎左側露出白色頁面；I04 不透明新圖不帶 SMask、半透明新圖產生新 SMask；I05 JPEG 原樣嵌入；I06 擷取文字不變。`::test_image_text_check_detects_changed_text`：文字有變動時另存前驗證能偵測 | I01、I04、I05、I06 | PASS | PASS |
+| G5-06 | `tests/integration/test_image_service.py`（4 項：預覽不提交、undo／redo、worker 重啟重播；草稿含新圖檔、復原、正常關閉刪除、新圖檔遺失視為損壞；錯誤不含路徑、未使用新圖釋放；與文字修改共用 log）；`test_drafts.py::test_draft_structure_validated` 新增 3 組 | I01、I03、I06 | PASS | PASS |
+| G5-07 | `tests/gui/test_image_ui.py`（2 項：點選圖片、選新圖、前後對照、套用、復原、重做、另存到中文與空白檔名；I09 顯示原因、GIF 顯示原因） | I01、I03、I09 | PASS（offscreen） | PASS |
 
 實機：G5 不在 ADR-0003 規定須實機的關卡（G4、G7、G8）；圖片 UI 的實機操作與原生檔案對話框 NOT RUN（§7）。
 
@@ -70,7 +70,7 @@ uv run python scripts/p5_evidence.py reports/P5/evidence → exit 0
   | M11 | 另存不檢查圖片頁文字 | `test_image_text_check_detects_changed_text` |
 
 - 本機 pytest 收集階段會印出一次 `Windows fatal exception: access violation`（`pypdfium2` 載入 pdfium 時，faulthandler 回報已處理的例外）；單獨 `python -X faulthandler -c "import pypdfium2"` 也會出現且 exit 0，與 P5 程式無關，測試照常完成。
-- CI：待推送後補上。
+- CI：run [41593863258](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41593863258)（commit `cfee71a`）windows-latest 398 passed、macos-15 398 passed。
 
 ## 5. 真修改證據
 
@@ -117,7 +117,6 @@ uv run python scripts/p5_evidence.py reports/P5/evidence → exit 0
 - **原名稱移除條件中的 Type3 分支**沒有 fixture 覆蓋（頁面有 Type3 字型時保留原名稱，原圖會留在檔案中）。
 - **不擴大支援範圍**：Form 內的圖片、inline image、旋轉或翻轉的圖片、非矩形剪裁維持拒絕（P1 判定未改）。
 - **盲測 I08**：NOT RUN，P8 執行。
-- **CI**：待推送後補上。
 
 ## 8. 安全審查
 
@@ -137,8 +136,8 @@ uv run python scripts/p5_evidence.py reports/P5/evidence → exit 0
 
 ## 10. 關卡結果
 
-- **關卡結果：BLOCKED**。G5-01～G5-07 本機全部通過，反向驗證 11 項全部被抓到；尚缺 CI 雙平台證據、獨立核對（CLAUDE.md），以及工程師對 U1–U5 的決定。
-- **下一段可開始：否**（條件：CI 雙平台通過、獨立核對出入處理完、工程師決定 U1–U5 並更新本節）。
+- **關卡結果：BLOCKED**。G5-01～G5-07 本機全部通過，反向驗證 11 項全部被抓到；CI 雙平台 398 passed（run 41593863258）；尚缺獨立核對（CLAUDE.md），以及工程師對 U1–U5 的決定。
+- **下一段可開始：否**（條件：獨立核對出入處理完、工程師決定 U1–U5 並更新本節）。
 
 ## 11. 獨立核對紀錄
 

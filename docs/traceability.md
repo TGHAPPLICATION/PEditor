@@ -103,13 +103,13 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 
 | 需求 ID | spec | 需求 | 預定 test ID | fixture | 狀態 |
 | --- | --- | --- | --- | --- | --- |
-| G5-01 | G5 | 宣告支援 I 案例全部通過（真修改證據：只有選定 `Do` 改名、新圖像素、雙引擎遮罩外差異、未再使用的原圖不保留） | `tests/integration/test_edit_image.py::test_all_supported_image_cases`（7 組） | I01–I07 | PASS（本機 Windows）；CI 待補 |
-| G5-02 | G5 | 同 xref 同頁／跨頁重用時只改選定 occurrence（copy-on-write） | `tests/integration/test_edit_image.py::test_only_selected_occurrence_changed`（2 組） | I02、I03 | PASS（本機 Windows）；CI 待補 |
-| G5-03 | G5 | 其他頁視覺不變；外框誤差 ≤0.5 pt | `tests/integration/test_edit_image.py::test_other_pages_unchanged_and_bbox` | I01–I07（外框）、I02（其他頁） | PASS（本機 Windows）；CI 待補 |
-| G5-04 | G5、ADR-0009、ADR-0022 §1 | 拒絕非支援遮罩／剪裁；像素上限（檔頭檢查後才解碼、補邊後上限）；不支援或損壞的圖片檔 | `tests/integration/test_edit_image.py::test_reject_unsupported_mask_clip`、`tests/unit/test_image_asset.py`（7 項） | I09、I01、測試內圖片 | PASS（本機 Windows）；CI 待補 |
-| G5-05 | ADR-0022 §2、§3 | 比例不同時等比置中、兩側透明；透明遮罩由新圖決定、不沿用原 SMask；JPEG 不補邊時原樣嵌入；圖片蓋住的文字不變 | `tests/integration/test_edit_image.py::test_aspect_fit_and_smask` | I01、I04、I05、I06 | PASS（本機 Windows）；CI 待補 |
-| G5-06 | ADR-0022 §5 | 經 DocumentService：新圖登記、預覽不提交、undo／redo、worker 重啟重播、復原草稿（含新圖檔）、錯誤訊息不含路徑、與文字修改共用 log | `tests/integration/test_image_service.py`（4 項）、`tests/integration/test_drafts.py::test_draft_structure_validated`（新增 3 組） | I01、I03、I06 | PASS（本機 Windows）；CI 待補 |
-| G5-07 | ADR-0022 §6 | 桌面圖片替換流程（點選、選新圖、前後對照、套用、復原、重做、另存；不可替換時顯示原因） | `tests/gui/test_image_ui.py`（2 項） | I01、I03、I09 | PASS（本機 Windows offscreen）；CI 待補；實機 NOT RUN |
+| G5-01 | G5 | 宣告支援 I 案例全部通過（真修改證據：只有選定 `Do` 改名、新圖像素、雙引擎遮罩外差異、未再使用的原圖不保留） | `tests/integration/test_edit_image.py::test_all_supported_image_cases`（7 組） | I01–I07 | PASS（本機 Windows）、CI run 41593863258 雙平台 398 passed |
+| G5-02 | G5 | 同 xref 同頁／跨頁重用時只改選定 occurrence（copy-on-write） | `tests/integration/test_edit_image.py::test_only_selected_occurrence_changed`（2 組） | I02、I03 | PASS（本機 Windows）、CI run 41593863258 雙平台 398 passed |
+| G5-03 | G5 | 其他頁視覺不變；外框誤差 ≤0.5 pt | `tests/integration/test_edit_image.py::test_other_pages_unchanged_and_bbox` | I01–I07（外框）、I02（其他頁） | PASS（本機 Windows）、CI run 41593863258 雙平台 398 passed |
+| G5-04 | G5、ADR-0009、ADR-0022 §1 | 拒絕非支援遮罩／剪裁；像素上限（檔頭檢查後才解碼、補邊後上限）；不支援或損壞的圖片檔 | `tests/integration/test_edit_image.py::test_reject_unsupported_mask_clip`、`tests/unit/test_image_asset.py`（7 項） | I09、I01、測試內圖片 | PASS（本機 Windows）、CI run 41593863258 雙平台 398 passed |
+| G5-05 | ADR-0022 §2、§3 | 比例不同時等比置中、兩側透明；透明遮罩由新圖決定、不沿用原 SMask；JPEG 不補邊時原樣嵌入；圖片蓋住的文字不變 | `tests/integration/test_edit_image.py::test_aspect_fit_and_smask` | I01、I04、I05、I06 | PASS（本機 Windows）、CI run 41593863258 雙平台 398 passed |
+| G5-06 | ADR-0022 §5 | 經 DocumentService：新圖登記、預覽不提交、undo／redo、worker 重啟重播、復原草稿（含新圖檔）、錯誤訊息不含路徑、與文字修改共用 log | `tests/integration/test_image_service.py`（4 項）、`tests/integration/test_drafts.py::test_draft_structure_validated`（新增 3 組） | I01、I03、I06 | PASS（本機 Windows）、CI run 41593863258 雙平台 398 passed |
+| G5-07 | ADR-0022 §6 | 桌面圖片替換流程（點選、選新圖、前後對照、套用、復原、重做、另存；不可替換時顯示原因） | `tests/gui/test_image_ui.py`（2 項） | I01、I03、I09 | PASS（本機 Windows offscreen）、CI run 41593863258 雙平台 398 passed；實機 NOT RUN |
 
 ## G6：既有規則表格儲存格（P6）
 
