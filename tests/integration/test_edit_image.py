@@ -268,3 +268,60 @@ def test_aspect_fit_and_smask(tmp_path):
     # I06 圖片蓋住的文字：替換後擷取文字與原檔相同（另存驗證 image_text_check）
     original, output, plan, target, report = _replace("I06", tmp_path, data=jpeg((300, 90)))
     assert report["ok"] and report["text_changed"] == []
+
+
+def _shared_stream_pdf(path):
+    """兩頁共用同一個 content stream（內含一個圖片 Do）。"""
+    pdf = pikepdf.new()
+    pixel = pikepdf.Stream(pdf, b"\x00\x80\xff", Type=pikepdf.Name.XObject,
+                           Subtype=pikepdf.Name.Image, Width=1, Height=1,
+                           ColorSpace=pikepdf.Name.DeviceRGB, BitsPerComponent=8)  # fmt: skip
+    contents = pdf.make_stream(b"q 100 0 0 100 72 72 cm /Im0 Do Q")
+    for _ in range(2):
+        pdf.add_blank_page(page_size=(300, 300))
+        pdf.pages[-1].Resources = pikepdf.Dictionary(
+            XObject=pikepdf.Dictionary(Im0=pdf.make_indirect(pixel))
+        )
+        pdf.pages[-1].Contents = contents
+    pdf.save(path)
+
+
+def test_shared_content_stream_rejected(tmp_path):
+    """G5-02 輔助：目標 content stream 被另一頁共用時，改寫會連帶改到另一頁，計畫拒絕。"""
+    path = tmp_path / "shared.pdf"
+    _shared_stream_pdf(path)
+    document = analyzer.open_document(str(path))
+    try:
+        target = analyzer.inspect_page(document, 0)["image_targets"][0]
+        assert target["capability"]["status"] == "support"
+        asset = image.register_asset(document, {"data": base64.b64encode(png((10, 10))).decode()})
+        plan = image.plan_image_edit(document, {"target_id": target["target_id"],
+                                                "asset_id": asset["asset_id"]})  # fmt: skip
+        assert plan["unsupported_reasons"] == ["SHARED_RESOURCE_UNSAFE"]
+    finally:
+        document.close()
+
+
+def test_image_text_check_detects_changed_text(tmp_path):
+    """另存前驗證：只有圖片替換的頁面，文字若有變動即判為失敗（I06，移除全部文字運算子模擬）。"""
+    original, output, plan, target, report = _replace("I06", tmp_path, data=jpeg((300, 90)))
+    with pikepdf.open(io.BytesIO(output)) as pdf:
+        for contents in _contents(pdf.pages[0]):
+            ops = [i for i in pikepdf.parse_content_stream(contents)
+                   if str(i.operator) not in ("Tj", "TJ", "'", '"')]  # fmt: skip
+            contents.write(pikepdf.unparse_content_stream(ops))
+        buf = io.BytesIO()
+        pdf.save(buf)
+    document = analyzer.open_document(str(visual.FILES / "I06.pdf"))
+    try:
+        document.applied = [{"page_index": 0, "mask": plan["allowed_change_mask"],
+                             "new_text": "", "kind": "image"}]  # fmt: skip
+        assert export.image_text_check(document, output) == []
+        assert export.image_text_check(document, buf.getvalue()) == [0]
+    finally:
+        document.close()
+
+
+def _contents(page):
+    contents = page.obj.Contents
+    return list(contents) if isinstance(contents, pikepdf.Array) else [contents]
