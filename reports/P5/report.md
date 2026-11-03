@@ -5,7 +5,7 @@
 
 ## 1. 階段／commit／日期
 
-- 階段：P5　分支：`p5-image-replace`　commit：`c1a1c87`（實作與 G5 測試）、`d5dc648`（補測試：共用 content stream、圖片頁文字變動偵測）、`cfee71a`（證據包與產生腳本 `scripts/p5_evidence.py`）、`bdc355f`（U3 快取、U4 EXIF 提示）、`a584ca8`（第一輪核對 N1、N6、N7）　日期：2026-11-03
+- 階段：P5　分支：`p5-image-replace`　commit：`c1a1c87`（實作與 G5 測試）、`d5dc648`（補測試：共用 content stream、圖片頁文字變動偵測）、`cfee71a`（證據包與產生腳本 `scripts/p5_evidence.py`）、`bdc355f`（U3 快取、U4 EXIF 提示）、`a584ca8`（第一輪核對 N1、N6、N7）、`f546862`（關卡結果）　日期：2026-11-03
 - 只改報告、traceability 或 CI 紀錄的 commit（`11cb4c7`、`86d47bf`、`89614e0` 等）依 P4 慣例不列。
 - 撰寫：Claude Code；審查：工程師（2026-11-03 決定關卡通過）；獨立核對：2026-11-03 一輪（§11，未參與實作的子代理人）
 - 輸入：spec v1.1 P5／G5／§7／§8／§9、ADR-0001～0021（重點 ADR-0009）、manifest I01–I09、`docs/traceability.md` 預登記的 G5-01～G5-04、P4 報告 §10（下一段可開始：是，附條件）
