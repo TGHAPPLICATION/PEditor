@@ -1,6 +1,7 @@
 """儲存交易的中斷注入與磁碟空間不足（G3-03、G3-06；ADR-0020 §3）。"""
 
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -219,3 +220,84 @@ def test_fsync_failure_after_replace_is_warning(tmp_path, monkeypatch):
     result = transaction.commit(dest, str(source), hashlib.sha256(b"source").hexdigest(), write)
     assert (tmp_path / "dest.pdf").read_bytes() == payload
     assert result["warnings"] and str(tmp_path) not in result["warnings"][0]
+
+
+def _commit_with(tmp_path, monkeypatch, stage_hook, name="dest.pdf"):
+    source = tmp_path / "src.pdf"
+    source.write_bytes(b"source")
+    dest = transaction.destination(tmp_path / name, overwrite=False)
+    payload = b"%PDF-1.4 new"
+
+    def write(temp: str) -> dict:
+        with open(temp, "xb") as fh:
+            fh.write(payload)
+        return {"output_hash": hashlib.sha256(payload).hexdigest()}
+
+    monkeypatch.setattr(transaction, "fault", stage_hook)
+    return transaction.commit(dest, str(source), hashlib.sha256(b"source").hexdigest(), write)
+
+
+def test_temp_recorded_while_writing(tmp_path, monkeypatch):
+    """P3 U9：寫入期間暫存檔路徑記在紀錄檔；完成或失敗清除後移除紀錄。"""
+    monkeypatch.setattr(transaction, "registry", str(tmp_path / "pending-temps.json"))
+    seen = []
+    _commit_with(tmp_path, monkeypatch, lambda name: seen.append(transaction._recorded()))
+    assert len(seen) == 3 and all(len(s) == 1 for s in seen)
+    assert transaction.TEMP_PATTERN.match(os.path.basename(seen[0][0]))
+    assert transaction._recorded() == []
+
+    def fail(name):
+        if name == "verify":
+            raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        _commit_with(tmp_path, monkeypatch, fail, "dest2.pdf")
+    assert transaction._recorded() == [] and _temps(tmp_path) == []
+    assert not (tmp_path / "dest2.pdf").exists()
+
+
+def test_cleanup_recorded_removes_only_own_temps(tmp_path, monkeypatch):
+    """啟動時清除：只刪紀錄中符合本程式命名的檔案；不存在的略過；紀錄檔損壞時不刪任何檔。"""
+    registry = tmp_path / "pending-temps.json"
+    monkeypatch.setattr(transaction, "registry", str(registry))
+    left = tmp_path / ".~peditor-00000000000000aa.tmp.pdf"
+    other = tmp_path / "important.pdf"
+    for path in (left, other):
+        path.write_bytes(b"content")
+    gone = tmp_path / ".~peditor-00000000000000bb.tmp.pdf"
+    registry.write_text(json.dumps([str(left), str(other), str(gone), 5]), encoding="utf-8")
+    assert transaction.cleanup_recorded() == 1
+    assert not left.exists() and other.exists()
+    assert transaction._recorded() == []
+
+    left.write_bytes(b"content")
+    registry.write_text("{broken", encoding="utf-8")
+    assert transaction.cleanup_recorded() == 0 and left.exists()
+    monkeypatch.setattr(transaction, "registry", None)  # 未設定紀錄檔（CLI）：不做任何事
+    assert transaction.cleanup_recorded() == 0 and left.exists()
+
+
+def test_cleanup_recorded_malformed_registry(tmp_path, monkeypatch):
+    """紀錄檔巢狀過深或不是清單時視為空紀錄、不中斷啟動與另存；刪除失敗的路徑留到下次啟動。"""
+    registry = tmp_path / "pending-temps.json"
+    monkeypatch.setattr(transaction, "registry", str(registry))
+    left = tmp_path / ".~peditor-00000000000000aa.tmp.pdf"
+    left.write_bytes(b"content")
+    for broken in ("[" * 200_000, json.dumps({"paths": [str(left)]})):
+        registry.write_text(broken, encoding="utf-8")
+        assert transaction.cleanup_recorded() == 0 and left.exists()
+        registry.write_text(broken, encoding="utf-8")
+        _commit_with(tmp_path, monkeypatch, None, f"dest{len(broken)}.pdf")
+        assert transaction._recorded() == []
+
+    registry.write_text(json.dumps([str(left)]), encoding="utf-8")
+    real_remove = os.remove
+
+    def locked(path):
+        if os.path.basename(path) == left.name:
+            raise PermissionError
+        real_remove(path)
+
+    monkeypatch.setattr(transaction.os, "remove", locked)
+    assert transaction.cleanup_recorded() == 0 and left.exists()
+    assert transaction._recorded() == [str(left)]

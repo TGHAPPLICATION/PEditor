@@ -160,14 +160,20 @@ class DocumentService:
         editable_region: list[float] | None = None,
     ):
         params = {"target_id": target_id, "new_text": new_text, "policy": policy}
-        if editable_region is not None:
-            params["editable_region"] = editable_region
+        if (
+            editable_region is not None
+        ):  # 存副本：呼叫端之後改動不影響 command log（P3 triage f006）
+            params["editable_region"] = list(editable_region)  # 型別仍由 worker 驗證
         plan = self._doc_call(document_id, "plan_text_edit", params, expected_revision)
         if plan.get("ready"):
             self._docs[document_id].plans[plan["plan_id"]] = {
                 "params": params, "base_revision": plan["preconditions"]["revision"]
             }  # fmt: skip
         return plan
+
+    def preview_edit(self, document_id: str, plan_id: str, expected_revision: int) -> dict:
+        """前後對照圖（PNG base64）與改動區域像素框；不提交、revision 不變（ADR-0021 §2）。"""
+        return self._doc_call(document_id, "preview_edit", {"plan_id": plan_id}, expected_revision)
 
     def apply_edit(self, document_id: str, plan_id: str, expected_revision: int):
         """套用 ready 的計畫並記入 command log；revision 不符即回 REVISION_CONFLICT。"""
@@ -266,7 +272,7 @@ class DocumentService:
             params = {"commands": log[:position], "revision": revision, "reset": False}
             try:
                 result = self._doc_call(document_id, "replay", params, 0)
-            except ServiceError:
+            except BaseException:  # 任何失敗都不留下開啟一半的文件（P3 triage f001）
                 self.close_document(document_id)
                 raise
             doc.revision = result["new_revision"]

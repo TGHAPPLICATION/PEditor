@@ -580,8 +580,23 @@ def _analyze_page(document: Document, page_index: int) -> dict:
         for target in text_targets + image_targets:
             target["capability"] = _capability([*target["capability"]["reasons"], *error_reasons])
 
-    return _page_result(page_index, geom, text_targets, image_targets, content.inline_images,
-                        page_reasons)  # fmt: skip
+    result = _page_result(page_index, geom, text_targets, image_targets, content.inline_images,
+                          page_reasons)  # fmt: skip
+    result["notices"] = _preview_notices(content.runs)
+    return result
+
+
+def _preview_notices(runs: list[TextRun]) -> list[str]:
+    """不影響可否編輯、但使用者須知的情況（ADR-0021）：PREVIEW_UNRELIABLE＝字型 CID 不在字型程式
+    charset，依規範渲染（MuPDF 預覽）會是空白。"""
+    by_font: dict[int, tuple] = {}
+    for run in runs:
+        if run.font is not None and run.font.two_byte:
+            font, codes = by_font.setdefault(id(run.font), (run.font, set()))
+            codes.update(g.code for g in run.glyphs)
+    if any(fontmod.cid_not_in_charset(font, codes) for font, codes in by_font.values()):
+        return ["PREVIEW_UNRELIABLE"]
+    return []
 
 
 def _page_result(page_index, geom, text_targets, image_targets, inline_images, reasons) -> dict:

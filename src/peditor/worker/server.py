@@ -66,6 +66,10 @@ class Worker:
             return edit.apply_edit(
                 document, params.get("plan_id"), message.get("expected_revision")
             )
+        if operation == "preview_edit":
+            from peditor.worker import edit
+
+            return edit.preview_edit(document, params.get("plan_id"))
         if operation == "replay":
             from peditor.worker import edit
 

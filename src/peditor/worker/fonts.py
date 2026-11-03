@@ -219,7 +219,6 @@ def _outline_checker(info: FontInfo):
     """
     import io
 
-    from fontTools.cffLib import CFFFontSet
     from fontTools.ttLib import TTFont
 
     def never(code: int, blank_ok: bool) -> bool:
@@ -268,15 +267,8 @@ def _outline_checker(info: FontInfo):
                 return blank_ok or glyf[name].numberOfContours != 0
 
             return check
-        file3 = descriptor.get("/FontFile3")
-        if isinstance(file3, pikepdf.Stream):
-            data = file3.read_bytes()
-            if str(file3.get("/Subtype", "")) == "/OpenType":
-                cff = TTFont(io.BytesIO(data), lazy=True)["CFF "].cff
-            else:
-                cff = CFFFontSet()
-                cff.decompile(io.BytesIO(data), None)
-            top = cff[cff.fontNames[0]]
+        top = _cff_top(descriptor)
+        if top is not None:
             charstrings = top.CharStrings
             order = top.getGlyphOrder()
             # 字碼 → 字形：CID-keyed 依 charset（cidNNNNN）；部分產生器
@@ -300,6 +292,44 @@ def _outline_checker(info: FontInfo):
     except Exception:  # noqa: BLE001 — 畸形字型程式：不做模式 A（不猜測）
         return never
     return never
+
+
+def _cff_top(descriptor) -> object | None:
+    """FontFile3（CIDFontType0C 或 OpenType 包裝）的 CFF top dict；不是 CFF 時回 None。"""
+    import io
+
+    from fontTools.cffLib import CFFFontSet
+    from fontTools.ttLib import TTFont
+
+    file3 = descriptor.get("/FontFile3") if isinstance(descriptor, pikepdf.Dictionary) else None
+    if not isinstance(file3, pikepdf.Stream):
+        return None
+    data = file3.read_bytes()
+    if str(file3.get("/Subtype", "")) == "/OpenType":
+        cff = TTFont(io.BytesIO(data), lazy=True)["CFF "].cff
+    else:
+        cff = CFFFontSet()
+        cff.decompile(io.BytesIO(data), None)
+    return cff[cff.fontNames[0]]
+
+
+def cid_not_in_charset(info: FontInfo, codes: set[int]) -> bool:
+    """Identity-H 的 CID-keyed CFF，頁面用到的字碼（＝CID）不在字型 charset：依規範查不到字形，
+    MuPDF 渲染為空白（PDFium 等寬鬆的閱讀器會改以字形索引顯示）。ADR-0015 的 7 份 fixture 即此類，
+    預覽時須提示（ADR-0021）。無法判定時回 False。"""
+    if not info.two_byte or info.source is None or not codes:
+        return False
+    descendants = info.source.get("/DescendantFonts") or []
+    if not len(descendants) or str(descendants[0].get("/Subtype", "")) != "/CIDFontType0":
+        return False
+    try:
+        top = _cff_top(descendants[0].get("/FontDescriptor"))
+        if top is None or not hasattr(top, "ROS"):
+            return False
+        charstrings = top.CharStrings
+        return any(f"cid{c:05d}" not in charstrings for c in codes if c)
+    except Exception:  # noqa: BLE001 — 畸形字型程式：不判定
+        return False
 
 
 def _embedded(descriptor) -> bool:

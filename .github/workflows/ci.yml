@@ -55,3 +55,8 @@ jobs:
       - name: P0 check script (macOS)
         if: runner.os == 'macOS'
         run: bash scripts/p0_macos_check.sh --skip-launch
+      # 檢查腳本只印每步最後 5 行；失敗時印出完整 log 以便查明原因（P4 U15：Windows 偶發 0xC0000005）
+      - name: Full check log (on failure)
+        if: failure()
+        shell: bash
+        run: cat build/p0-check/log.txt || true
