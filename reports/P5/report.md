@@ -7,7 +7,7 @@
 
 - 階段：P5　分支：`p5-image-replace`　commit：`c1a1c87`（實作與 G5 測試）、`d5dc648`（補測試：共用 content stream、圖片頁文字變動偵測）、`cfee71a`（證據包與產生腳本 `scripts/p5_evidence.py`）、`bdc355f`（U3 快取、U4 EXIF 提示）、`a584ca8`（第一輪核對 N1、N6、N7）　日期：2026-11-03
 - 只改報告、traceability 或 CI 紀錄的 commit（`11cb4c7`、`86d47bf`、`89614e0` 等）依 P4 慣例不列。
-- 撰寫：Claude Code；審查：待工程師；獨立核對：待（CLAUDE.md：由未參與實作的子代理人核對）
+- 撰寫：Claude Code；審查：工程師（2026-11-03 決定關卡通過）；獨立核對：2026-11-03 一輪（§11，未參與實作的子代理人）
 - 輸入：spec v1.1 P5／G5／§7／§8／§9、ADR-0001～0021（重點 ADR-0009）、manifest I01–I09、`docs/traceability.md` 預登記的 G5-01～G5-04、P4 報告 §10（下一段可開始：是，附條件）
 - S1／S2 工程師決定（2026-11-03「照建議」，ADR-0022）：
   1. 比例不同時變換矩陣不動，等比置中、兩側補透明；
@@ -147,8 +147,8 @@ uv run python scripts/p5_evidence.py reports/P5/evidence → exit 0
 
 ## 10. 關卡結果
 
-- **關卡結果：BLOCKED**。G5-01～G5-07 本機全部通過，反向驗證 16 項全部被抓到；run [41609744423](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41609744423)（commit `a1fca9d`）windows-latest 406 passed、macos-15 406 passed；U1–U5 已由工程師決定並處理（§9）；已經第一輪獨立核對（§11），N1–N7 已處理；待工程師審查決定關卡結果。
-- **下一段可開始：否**（條件：工程師決定並更新本節）。
+- **關卡結果：PASS**（工程師 2026-11-03 決定）。G5-01～G5-07 本機全部通過，反向驗證 16 項全部被抓到；run [41609744423](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41609744423)（commit `a1fca9d`）windows-latest 406 passed、macos-15 406 passed；U1–U5 已由工程師決定並處理（§9）；已經第一輪獨立核對（§11），N1–N7 已處理；工程師決定不再做第二輪核對（第一輪無 must-fix，處理項目小且各有測試）。G5 不在 ADR-0003 規定須實機的關卡；圖片 UI 實機操作與閱讀器檢查併入 P8（U2、U5），大圖預覽效能列 P7（U3）。
+- **下一段可開始：是**（工程師 2026-11-03 決定）。帶入後段：P7 大圖預覽效能（U3）、vuln-scan 範圍含 `worker/image.py`（§8）；P8 實機驗收加圖片 UI 與半透明 PNG 閱讀器檢查（U2、U5）、盲測 I08。
 
 ## 11. 獨立核對紀錄
 
