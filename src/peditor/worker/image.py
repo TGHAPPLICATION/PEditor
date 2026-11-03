@@ -16,7 +16,7 @@ import hashlib
 import secrets
 import struct
 import zlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pikepdf
 import pymupdf
@@ -42,6 +42,10 @@ class Asset:
     height: int
     components: int  # 1＝灰階、3＝RGB（解碼後）
     has_alpha: bool  # 有透明通道且不是全不透明
+    orientation: int = 1  # JPEG EXIF 方向（1＝正常）；不套用，只提示（ADR-0022 §1）
+    # 最近一次建好的壓縮資料（補邊參數, 寬, 高, 色彩數, 色彩, 遮罩）：預覽建好後，套用與重播重用，
+    # 不再重新解碼與壓縮（P5 報告 U3）
+    built: tuple | None = field(default=None, repr=False)
 
 
 @dataclass
@@ -160,8 +164,48 @@ def load_asset(data: bytes) -> Asset:
     fmt, width, height = probe(data)
     pix = _decode(data, width, height)
     has_alpha = bool(pix.alpha) and not _opaque(pix)
+    orientation = jpeg_orientation(data) if fmt == "jpeg" else 1
     return Asset(hashlib.sha256(data).hexdigest(), data, fmt, width, height, pix.n - pix.alpha,
-                 has_alpha)  # fmt: skip
+                 has_alpha, orientation)  # fmt: skip
+
+
+def jpeg_orientation(data: bytes) -> int:
+    """JPEG APP1 Exif 的方向標記（0x0112）；沒有或無法解析時回 1。只讀標記，不解碼。"""
+    i = 2
+    while i + 4 <= len(data) and data[i] == 0xFF:
+        marker = data[i + 1]
+        if marker in (0xD9, 0xDA):
+            break
+        if marker == 0x01 or 0xD0 <= marker <= 0xD7 or marker == 0xFF:
+            i += 1 if marker == 0xFF else 2
+            continue
+        length = struct.unpack(">H", data[i + 2 : i + 4])[0]
+        segment = data[i + 4 : i + 2 + length]
+        if marker == 0xE1 and segment.startswith(b"Exif\x00\x00"):
+            return _tiff_orientation(segment[6:])
+        if length < 2:
+            break
+        i += 2 + length
+    return 1
+
+
+def _tiff_orientation(tiff: bytes) -> int:
+    if len(tiff) < 8 or tiff[:2] not in (b"II", b"MM"):
+        return 1
+    order = "<" if tiff[:2] == b"II" else ">"
+    offset = struct.unpack(order + "I", tiff[4:8])[0]
+    if offset + 2 > len(tiff):
+        return 1
+    count = struct.unpack(order + "H", tiff[offset : offset + 2])[0]
+    for k in range(min(count, 256)):
+        entry = offset + 2 + 12 * k
+        if entry + 12 > len(tiff):
+            break
+        tag, kind = struct.unpack(order + "HH", tiff[entry : entry + 4])
+        if tag == 0x0112 and kind == 3:  # SHORT
+            value = struct.unpack(order + "H", tiff[entry + 8 : entry + 10])[0]
+            return value if 1 <= value <= 8 else 1
+    return 1
 
 
 def _decode(data: bytes, width: int, height: int) -> pymupdf.Pixmap:
@@ -258,6 +302,8 @@ def plan_image_edit(document: analyzer.Document, params: dict) -> dict:
         plan.warnings.append("原圖的透明遮罩不沿用；新圖沒有透明部分")
     if target["visible_bbox"] != target["bbox"]:
         plan.warnings.append("原圖經剪裁：新圖只顯示原剪裁範圍內的部分")
+    if asset.orientation != 1:
+        plan.warnings.append("相片含方向資訊（EXIF），替換時不套用；若方向不對，請先轉正再替換")
     pending = ImagePending(plan, use.stream, use.op_index, use.name, new_name, remove_old, asset,
                            pad, params)  # fmt: skip
     return edit._store(document, plan, pending)
@@ -313,6 +359,19 @@ def build_xobject(pdf: pikepdf.Pdf, asset: Asset, pad) -> pikepdf.Stream:
     """
     if asset.format == "jpeg" and pad is None:
         return _image(pdf, asset.data, asset.width, asset.height, asset.components, "/DCTDecode")
+    if asset.built is None or asset.built[0] != pad:
+        asset.built = (pad, *_encode(asset, pad))
+    _, width, height, components, color, alpha = asset.built
+    image = _image(pdf, color, width, height, components, "/FlateDecode")
+    if alpha is not None:
+        smask = _image(pdf, alpha, width, height, 1, "/FlateDecode")
+        smask.Matte = pikepdf.Array([0] * components)
+        image.SMask = pdf.make_indirect(smask)
+    return image
+
+
+def _encode(asset: Asset, pad) -> tuple:
+    """解碼、補邊、壓縮：回傳（寬, 高, 色彩數, Flate 色彩, Flate 遮罩或 None）。"""
     pix = _decode(asset.data, asset.width, asset.height)
     if pad is not None:
         if not pix.alpha:
@@ -327,12 +386,8 @@ def build_xobject(pdf: pikepdf.Pdf, asset: Asset, pad) -> pikepdf.Stream:
     if pix.alpha and not _opaque(pix):
         alpha = pix.samples[pix.n - 1 :: pix.n]
     color = pymupdf.Pixmap(pix, 0).samples if pix.alpha else pix.samples
-    image = _image(pdf, zlib.compress(color), pix.width, pix.height, components, "/FlateDecode")
-    if alpha is not None:
-        smask = _image(pdf, zlib.compress(alpha), pix.width, pix.height, 1, "/FlateDecode")
-        smask.Matte = pikepdf.Array([0] * components)
-        image.SMask = pdf.make_indirect(smask)
-    return image
+    return (pix.width, pix.height, components, zlib.compress(color),
+            None if alpha is None else zlib.compress(alpha))  # fmt: skip
 
 
 def _image(pdf, data: bytes, width: int, height: int, components: int, filter_: str):

@@ -129,3 +129,15 @@ def test_image_plan_params_whitelist():
         {**ok, "asset_id": "abc"},
     ):
         assert _code(validate_image_params, bad) == "INVALID_REQUEST"
+
+
+@pytest.mark.parametrize("value", [1, 3, 6, 8])
+def test_jpeg_orientation(value):
+    exif = Image.Exif()
+    exif[0x0112] = value
+    buf = io.BytesIO()
+    Image.new("RGB", (4, 3)).save(buf, "JPEG", exif=exif.tobytes())
+    assert image.jpeg_orientation(buf.getvalue()) == value
+    assert image.load_asset(buf.getvalue()).orientation == value
+    assert image.jpeg_orientation(_image("JPEG")) == 1  # 沒有 Exif
+    assert image.jpeg_orientation(b"\xff\xd8\xff\xe1\x00\x08Exif\x00\x00") == 1  # 截斷的 Exif

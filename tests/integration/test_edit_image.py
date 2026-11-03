@@ -325,3 +325,45 @@ def test_image_text_check_detects_changed_text(tmp_path):
 def _contents(page):
     contents = page.obj.Contents
     return list(contents) if isinstance(contents, pikepdf.Array) else [contents]
+
+
+def test_built_image_reused_after_preview(monkeypatch):
+    """U3：預覽建好的壓縮資料由套用與重播重用，不再重新解碼與壓縮（補邊的情況）。"""
+    document = analyzer.open_document(str(visual.FILES / "I01.pdf"))
+    try:
+        target = analyzer.inspect_page(document, 0)["image_targets"][0]
+        asset = image.register_asset(document, {"data": base64.b64encode(png((100, 100))).decode()})
+        plan = image.plan_image_edit(document, {"target_id": target["target_id"],
+                                                "asset_id": asset["asset_id"]})  # fmt: skip
+        edit.preview_edit(document, plan["plan_id"])
+        calls = []
+        original_encode = image._encode
+        monkeypatch.setattr(image, "_encode", lambda *a: calls.append(1) or original_encode(*a))
+        edit.apply_edit(document, plan["plan_id"], 0)
+        params = {"target_id": target["target_id"], "asset_id": asset["asset_id"]}
+        command = {"op": "image", "params": params, "base_revision": 0}
+        edit.replay(document, [command], 2, True)
+        assert calls == []
+        names = [t["name"] for t in analyzer.inspect_page(document, 0)["image_targets"]]
+        assert names == ["/PEditorI1"]
+    finally:
+        document.close()
+
+
+def test_exif_orientation_warned():
+    """U4：JPEG 含 EXIF 方向（非 1）時不套用、只提示；一般 JPEG 不提示。"""
+    exif = Image.Exif()
+    exif[0x0112] = 6
+    buf = io.BytesIO()
+    Image.new("RGB", (640, 480), (0, 0, 255)).save(buf, "JPEG", exif=exif.tobytes())
+    warning = "相片含方向資訊（EXIF），替換時不套用；若方向不對，請先轉正再替換"
+    for data, expected in ((buf.getvalue(), True), (jpeg((640, 480)), False)):
+        document = analyzer.open_document(str(visual.FILES / "I05.pdf"))
+        try:
+            target = analyzer.inspect_page(document, 0)["image_targets"][0]
+            asset = image.register_asset(document, {"data": base64.b64encode(data).decode()})
+            plan = image.plan_image_edit(document, {"target_id": target["target_id"],
+                                                    "asset_id": asset["asset_id"]})  # fmt: skip
+            assert plan["ready"] and (warning in plan["warnings"]) is expected
+        finally:
+            document.close()
