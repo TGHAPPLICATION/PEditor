@@ -7,7 +7,7 @@
 
 - 階段：P6　分支：`p6-table-cells`　commit：`4cc46d1`（核心：格線推估、cell_targets、plan_cell_edit、格線不變驗證）、
   `81048cc`（UI 與服務層測試）、`c23e1f3`（ADR-0023、證據包與產生腳本 `scripts/p6_evidence.py`）、`2030145`（格線變動偵測測試）、
-  `edfe9c8`（跨格文字測試）、`d6438e0`（格線交會判定上限）、`bcdb0e0`（U2：文字層 API 也遵守格判定）、`5f01555`、`c2bd36a`（第一輪核對 Q1–Q4）、`34479a3`、`891c292`、`61ecba2`（第二輪核對 R1–R3）、`c438064`、`222d4ff`、`56dfe3b`（第三輪核對 S1–S5）、`aaec696`（第四輪核對 T1–T4）　日期：2026-11-03～11-04
+  `edfe9c8`（跨格文字測試）、`d6438e0`（格線交會判定上限）、`bcdb0e0`（U2：文字層 API 也遵守格判定）、`5f01555`、`c2bd36a`（第一輪核對 Q1–Q4）、`34479a3`、`891c292`、`61ecba2`（第二輪核對 R1–R3）、`c438064`、`222d4ff`、`56dfe3b`（第三輪核對 S1–S5）、`aaec696`（第四輪核對 T1–T4）、`4a200a3`（第五輪核對 F1–F4）　日期：2026-11-03～11-04
 - 只改報告、traceability、THREAT_MODEL 或 CI 紀錄的 commit 依 P4 慣例不列。
 - 撰寫：Claude Code；審查：待工程師；獨立核對：待（CLAUDE.md：由未參與實作的子代理人核對）
 - 輸入：spec v1.1 P6／G6／§4／§7／§8、ADR-0001～0022（重點 ADR-0013 的 B06 延後項目）、manifest B01–B08、
@@ -59,12 +59,13 @@ uv run pytest -q                                        → exit 0，445 passed�
 uv run pytest -q                                        → exit 0，455 passed（Windows 製作機，34479a3，第二輪核對補 10 組）
 uv run pytest -q                                        → exit 0，466 passed（Windows 製作機，222d4ff，第三輪核對補 11 組）
 uv run pytest -q                                        → exit 0，476 passed（Windows 製作機，aaec696，第四輪核對補 10 組）
+uv run pytest -q                                        → exit 0，482 passed（Windows 製作機，4a200a3，第五輪核對補 6 組）
 uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 ```
 
-- P6 新增 70 項測試：`test_edit_cell.py` 55 項（含參數化 46 組）、`test_table_grid.py` 9 項（參數化 3 組）、`test_cell_service.py` 3 項、`test_cell_ui.py` 3 項。
+- P6 新增 76 項測試：`test_edit_cell.py` 61 項（含參數化 52 組）、`test_table_grid.py` 9 項（參數化 3 組）、`test_cell_service.py` 3 項、`test_cell_ui.py` 3 項。
   既有測試只改 `test_analyzer.py`：B06 移出 `DEFERRED`，B 組加驗目標格（收緊，沒有放寬預期）；P5 既有 406 項全數通過。
-- **反向驗證**（repo 外的臨時腳本；工作區先提交乾淨，逐一改壞實作、跑對應測試、再以 `git checkout` 還原）：37 項中 36 項被測試抓到，M29 沒有（見表後說明）（M14 為 U2 處理後補做，M15–M20 為第一輪、M21–M26 為第二輪、M27–M32 為第三輪、M33–M37 為第四輪核對處理後補做）——
+- **反向驗證**（repo 外的臨時腳本；工作區先提交乾淨，逐一改壞實作、跑對應測試、再以 `git checkout` 還原）：40 項中 39 項被測試抓到，M29 沒有（見表後說明）（M14 為 U2 處理後補做，M15–M20 為第一輪、M21–M26 為第二輪、M27–M32 為第三輪、M33–M37 為第四輪、M38–M40 為第五輪核對處理後補做）——
 
   | # | 改壞的內容 | 失敗的測試 |
   | --- | --- | --- |
@@ -105,15 +106,19 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
   | M35 | 不認緊貼文字的直線 | 同上 `[image_in_margin]` |
   | M36 | 渲染最外圈也看（T4 修正前） | `test_text_near_border_can_grow` 2 組 |
   | M37 | 連結註解也當障礙 | `test_annotation_over_text_rejects_and_link_does_not_block` |
+  | M38 | 改回 `aaec696` 的註解讀法（MuPDF xref） | `[annot_indirect_rect]`、`[annot_direct_dict]`、`test_unreadable_annotation_rect_rejects` 4 組 |
+  | M39 | Rect 讀不出時略過 | `test_unreadable_annotation_rect_rejects` 4 組 |
+  | M40 | 不裁註解範圍且墨跡門檻回到 48 | `[annot_transparent]` |
 
 - 第一次在 `d6438e0` 跑全套時超過 600 秒，被 Claude Code 因系統記憶體不足終止（無輸出、不是測試失敗）；2026-11-04 重跑 163 秒、439 passed。
 - Q4 第一版檢查區域內所有障礙線，L03 的 8 項既有測試失敗（manifest 區域是字形外框，上下碰到紅框的水平線）；改為只檢查垂直線（直立文字只沿基線延伸）後通過（`c2bd36a`）。
 - 第二輪核對處理後第一次反向驗證，M22–M25 沒被抓到：測試樣本不夠嚴（曲線兩端點本身就連成垂直線、新文字與原文共用開頭使改字起點不受左邊界影響）、M23 的改法本身無效、M24 只拿掉一處而另兩處仍會擋；改用往上凸的曲線與整段替換（`891c292`）、修正改法後重做，全部抓到。重做時一度因改動字串不符，cell.py 的暫時改動沒有還原，發現後以 `git checkout` 還原並確認工作區乾淨。
 - 第二輪核對者的樣本（c00–c18、d01–d08）以處理後的程式重跑：R1、R2 的樣本長字溢出或拒絕；R3 的 d01–d03、c16、c18 可改，與 `8e1b844` 結果相同（c15 在 `8e1b844` 也拒絕：框內只畫了一半的線使整個框成為合併格，屬結構判定）。
 - 第三輪核對處理：`test_lines_drawn_any_way_block_region[curve]` 的預期由 `TEXT_OVERFLOW` 改為 `UNSUPPORTED_LAYOUT`：曲線改為細分折線後，往上凸的曲線穿過該行區域成為斜邊，依 ADR-0023 §2 整行拒絕（行為改變，不是放寬）。第三輪核對者的探針樣本（`probe.py` 13 組、`probe_r3.py` 8 組）以處理後的程式重跑：S1–S3 的長字全部被擋；7 pt 粗刪除線、延伸到右邊的底線、填空線可改；底色塊、比文字長的粗刪除線、文字右側基線高度的 0 寬線、文字內的小直線仍擋（§9 U6）。修改測試時一度以正規表示式誤刪一大段測試（未提交），以 `git checkout` 還原後改用精準替換。
-- 第四輪核對處理：M34 的半透明註解（`[annot_transparent]`）沒有單獨被抓到——拿掉註解範圍後，`/CA 0.15` 的黑線與底色相差約 38，仍超過新門檻 24，由墨跡檢查擋下（同 M29 的多一層防護）。
+- 第四輪核對處理：M34 的半透明註解（`[annot_transparent]`）沒有被抓到。原說明「`/CA 0.15` 的黑線與底色相差約 38、由墨跡檢查擋下」不屬實（第五輪核對 F4）：`/CA` 放在註解字典上時 MuPDF 1.28.2 不採用，線畫成全黑，該組在修正前也通過，沒有測到半透明。`4a200a3` 改為外觀串流內 ExtGState `CA 0.15`（與底色相差約 38）：拿掉註解範圍（M34 重做）仍由門檻 24 擋下，再把門檻改回 48 才失敗（M40）。
+- 第五輪核對處理：提交時 `ruff format --check` 失敗使 commit 沒有成立，緊接的反向驗證以 `git checkout` 還原時把 cell.py 未提交的修改一併還原；重新套用、確認提交成功且工作區乾淨後才重做反向驗證。
 - 本機 pytest 收集階段會印出一次 `Windows fatal exception: access violation`（`pypdfium2` 載入時 faulthandler 回報已處理的例外，P5 報告 §4 已查明，與本段無關）。
-- CI：run [41805409843](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41805409843)（commit `698b954`）windows-latest 476 passed、macos-15 476 passed；先前 run [41782916232](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41782916232)（commit `477c058`）、run [41773442853](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41773442853)（commit `6590885`）只改報告，雙平台 466 passed（第四輪核對 T8 補列）；run [41773028292](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41773028292)（commit `2ae6716`）windows-latest 466 passed、macos-15 466 passed（第三輪核對處理後）；run [41767780036](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41767780036)（commit `85c7273`）windows-latest 455 passed、macos-15 455 passed（第三輪核對處理前）；run [41763225080](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41763225080)（commit `ee23f84`）windows-latest 445 passed、macos-15 445 passed（第二輪核對處理前）；run [41758086017](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41758086017)（commit `75a804f`）windows-latest 440 passed、macos-15 440 passed（第一輪核對處理前）；run [41757007669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41757007669)（commit `37b9767`）windows-latest 439 passed、macos-15 439 passed（U2 前，只作歷史紀錄）。
+- CI：CI 待補（第五輪核對處理後推送）；run [41805409843](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41805409843)（commit `698b954`）windows-latest 476 passed、macos-15 476 passed（第五輪核對處理前）；先前 run [41782916232](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41782916232)（commit `477c058`）、run [41773442853](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41773442853)（commit `6590885`）只改報告，雙平台 466 passed（第四輪核對 T8 補列）；run [41773028292](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41773028292)（commit `2ae6716`）windows-latest 466 passed、macos-15 466 passed（第三輪核對處理後）；run [41767780036](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41767780036)（commit `85c7273`）windows-latest 455 passed、macos-15 455 passed（第三輪核對處理前）；run [41763225080](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41763225080)（commit `ee23f84`）windows-latest 445 passed、macos-15 445 passed（第二輪核對處理前）；run [41758086017](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41758086017)（commit `75a804f`）windows-latest 440 passed、macos-15 440 passed（第一輪核對處理前）；run [41757007669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41757007669)（commit `37b9767`）windows-latest 439 passed、macos-15 439 passed（U2 前，只作歷史紀錄）。
 
 ## 5. 真修改證據
 
@@ -169,12 +174,12 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 | U3 | 同一行模式 B 改過後無法再改同一行（P2 限制） | 需先復原再改 | **接受**（工程師 2026-11-04） |
 | U4 | 格線偵測只認水平、垂直線；Form 內與旋轉表格不偵測 | 這類表格不自動偵測；文字在頁面層級時可用人工選格（框選會檢查 Form 內的線，第一輪核對 Q2）；文字也在 Form 內時文字本身即不支援 | **接受**（工程師 2026-11-04；不在 MVP 範圍） |
 | U6 | 第三輪核對處理後的保守行為（ADR-0023 §2、後果）：(a) 底色塊、比文字長的刪除線讓新文字不能長過它們（`8e1b844` 時可以）；(b) 曲線、斜線穿過該行的區域即整行拒絕（圓角框、斜線表頭的格不能改）；(c) 人工框選的判定只用向量，墨跡檢查在規劃時才做；(d) 文字範圍內的非文字墨跡無法和字形區分；(e) MuPDF 渲染空白的 7 份檔只有向量判斷 | 可改的範圍比 `8e1b844` 小；(d)(e) 為殘餘 | **(a)(b)(c) 接受、(d)(e) 列殘餘**（工程師 2026-11-04；ADR-0023 後果、THREAT_MODEL T11 已列） |
-| U7 | 第四輪核對處理後的保守行為：除 Link、Popup 外的註解範圍與文字重疊即該行拒絕（螢光筆、包住整格的方框註解、蓋在文字上的表單欄位），不看註解是否顯示 | 這類格不能改；原本可改 | 待工程師決定 |
+| U7 | 第四輪核對處理後的保守行為：除 Link、Popup 外的註解範圍與文字重疊即該行拒絕（螢光筆、包住整格的方框註解、蓋在文字上的表單欄位），不看註解是否顯示 | 這類格不能改；原本可改 | **接受**（工程師 2026-11-04 回覆「照建議」） |
 | U5 | 儲存格 UI 只有 offscreen 證據 | 實機行為未驗證 | **併入 P8 實機驗收**（工程師 2026-11-04） |
 
 ## 10. 關卡結果
 
-- **關卡結果：BLOCKED**。G6-01～G6-07 本機全部通過，反向驗證 37 項中 36 項被抓到（M29 由墨跡檢查兜底，§4）；run [41805409843](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41805409843)（commit `698b954`）windows-latest 476 passed、macos-15 476 passed；U1–U6 已由工程師決定並處理、U7 待工程師決定（§9）；已經四輪獨立核對（§11），第一輪 Q1–Q8、第二輪 R1–R3、第三輪 S1–S6、第四輪 T1–T8 已處理；工程師決定做範圍很小的第五輪核對（只確認 T1–T4 修正本身），關卡結果於第五輪後決定。
+- **關卡結果：BLOCKED**。G6-01～G6-07 本機全部通過，反向驗證 40 項中 39 項被抓到（M29 由墨跡檢查兜底，§4）；CI 待補（第五輪核對處理後推送）；U1–U7 已由工程師決定並處理（§9）；已經五輪獨立核對（§11），第一輪 Q1–Q8、第二輪 R1–R3、第三輪 S1–S6、第四輪 T1–T8、第五輪 F1–F7 已處理；依建議第五輪處理後不再做第六輪核對（F1–F3 為讀取方式修正，以反向驗證 M38–M40 確認）；待工程師決定關卡結果。
 - **下一段可開始：否**（條件：工程師決定並更新本節）。
 
 ## 11. 獨立核對紀錄
@@ -253,10 +258,10 @@ M33–M37 與 §4 相符；ruff 通過、pytest 476 passed。結論「有出入�
 
 | # | 內容 | 處理 |
 | --- | --- | --- |
-| F1（must-fix） | Rect 為間接參照（`/Rect 12 0 R`，合法）的註解被 `_annot_rects` 略過（`xref_get_key` 回 `xref` 不是 `array`）：F=36 時長字 ready、另存 ok，PDFium 列印渲染可見新字壓過線，T2 可繞過 | 待工程師決定 |
-| F2（should-fix） | `/Annots` 內直接放註解字典（不是間接物件）時 `annot_xrefs()` 給 xref 0，`xref_get_key` 丟 `ValueError`，該頁所有儲存格規劃失敗（`WORKER_FAILED`）；`51c251a` 可改，為 `aaec696` 回歸（方向偏安全） | 待工程師決定 |
-| F3（should-fix） | 其他不合法 Rect（非數字、字串、字典、3 或 5 個數字、NaN）靜默略過，F=36 時長字 ready；ADR-0023、THREAT_MODEL T11、§11 T2 寫「所有註解一律當障礙」，與程式不符 | 待工程師決定 |
-| F4（should-fix） | `[annot_transparent]` 把 `/CA 0.15` 放在註解字典上，MuPDF 1.28.2 有外觀串流時不採用，線畫成全黑（相差 255），`51c251a` 也通過；§4「相差約 38、由門檻 24 擋下」的說明不屬實。改用外觀串流內 ExtGState `CA 0.15` 實測：HEAD 擋、M34 仍擋、`51c251a` ready | 待工程師決定 |
-| F5（備查） | 略過渲染最外圈像素：落在區域邊界內側 ≤1 像素（約 0.5 pt）的非向量墨跡看不到（例：同列片段中線旁 0.3 pt 影像直線，重疊約 0.2 pt），ADR／THREAT_MODEL 未寫出 | 待工程師決定 |
-| F6（備查） | 緊貼文字右緣 0.1 pt（與文字最後一欄同一像素欄）的線不擋，屬殘餘 (d) 邊界情形；只從格底延伸到基線的直線不擋，屬 T5 底線區殘餘；斜體字形超出外框使加長 `TEXT_OVERFLOW` 為既有行為 | 待工程師決定 |
-| F7（備查） | traceability G6 狀態欄仍引用 run 41773028292「466 passed」 | 待工程師決定 |
+| F1（must-fix） | Rect 為間接參照（`/Rect 12 0 R`，合法）的註解被 `_annot_rects` 略過（`xref_get_key` 回 `xref` 不是 `array`）：F=36 時長字 ready、另存 ok，PDFium 列印渲染可見新字壓過線，T2 可繞過 | 工程師決定全部照建議處理（2026-11-04）。`4a200a3`：改以 pikepdf 讀 /Annots，間接參照的 Rect 自動解參照；測試 `[annot_indirect_rect]`（M38） |
+| F2（should-fix） | `/Annots` 內直接放註解字典（不是間接物件）時 `annot_xrefs()` 給 xref 0，`xref_get_key` 丟 `ValueError`，該頁所有儲存格規劃失敗（`WORKER_FAILED`）；`51c251a` 可改，為 `aaec696` 回歸（方向偏安全） | `4a200a3`：直接寫在 /Annots 裡的註解字典照樣讀 Rect；測試 `[annot_direct_dict]`（M38） |
+| F3（should-fix） | 其他不合法 Rect（非數字、字串、字典、3 或 5 個數字、NaN）靜默略過，F=36 時長字 ready；ADR-0023、THREAT_MODEL T11、§11 T2 寫「所有註解一律當障礙」，與程式不符 | `4a200a3`：Rect 讀不出 4 個有限數字、或 /Annots 不是陣列時該行拒絕 `UNSUPPORTED_LAYOUT`，與文件「一律當障礙」一致；測試 `test_unreadable_annotation_rect_rejects` 4 組（M39） |
+| F4（should-fix） | `[annot_transparent]` 把 `/CA 0.15` 放在註解字典上，MuPDF 1.28.2 有外觀串流時不採用，線畫成全黑（相差 255），`51c251a` 也通過；§4「相差約 38、由門檻 24 擋下」的說明不屬實。改用外觀串流內 ExtGState `CA 0.15` 實測：HEAD 擋、M34 仍擋、`51c251a` ready | `4a200a3`：樣本改用外觀串流內 ExtGState；§4 說明更正（M40） |
+| F5（備查） | 略過渲染最外圈像素：落在區域邊界內側 ≤1 像素（約 0.5 pt）的非向量墨跡看不到（例：同列片段中線旁 0.3 pt 影像直線，重疊約 0.2 pt），ADR／THREAT_MODEL 未寫出 | ADR-0023 §2、THREAT_MODEL T11 列為殘餘；cell.py docstring 註明 |
+| F6（備查） | 緊貼文字右緣 0.1 pt（與文字最後一欄同一像素欄）的線不擋，屬殘餘 (d) 邊界情形；只從格底延伸到基線的直線不擋，屬 T5 底線區殘餘；斜體字形超出外框使加長 `TEXT_OVERFLOW` 為既有行為 | 屬已列殘餘，不需處理 |
+| F7（備查） | traceability G6 狀態欄仍引用 run 41773028292「466 passed」 | traceability 狀態欄改為本輪處理後的 CI |
