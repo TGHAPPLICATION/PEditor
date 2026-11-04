@@ -7,7 +7,7 @@
 
 - 階段：P6　分支：`p6-table-cells`　commit：`4cc46d1`（核心：格線推估、cell_targets、plan_cell_edit、格線不變驗證）、
   `81048cc`（UI 與服務層測試）、`c23e1f3`（ADR-0023、證據包與產生腳本 `scripts/p6_evidence.py`）、`2030145`（格線變動偵測測試）、
-  `edfe9c8`（跨格文字測試）、`d6438e0`（格線交會判定上限）、`bcdb0e0`（U2：文字層 API 也遵守格判定）、`5f01555`、`c2bd36a`（第一輪核對 Q1–Q4）　日期：2026-11-03～11-04
+  `edfe9c8`（跨格文字測試）、`d6438e0`（格線交會判定上限）、`bcdb0e0`（U2：文字層 API 也遵守格判定）、`5f01555`、`c2bd36a`（第一輪核對 Q1–Q4）、`34479a3`、`891c292`、`61ecba2`（第二輪核對 R1–R3）　日期：2026-11-03～11-04
 - 只改報告、traceability、THREAT_MODEL 或 CI 紀錄的 commit 依 P4 慣例不列。
 - 撰寫：Claude Code；審查：待工程師；獨立核對：待（CLAUDE.md：由未參與實作的子代理人核對）
 - 輸入：spec v1.1 P6／G6／§4／§7／§8、ADR-0001～0022（重點 ADR-0013 的 B06 延後項目）、manifest B01–B08、
@@ -34,12 +34,12 @@
 ## 3. 需求 → test ID → fixture／hash → 結果
 
 fixture hash（前 12 碼）：B01 `1a409bb195b5`、B02 `7861dc6039a9`、B03 `74bd86c71d2c`、B04 `db65ca0699c0`、B05 `e6cb11e5a755`、B06 `ef732af2d87c`。
-「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝run [41763225080](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41763225080)（commit `ee23f84`）windows-latest 445 passed、macos-15 445 passed。
+「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝CI 待補（第二輪核對處理後推送）。
 
 | 需求 ID | test ID | fixture | 本機 | CI |
 | --- | --- | --- | --- | --- |
 | G6-01 | `tests/integration/test_edit_cell.py::test_all_supported_cell_cases`（5 組）：目標格格線中線與 manifest 可改動區域 ≤0.5 pt；計畫 ready（B01 模式 A、其餘模式 B）；另存驗證含格線不變；兩引擎擷取目標格為新文字、不含原文；遮罩外差異 ≤0.01% | B01–B05 | PASS | PASS |
-| G6-02 | `::test_borders_and_other_cells_unchanged`（5 組）：格線位置、範圍、線寬完全相同；其他格與同格其他行兩引擎擷取相同、像素無超標差異；`::test_rules_check_detects_changed_borders`：拿掉一條線或改線寬時另存前驗證能偵測；`::test_frame_with_inner_lines_clips_region`（2 組，Q1）：外框內含空白數字格或小表格時，可改動區域裁到內層格線左側、長字溢出拒絕、短字可改且另存通過；`::test_manual_box_sees_form_lines`（Q2）：格線在 Form 內時框選跨線拒絕、框在格內可改，另存前比對能偵測 Form 內線寬變動 | B01–B05、測試內樣本 | PASS | PASS |
+| G6-02 | `::test_borders_and_other_cells_unchanged`（5 組）：格線位置、範圍、線寬完全相同；其他格與同格其他行兩引擎擷取相同、像素無超標差異；`::test_rules_check_detects_changed_borders`：拿掉一條線或改線寬時另存前驗證能偵測；`::test_frame_with_inner_lines_clips_region`（2 組，Q1）：外框內含空白數字格或小表格時，可改動區域裁到內層格線左側、長字溢出拒絕、短字可改且另存通過；`::test_manual_box_sees_form_lines`（Q2）：格線在 Form 內時框選跨線拒絕、框在格內可改，另存前比對能偵測 Form 內線寬變動；`::test_lines_drawn_any_way_block_region`（5 組，第二輪 R1、R2）：內層線以填色多邊形、往上凸的曲線、點線、8 pt 粗填色畫時長字溢出拒絕，斜線使該行拒絕，人工框選整個外框也拒絕；`::test_underline_and_nearby_lines_do_not_block`（5 組，第二輪 R3）：填色與描邊底線、刪除線、右側同高的線、下方小框不擋整段替換，另存通過 | B01–B05、測試內樣本 | PASS | PASS |
 | G6-03 | `::test_cell_overflow_rejected`（2 組）：60 字新文字回 `TEXT_OVERFLOW` | B01、B04 | PASS | PASS |
 | G6-04 | `::test_manual_cell_requires_assessment`：B06 合併格（1×2）偵測與框選都拒絕、框選跨兩格拒絕；無框線表格框選切到文字、有線穿過拒絕，框好可改、溢出仍拒絕；`::test_text_crossing_border_rejected`；`::test_text_api_respects_cell_judgement`（U2：`plan_text_edit` 改 B06 合併格或跨格文字拒絕、支援格照常）；`tests/unit/test_table_grid.py`（9 項：規則網格與線寬、細填色矩形、合併格與未封閉區域、斜線／Form／底色不算、上限、解譯器記錄、框選判定）；`test_analyzer.py::test_capability_matches_manifest`（B06 移出 `DEFERRED`，B 組改驗目標格判定與範圍）；`::test_frame_keeps_previous_text_edits`（Q3）：頁框內有旋轉文字時只擋那一行，其他文字的 `plan_text_edit` 與儲存格編輯照常；同列間距大的兩段分成兩個片段、可改動區域不含另一段；`::test_text_api_region_cannot_cross_borders`（Q4）：呼叫端區域有垂直格線穿過拒絕、manifest 格範圍照常 | B01–B06、測試內樣本 | PASS | PASS |
 | G6-05 | `::test_multiline_cell_line_layout`（B02、B05 第 2 行）：只改指定行、可改動區域不含另一行、另一行擷取不變、行號超出回 `INVALID_REQUEST`；`::test_empty_cell_rejected` | B02、B05、測試內樣本 | PASS | PASS |
@@ -56,12 +56,13 @@ uv run pytest -q                                        → exit 0，437 passed�
 uv run pytest -q                                        → exit 0，439 passed（Windows 製作機，d6438e0）
 uv run pytest -q                                        → exit 0，440 passed（Windows 製作機，bcdb0e0，U2 補 1 項）
 uv run pytest -q                                        → exit 0，445 passed（Windows 製作機，c2bd36a，第一輪核對補 5 項）
+uv run pytest -q                                        → exit 0，455 passed（Windows 製作機，34479a3，第二輪核對補 10 組）
 uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 ```
 
-- P6 新增 39 項測試：`test_edit_cell.py` 24 項（含參數化 16 組）、`test_table_grid.py` 9 項（參數化 3 組）、`test_cell_service.py` 3 項、`test_cell_ui.py` 3 項。
+- P6 新增 49 項測試：`test_edit_cell.py` 34 項（含參數化 26 組）、`test_table_grid.py` 9 項（參數化 3 組）、`test_cell_service.py` 3 項、`test_cell_ui.py` 3 項。
   既有測試只改 `test_analyzer.py`：B06 移出 `DEFERRED`，B 組加驗目標格（收緊，沒有放寬預期）；P5 既有 406 項全數通過。
-- **反向驗證**（repo 外的臨時腳本；工作區先提交乾淨，逐一改壞實作、跑對應測試、再以 `git checkout` 還原）：20 項全部被測試抓到（M14 為 U2 處理後補做，M15–M20 為第一輪核對處理後補做）——
+- **反向驗證**（repo 外的臨時腳本；工作區先提交乾淨，逐一改壞實作、跑對應測試、再以 `git checkout` 還原）：26 項全部被測試抓到（M14 為 U2 處理後補做，M15–M20 為第一輪核對處理後補做，M21–M26 為第二輪核對處理後補做）——
 
   | # | 改壞的內容 | 失敗的測試 |
   | --- | --- | --- |
@@ -85,15 +86,23 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
   | M18 | 同一列不依間距分段（Q3 修正前） | `test_frame_keeps_previous_text_edits` |
   | M19 | 呼叫端區域不檢查格線（Q4 修正前） | `test_text_api_region_cannot_cross_borders` |
   | M20 | 另存比對不含障礙線（Q2 修正前） | `test_manual_box_sees_form_lines` |
+  | M21 | 只填色的路徑不當障礙線（R1 修正前） | `test_lines_drawn_any_way_block_region[fill_polygon]`、`[thick_fill]` |
+  | M22 | 曲線只記端點、不記控制點 | `test_lines_drawn_any_way_block_region[curve]` |
+  | M23 | 長度 ≤1 pt 的線段不算（R1 修正前） | `test_lines_drawn_any_way_block_region[dotted_segments]` |
+  | M24 | 不檢查斜邊（儲存格編輯、呼叫端區域、人工框選三處一起拿掉；任一處都會擋） | `test_lines_drawn_any_way_block_region[diagonal]` |
+  | M25 | 細長形狀拆成四邊（不視為一條線） | `test_underline_and_nearby_lines_do_not_block[underline_fill]` |
+  | M26 | 底線與刪除線也擋（R3 修正前） | `test_underline_and_nearby_lines_do_not_block` 3 組 |
 
 - 第一次在 `d6438e0` 跑全套時超過 600 秒，被 Claude Code 因系統記憶體不足終止（無輸出、不是測試失敗）；2026-11-04 重跑 163 秒、439 passed。
 - Q4 第一版檢查區域內所有障礙線，L03 的 8 項既有測試失敗（manifest 區域是字形外框，上下碰到紅框的水平線）；改為只檢查垂直線（直立文字只沿基線延伸）後通過（`c2bd36a`）。
+- 第二輪核對處理後第一次反向驗證，M22–M25 沒被抓到：測試樣本不夠嚴（曲線兩端點本身就連成垂直線、新文字與原文共用開頭使改字起點不受左邊界影響）、M23 的改法本身無效、M24 只拿掉一處而另兩處仍會擋；改用往上凸的曲線與整段替換（`891c292`）、修正改法後重做，全部抓到。重做時一度因改動字串不符，cell.py 的暫時改動沒有還原，發現後以 `git checkout` 還原並確認工作區乾淨。
+- 第二輪核對者的樣本（c00–c18、d01–d08）以處理後的程式重跑：R1、R2 的樣本長字溢出或拒絕；R3 的 d01–d03、c16、c18 可改，與 `8e1b844` 結果相同（c15 在 `8e1b844` 也拒絕：框內只畫了一半的線使整個框成為合併格，屬結構判定）。
 - 本機 pytest 收集階段會印出一次 `Windows fatal exception: access violation`（`pypdfium2` 載入時 faulthandler 回報已處理的例外，P5 報告 §4 已查明，與本段無關）。
-- CI：run [41763225080](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41763225080)（commit `ee23f84`）windows-latest 445 passed、macos-15 445 passed；先前 run [41758086017](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41758086017)（commit `75a804f`）windows-latest 440 passed、macos-15 440 passed（第一輪核對處理前）；run [41757007669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41757007669)（commit `37b9767`）windows-latest 439 passed、macos-15 439 passed（U2 前，只作歷史紀錄）。
+- CI：CI 待補（第二輪核對處理後推送）；先前 run [41763225080](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41763225080)（commit `ee23f84`）windows-latest 445 passed、macos-15 445 passed（第二輪核對處理前）；run [41758086017](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41758086017)（commit `75a804f`）windows-latest 440 passed、macos-15 440 passed（第一輪核對處理前）；run [41757007669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41757007669)（commit `37b9767`）windows-latest 439 passed、macos-15 439 passed（U2 前，只作歷史紀錄）。
 
 ## 5. 真修改證據
 
-證據包 `reports/P6/evidence/`（`scripts/p6_evidence.py` 於 `c2bd36a` 重產（第一輪核對 Q6）；`output.pdf` 不入庫，SHA-256 記於 `summary.json`，trailer `/ID` 隨機，重產後雜湊不同）。
+證據包 `reports/P6/evidence/`（`scripts/p6_evidence.py` 於 `c2bd36a` 重產（第一輪核對 Q6），`61ecba2` 再重產（第二輪核對處理後，只有隨機值與浮點尾數不同）；`output.pdf` 不入庫，SHA-256 記於 `summary.json`，trailer `/ID` 隨機，重產後雜湊不同）。
 每案以 manifest 原文／新文改目標格中含原文的那一行；B06 拒絕。
 
 | 案例 | 目標格（列, 欄, 跨列, 跨欄） | 行 | 模式 | 格線 | 其他格與同格其他行 | 遮罩外差異（MuPDF／PDFium） | 其他格超標像素 | 擷取目標格 |
@@ -148,7 +157,7 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 
 ## 10. 關卡結果
 
-- **關卡結果：BLOCKED**。G6-01～G6-07 本機全部通過，反向驗證 20 項全部被抓到；run [41763225080](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41763225080)（commit `ee23f84`）windows-latest 445 passed、macos-15 445 passed；U1–U5 已由工程師決定並處理（§9）；已經第一輪獨立核對（§11），Q1–Q8 已處理；待工程師決定是否再做一輪核對與關卡結果。
+- **關卡結果：BLOCKED**。G6-01～G6-07 本機全部通過，反向驗證 26 項全部被抓到；CI 待補（第二輪核對處理後推送）；U1–U5 已由工程師決定並處理（§9）；已經兩輪獨立核對（§11），第一輪 Q1–Q8、第二輪 R1–R3 已處理；待工程師決定是否再做一輪核對與關卡結果。
 - **下一段可開始：否**（條件：工程師決定並更新本節）。
 
 ## 11. 獨立核對紀錄
@@ -180,8 +189,8 @@ CI run 41763225080（`ee23f84`）、41763722255（`d62002c`）雙平台 445 pass
 
 | # | 內容 | 處理 |
 | --- | --- | --- |
-| R1（must-fix） | 用非 `re` 的填色多邊形、曲線（`c` 等）或每段 ≤1 pt 的短段畫的格線不算障礙線：外框內 x=120 的內層線以這三種方式畫時，長字計畫 ready、另存通過，線右側新增深色像素 2086 個；整張表用填色多邊形畫時人工框選也能跨格（與 Q2 同類）。THREAT_MODEL T11 的殘餘未揭露 | 待工程師決定 |
-| R2（should-fix） | 斜線表頭（格內對角線）不受限制，新文字可穿過斜線、另存通過 | 待工程師決定 |
-| R3（should-fix） | `clip()` 過度拒絕（相對 `8e1b844` 回歸）：底線（細填色或描邊）、刪除線、文字右側同高度的水平線、文字正下方不相連的小框，都被判「線穿過文字」而拒絕；UI 點格內文字一律走儲存格編輯，這類文字在 UI 改不了（main 可經 P4 文字路徑改）。repo 內 fixture 不受影響 | 待工程師決定 |
-| R4（備查） | Q3、Q4 驗證合理；殘餘（P2 既有）：溢出只檢查基線起訖點，字形墨跡可越過區域邊 ≤2 pt；粗於 6 pt 的填色框線不算障礙線；影像畫的線未測 | 待工程師決定 |
-| R5（備查） | 報告與證據一致（測試數、§3、證據包、CI、§11 處理欄、規則、diff 範圍） | 待工程師決定 |
+| R1（must-fix） | 用非 `re` 的填色多邊形、曲線（`c` 等）或每段 ≤1 pt 的短段畫的格線不算障礙線：外框內 x=120 的內層線以這三種方式畫時，長字計畫 ready、另存通過，線右側新增深色像素 2086 個；整張表用填色多邊形畫時人工框選也能跨格（與 Q2 同類）。THREAT_MODEL T11 的殘餘未揭露 | 工程師決定全部照建議處理（2026-11-04）。`34479a3`：障礙線改取頁面與 Form 內每一個已繪製子路徑的邊（描邊或填色、`re` 或多邊形、曲線取控制點折線），細長形狀（≤6 pt、長度超過 3 倍）視為一條線，每段都算、不設最短長度；人工框選與另存前比對同樣改用；測試 `test_lines_drawn_any_way_block_region`（M21–M23）；ADR-0023 §1、THREAT_MODEL T11 補寫 |
+| R2（should-fix） | 斜線表頭（格內對角線）不受限制，新文字可穿過斜線、另存通過 | `34479a3`：斜邊另存，裁切後的可改動區域、人工框選範圍、呼叫端區域內有斜邊即拒絕；測試同上 `[diagonal]`（M24） |
+| R3（should-fix） | `clip()` 過度拒絕（相對 `8e1b844` 回歸）：底線（細填色或描邊）、刪除線、文字右側同高度的水平線、文字正下方不相連的小框，都被判「線穿過文字」而拒絕；UI 點格內文字一律走儲存格編輯，這類文字在 UI 改不了（main 可經 P4 文字路徑改）。repo 內 fixture 不受影響 | `34479a3`：裁切依線與文字的相對位置——與文字同高且水平重疊的水平線（底線、刪除線）不擋、只有垂直線穿過文字才拒絕、其餘裁向線所在的一側；測試 `test_underline_and_nearby_lines_do_not_block`（M25、M26）；核對者樣本 d01–d03、c16、c18 與 `8e1b844` 結果相同 |
+| R4（備查） | Q3、Q4 驗證合理；殘餘（P2 既有）：溢出只檢查基線起訖點，字形墨跡可越過區域邊 ≤2 pt；粗於 6 pt 的填色框線不算障礙線；影像畫的線未測 | 殘餘列入 ADR-0023 後果與 THREAT_MODEL T11：影像畫的線不算障礙線、字形墨跡可越過區域邊 ≤2 pt；粗於 6 pt 的填色框線已由 R1 的處理涵蓋（四邊都算） |
+| R5（備查） | 報告與證據一致（測試數、§3、證據包、CI、§11 處理欄、規則、diff 範圍） | 不需處理 |
