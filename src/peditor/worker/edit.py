@@ -102,6 +102,9 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
         allowed_change_mask=region,
         unsupported_reasons=list(change.reasons),
     )
+    if not plan.unsupported_reasons:
+        plan.unsupported_reasons += _cell_blockers(document, selection.page_index,
+                                                   plan.target["change"]["target_ids"])  # fmt: skip
     if plan.unsupported_reasons:
         return _store(document, plan, None)
     runs = [selection.runs[p.run_index] for p in change.pieces]
@@ -184,6 +187,19 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
         })  # fmt: skip
         plan.warnings.append("已同步更新結構樹 /ActualText（ADR-0017）")
     return _store(document, plan, _Pending(plan, edits, change.new_text, font_name, sync, params))
+
+
+def _cell_blockers(document: analyzer.Document, page_index: int, target_ids) -> list[str]:
+    """改到的文字落在（或跨過）不支援的儲存格時，沿用該格的拒絕理由（P6 報告 U2、ADR-0023 §1）：
+    文字層 API 不能繞過格判定（例如合併格 B06）。"""
+    tables = document.tables.get(page_index)
+    if tables is None:
+        return []
+    reasons: list[str] = []
+    for cell in tables[2].values():
+        if cell["capability"]["status"] != "support" and set(cell["text_ids"]) & set(target_ids):
+            reasons += cell["capability"]["reasons"]
+    return list(dict.fromkeys(reasons))
 
 
 def _mode_b_blocker(policy: str, run: TextRun, text: str) -> tuple[str, ...] | None:

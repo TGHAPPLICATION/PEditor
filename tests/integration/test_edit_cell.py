@@ -18,7 +18,7 @@ import visual
 from cell_samples import cell_box, table_pdf
 
 from peditor.core.protocol import ProtocolError
-from peditor.worker import analyzer, cell, edit, export, table
+from peditor.worker import analyzer, cell, edit, export, span, table
 from peditor.worker.content import interpret
 
 SUPPORTED = ("B01", "B02", "B03", "B04", "B05")
@@ -272,5 +272,33 @@ def test_text_crossing_border_rejected(tmp_path):
         assert cells[(1, 0)]["capability"]["reasons"] == ["UNSUPPORTED_LAYOUT"]
         assert cells[(1, 1)]["capability"]["reasons"] == ["UNSUPPORTED_LAYOUT"]
         assert cells[(0, 0)]["capability"]["status"] == "support"
+    finally:
+        document.close()
+
+
+def test_text_api_respects_cell_judgement(tmp_path):
+    """U2：plan_text_edit 改到不支援格內（或跨格）的文字時也拒絕；支援格內的文字照常可改。"""
+    row = _row("B06")
+    document = analyzer.open_document(str(visual.FILES / "B06.pdf"))
+    try:
+        target = span.find(document, 0, row["original_text"])
+        plan = edit.plan_text_edit(document, {"target_id": target.span_id, "new_text": "合併欄"})
+        assert not plan["ready"] and plan["unsupported_reasons"] == ["UNSUPPORTED_LAYOUT"]
+        other = span.find(document, 0, "備考")
+        assert edit.plan_text_edit(document, {"target_id": other.span_id, "new_text": "備註"})[
+            "unsupported_reasons"] != ["UNSUPPORTED_LAYOUT"]  # fmt: skip
+    finally:
+        document.close()
+    path = tmp_path / "crossing.pdf"
+    table_pdf(path, [["Item", "Qty"], ["A very long product name", "12"]])
+    document = analyzer.open_document(str(path))
+    try:
+        crossing = span.find(document, 0, "product")
+        plan = edit.plan_text_edit(document, {"target_id": crossing.span_id, "new_text": "produce"})
+        assert plan["unsupported_reasons"] == ["UNSUPPORTED_LAYOUT"]
+        item = span.find(document, 0, "Item")
+        assert edit.plan_text_edit(document, {"target_id": item.span_id, "new_text": "Iten"})[
+            "ready"
+        ]
     finally:
         document.close()

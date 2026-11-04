@@ -207,11 +207,12 @@ def _overlaps(a, b, tol: float = 0.0) -> bool:
 def assess(box: list[float], text_targets: list[dict], reasons: list[str]) -> dict:
     """格內文字分行與能力判定。reasons 為此格已知的拒絕理由（文件層、合併格等）。"""
     reasons = list(reasons)
-    members = []
+    members, touching = [], []
     for target in text_targets:
         bbox = target.get("bbox")
         if not bbox or not _overlaps(bbox, box):
             continue
+        touching.append(target["target_id"])
         if not _inside(bbox, box):
             reasons.append("UNSUPPORTED_LAYOUT")  # 文字跨過格線
             continue
@@ -239,7 +240,7 @@ def assess(box: list[float], text_targets: list[dict], reasons: list[str]) -> di
         reasons.append("UNSUPPORTED_LAYOUT")  # 空白格：只修改既有文字
     unique = list(dict.fromkeys(reasons))
     status = "reject" if unique else "support"
-    return {"lines": out_lines, "empty": not out_lines,
+    return {"lines": out_lines, "empty": not out_lines, "text_ids": touching,
             "capability": {"status": status, "reasons": unique}}  # fmt: skip
 
 
