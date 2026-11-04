@@ -29,10 +29,17 @@
           95.44,
           98.95,
           112.68
-        ]
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
       }
     ],
     "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o23:f:g457e4877e267"
+    ],
     "capability": {
       "status": "support",
       "reasons": []
@@ -68,10 +75,17 @@
           95.44,
           212.3,
           112.68
-        ]
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
       }
     ],
     "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o33:f:g9ea4961a231d"
+    ],
     "capability": {
       "status": "support",
       "reasons": []
@@ -107,10 +121,17 @@
           95.44,
           325.65,
           112.68
-        ]
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
       }
     ],
     "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o43:f:g676d38e15e2b"
+    ],
     "capability": {
       "status": "support",
       "reasons": []
@@ -146,10 +167,17 @@
           118.89,
           98.95,
           136.13
-        ]
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
       }
     ],
     "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o53:f:g7712faf67d55"
+    ],
     "capability": {
       "status": "support",
       "reasons": []
@@ -185,10 +213,17 @@
           118.89,
           200.65,
           136.13
-        ]
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
       }
     ],
     "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o63:f:gef62d00a5fa6"
+    ],
     "capability": {
       "status": "support",
       "reasons": []
@@ -224,10 +259,17 @@
           118.89,
           325.65,
           136.13
-        ]
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
       }
     ],
     "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o73:f:g1c72ef64220d"
+    ],
     "capability": {
       "status": "support",
       "reasons": []
@@ -263,10 +305,17 @@
           142.34,
           98.95,
           159.58
-        ]
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
       }
     ],
     "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o83:f:g46998f7e1fc2"
+    ],
     "capability": {
       "status": "support",
       "reasons": []
@@ -302,10 +351,17 @@
           142.34,
           208.32,
           159.58
-        ]
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
       }
     ],
     "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o93:f:gb26c4ad0129b"
+    ],
     "capability": {
       "status": "support",
       "reasons": []
@@ -341,10 +397,17 @@
           142.34,
           325.65,
           159.58
-        ]
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
       }
     ],
     "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o103:f:g2e33eebd9855"
+    ],
     "capability": {
       "status": "support",
       "reasons": []

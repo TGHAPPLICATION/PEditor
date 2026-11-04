@@ -29,7 +29,11 @@
           108.32,
           166.0,
           119.32
-        ]
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
       },
       {
         "text": "第二行：市府大樓",
@@ -41,10 +45,18 @@
           126.32,
           166.0,
           137.32
-        ]
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
       }
     ],
     "empty": false,
+    "text_ids": [
+      "t:r0:p0:s11.0:o30:f:gf1e3865b5c7a",
+      "t:r0:p0:s11.0:o37:f:g48d32172d506"
+    ],
     "capability": {
       "status": "support",
       "reasons": []
@@ -80,10 +92,17 @@
           108.32,
           333.0,
           119.32
-        ]
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
       }
     ],
     "empty": false,
+    "text_ids": [
+      "t:r0:p0:s11.0:o44:f:g79d315d44d11"
+    ],
     "capability": {
       "status": "support",
       "reasons": []

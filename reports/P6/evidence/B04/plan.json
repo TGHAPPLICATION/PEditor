@@ -1,6 +1,6 @@
 {
-  "plan_id": "267e3b4ab12f1bda",
-  "document_id": "12e2b484304c31ad",
+  "plan_id": "61b96c3f4702c525",
+  "document_id": "e32681e336b0fa7f",
   "preconditions": {
     "sha256": "db65ca0699c0f4a5560aba3b9d07c5203350dbfd1ddc0a39fffda7153eb025cd",
     "revision": 0
@@ -42,7 +42,7 @@
   "font_policy": "replace_with_packaged",
   "allowed_change_mask": [
     185.65,
-    139.5,
+    139.50076377952803,
     298.45,
     162.5
   ],
