@@ -527,16 +527,20 @@ def test_any_drawing_blocks_long_text(kind, tmp_path):
         document.close()
 
 
-@pytest.mark.parametrize("ops", [["56 232 16 7 re f"], ["54 225 22 16 re f"]],
-                         ids=["thick_strike", "highlight"])  # fmt: skip
-def test_fill_over_text_does_not_cut_into_text(ops, tmp_path):
+@pytest.mark.parametrize(
+    "ops,new_text",
+    # 粗刪除線：新文字長過刪除線右緣（刪除線的邊不得把區域裁在文字右緣）；底色塊：在底色範圍內改字
+    [(["56 232 16 7 re f"], "ZZZZ"), (["54 225 22 16 re f"], "ZZ")],
+    ids=["thick_strike", "highlight"],
+)
+def test_fill_over_text_does_not_cut_into_text(ops, new_text, tmp_path):
     """第三輪 S4：7 pt 粗刪除線、文字底色塊不把可改動區域裁進文字裡；在它們範圍內的改字照常可改。"""
     path = tmp_path / "fill.pdf"
     ops_pdf(path, ["0 G 1 w 50 150 300 100 re S", "0.6 g", *ops, "0 g", text(56, 230, "AB")])
     document = analyzer.open_document(str(path))
     try:
         frame = analyzer.inspect_page(document, 0)["cell_targets"][0]
-        plan = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"], "new_text": "ZZ"})
+        plan = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"], "new_text": new_text})
         assert plan["ready"], plan["unsupported_reasons"]
         mask, text_box = plan["allowed_change_mask"], frame["lines"][0]["bbox"]
         assert mask[0] <= text_box[0] and mask[1] <= text_box[1] and mask[3] >= text_box[3]
