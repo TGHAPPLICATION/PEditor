@@ -511,11 +511,11 @@ SYNTHETIC: list[Fixture] = [
             notes="檔案截斷一半（ADR-0007）"),
     Fixture("S02", s02, "pymupdf", "Helvetica", "reject", "ACTIVE_CONTENT",
             notes="OpenAction JavaScript（含 sentinel）；不得執行（ADR-0007）"),
-    Fixture("S03", s03, "pikepdf", "Helvetica", "reject", "RESOURCE_LIMIT",
+    Fixture("S03", s03, "script-p7", "Helvetica", "reject", "RESOURCE_LIMIT",
             notes="解壓膨脹（壓縮炸彈）：內容串流解壓後 128 MB，超過 64 MB 上限（ADR-0024）"),
-    Fixture("S05", s05, "pikepdf", "Helvetica", "reject", "ACTIVE_CONTENT",
+    Fixture("S05", s05, "script-p7", "Helvetica", "reject", "ACTIVE_CONTENT",
             notes="嵌入附件（含 sentinel；ADR-0007）"),
-    Fixture("S06", s06, "pikepdf", "Helvetica", "reject", "ACTIVE_CONTENT",
+    Fixture("S06", s06, "script-p7", "Helvetica", "reject", "ACTIVE_CONTENT",
             notes="Launch 動作（命令含 sentinel）；不得執行（ADR-0007）"),
 ]  # fmt: skip
 

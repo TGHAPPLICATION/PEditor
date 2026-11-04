@@ -94,6 +94,68 @@ def decode(line: bytes) -> dict[str, Any]:
     return message
 
 
+# 主行程直接使用的回應欄位與型別（P7；P1 triage f006、f020、f021）。worker 視為較不可信：
+# 結構不符即視為 worker 異常（終止重啟），不讓畸形值以 KeyError／TypeError 流進主行程。
+_PLAN = {"plan_id": str, "ready": bool, "preconditions": dict, "unsupported_reasons": list}
+RESULT_FIELDS: dict[str, dict[str, type]] = {
+    "open_document": {"document_id": str, "revision": int, "sha256": str, "page_count": int,
+                      "document_flags": dict},
+    "inspect_page": {"page_index": int, "text_targets": list, "image_targets": list,
+                     "cell_targets": list, "capabilities": dict},
+    "assess_editability": {"document": dict, "pages": list},
+    "render_page": {"width": int, "height": int, "png_base64": str},
+    "find_text": {"span_id": str},
+    "plan_text_edit": _PLAN,
+    "plan_image_edit": _PLAN,
+    "plan_cell_edit": _PLAN,
+    "register_asset": {"asset_id": str},
+    "assess_cell_box": {"capability": dict},
+    "apply_edit": {"new_revision": int},
+    "replay": {"new_revision": int},
+    "preview_edit": {"before": dict, "after": dict, "box": list},
+    "export_document": {"output_hash": str},
+    "close_document": {},
+}  # fmt: skip
+MAX_ERROR_MESSAGE = 1000
+
+
+def validate_response(operation: str, response: dict[str, Any], request_id: str) -> None:
+    """worker 回應的結構（不檢查內容語義）；不符即 ProtocolError（呼叫端視為 worker 異常）。"""
+
+    def bad(what: str) -> ProtocolError:
+        return ProtocolError("WORKER_FAILED", f"處理程序回應格式錯誤（{what}）", retryable=True)
+
+    rid = response.get("request_id")
+    if rid is not None and rid != request_id:
+        raise bad("request_id")
+    ok = response.get("ok")
+    if ok is True:
+        result = response.get("result")
+        if not isinstance(result, dict):
+            raise bad("result")
+        for key, kind in RESULT_FIELDS.get(operation, {}).items():
+            value = result.get(key)
+            if not isinstance(value, kind) or (kind is int and isinstance(value, bool)):
+                raise bad(key)
+        if operation in ("plan_text_edit", "plan_image_edit", "plan_cell_edit"):
+            revision = result["preconditions"].get("revision")
+            if not isinstance(revision, int) or isinstance(revision, bool):
+                raise bad("preconditions")
+        return
+    if ok is not False:
+        raise bad("ok")
+    error = response.get("error")
+    if not isinstance(error, dict):
+        raise bad("error")
+    code, message, retryable = error.get("code"), error.get("message"), error.get("retryable")
+    if code not in ERROR_CODES | PROTOCOL_ERROR_CODES:
+        raise bad("code")
+    if not isinstance(message, str) or len(message) > MAX_ERROR_MESSAGE:
+        raise bad("message")
+    if not isinstance(retryable, bool):
+        raise bad("retryable")
+
+
 def validate_request(message: dict[str, Any]) -> None:
     if message.get("protocol_version") != PROTOCOL_VERSION:
         raise ProtocolError("INVALID_REQUEST", "協定版本不符")

@@ -114,6 +114,8 @@ def serve(stdin: BinaryIO, stdout: BinaryIO) -> int:
         try:
             message = decode(line)
             request_id = message.get("request_id")
+            if not isinstance(request_id, str):  # 只回傳字串 id（P7 畸形輸入測試）
+                request_id = None
             if _TEST_HOOKS and str(message.get("operation")).startswith("_"):
                 result = _test_hook(message["operation"], message.get("params", {}))
                 response = {"request_id": request_id, "ok": True, "result": result}

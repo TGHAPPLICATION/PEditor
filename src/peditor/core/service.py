@@ -28,6 +28,7 @@ from peditor.core.protocol import (
     ProtocolError,
     decode,
     encode,
+    validate_response,
 )
 from peditor.core.sandbox import CREATE_SUSPENDED, SandboxError, WorkerJob
 from peditor.export import transaction
@@ -536,13 +537,15 @@ class DocumentService:
             with self._state:
                 self._inflight = request_id
             try:
-                return self._exchange(worker, request_id, encode(message))
+                return self._exchange(worker, request_id, encode(message), operation)
             finally:
                 with self._state:
                     self._inflight = None
                     self._cancelled.discard(request_id)
 
-    def _exchange(self, worker: _WorkerProcess, request_id: str, data: bytes) -> dict:
+    def _exchange(
+        self, worker: _WorkerProcess, request_id: str, data: bytes, operation: str
+    ) -> dict:
         try:
             worker.send(data)
         except OSError:
@@ -564,13 +567,17 @@ class DocumentService:
                 raise ServiceError(
                     "WORKER_FAILED", "處理程序回應格式錯誤", retryable=True
                 ) from None
-            if response.get("request_id") not in (request_id, None):
-                continue
-            if response.get("ok"):
+            if isinstance(response.get("request_id"), str) and response["request_id"] != request_id:
+                continue  # 不是這個請求的回應（例如取消前送出的請求）
+            try:  # 結構不符：worker 異常，終止重啟（P1 triage f006、f020、f021）
+                validate_response(operation, response, request_id)
+            except ProtocolError as exc:
+                self._restart()
+                raise ServiceError(exc.code, exc.message, exc.retryable) from None
+            if response["ok"]:
                 return response["result"]
-            error = response.get("error") or {}
-            raise ServiceError(error.get("code", "WORKER_FAILED"), error.get("message", ""),
-                               bool(error.get("retryable")))  # fmt: skip
+            error = response["error"]
+            raise ServiceError(error["code"], error["message"], error["retryable"])
 
     def _failure(self, request_id: str) -> ServiceError:
         if request_id in self._cancelled:

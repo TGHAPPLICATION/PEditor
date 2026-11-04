@@ -103,6 +103,6 @@ def test_synthetic_rows_are_defined_in_generator(gen_fixtures, available_rows):
     synthetic = {
         r["fixture_id"]
         for r in available_rows
-        if r["generator"] in {"pymupdf", "reportlab", "pymupdf+pikepdf"}
+        if r["generator"] in {"pymupdf", "reportlab", "pymupdf+pikepdf", "script-p7"}
     }
     assert synthetic == set(gen_fixtures.BY_ID)

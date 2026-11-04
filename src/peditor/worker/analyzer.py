@@ -478,7 +478,8 @@ def _analyze_page(document: Document, page_index: int) -> dict:
     if any(e.startswith("limit:") for e in content.errors):
         # 超過工作量上限：不再交給 MuPDF 擷取（同一份內容會讓 MuPDF 做相同的放大工作）
         document.runs[page_index] = ([], {})
-        return _page_result(page_index, geom, [], [], 0, [*doc_reasons, "RESOURCE_LIMIT"])
+        result = _page_result(page_index, geom, [], [], 0, [*doc_reasons, "RESOURCE_LIMIT"])
+        return {**result, "notices": []}
     grid = _chars(mu_page)
     rev = document.revision
 

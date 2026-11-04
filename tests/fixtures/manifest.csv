@@ -54,9 +54,9 @@ U05,U 特殊文件,efafa7109d1908d692d6d2b2fbaebfa93be6f6385feed035428e93b68d0fd
 U06,U 特殊文件,,other,,,reject,UNSUPPORTED_FEATURE,0,,,,,,,true,offline,pending,,盲測；XFA 表單；保管人確認無法製作（ADR-0012）
 S01,S 損毀與惡意,211847644e7d3182ff014226a55f6b7d7bf2942852785a269a062ed7146f677e,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Droid Sans Fallback,reject,MALFORMED_DOCUMENT,0,,,,,,,false,repo,available,10,檔案截斷一半（ADR-0007）
 S02,S 損毀與惡意,88e4c27ba76f9b8b8ebddb467472921aa7dc9e88083666f94b99f5583972df30,pymupdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Helvetica,reject,ACTIVE_CONTENT,0,,,,,,,false,repo,available,0,OpenAction JavaScript（含 sentinel）；不得執行（ADR-0007）
-S03,S 損毀與惡意,8f5cbf6df7a797463b0da333eda508311170d5ae70e4cc372625e0daba099151,pikepdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Helvetica,reject,RESOURCE_LIMIT,0,,,,,,,false,repo,available,0,解壓膨脹（壓縮炸彈）：內容串流解壓後 128 MB，超過 64 MB 上限（ADR-0024）
+S03,S 損毀與惡意,8f5cbf6df7a797463b0da333eda508311170d5ae70e4cc372625e0daba099151,script-p7,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Helvetica,reject,RESOURCE_LIMIT,0,,,,,,,false,repo,available,0,解壓膨脹（壓縮炸彈）：內容串流解壓後 128 MB，超過 64 MB 上限（ADR-0024）
 S04,S 損毀與惡意,,script-p7,,,reject,RESOURCE_LIMIT,0,,,,,,,false,repo,pending,,深層巢狀物件，P7 產生
-S05,S 損毀與惡意,1ea4c88f4f759315d38ad29726ae27d55a57a492940231715a485c936a27cd23,pikepdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Helvetica,reject,ACTIVE_CONTENT,0,,,,,,,false,repo,available,0,嵌入附件（含 sentinel；ADR-0007）
-S06,S 損毀與惡意,c9eadedcf5e38a4e279a1c294c0d5af07193b682455c9a2e3de98448cb4fbd97,pikepdf,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Helvetica,reject,ACTIVE_CONTENT,0,,,,,,,false,repo,available,0,Launch 動作（命令含 sentinel）；不得執行（ADR-0007）
+S05,S 損毀與惡意,1ea4c88f4f759315d38ad29726ae27d55a57a492940231715a485c936a27cd23,script-p7,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Helvetica,reject,ACTIVE_CONTENT,0,,,,,,,false,repo,available,0,嵌入附件（含 sentinel；ADR-0007）
+S06,S 損毀與惡意,c9eadedcf5e38a4e279a1c294c0d5af07193b682455c9a2e3de98448cb4fbd97,script-p7,pymupdf 1.28.2; reportlab 5.0.1; pikepdf 10.14.0,Helvetica,reject,ACTIVE_CONTENT,0,,,,,,,false,repo,available,0,Launch 動作（命令含 sentinel）；不得執行（ADR-0007）
 S07,S 損毀與惡意,,script-p7,,,reject,MALFORMED_DOCUMENT,0,,,,,,,true,offline,pending,,盲測
 S08,S 損毀與惡意,,script-p7,,,reject,RESOURCE_LIMIT,0,,,,,,,true,offline,pending,,盲測
