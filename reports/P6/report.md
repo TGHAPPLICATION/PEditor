@@ -7,7 +7,7 @@
 
 - 階段：P6　分支：`p6-table-cells`　commit：`4cc46d1`（核心：格線推估、cell_targets、plan_cell_edit、格線不變驗證）、
   `81048cc`（UI 與服務層測試）、`c23e1f3`（ADR-0023、證據包與產生腳本 `scripts/p6_evidence.py`）、`2030145`（格線變動偵測測試）、
-  `edfe9c8`（跨格文字測試）、`d6438e0`（格線交會判定上限）、`bcdb0e0`（U2：文字層 API 也遵守格判定）、`5f01555`、`c2bd36a`（第一輪核對 Q1–Q4）、`34479a3`、`891c292`、`61ecba2`（第二輪核對 R1–R3）、`c438064`、`222d4ff`、`56dfe3b`（第三輪核對 S1–S5）　日期：2026-11-03～11-04
+  `edfe9c8`（跨格文字測試）、`d6438e0`（格線交會判定上限）、`bcdb0e0`（U2：文字層 API 也遵守格判定）、`5f01555`、`c2bd36a`（第一輪核對 Q1–Q4）、`34479a3`、`891c292`、`61ecba2`（第二輪核對 R1–R3）、`c438064`、`222d4ff`、`56dfe3b`（第三輪核對 S1–S5）、`aaec696`（第四輪核對 T1–T4）　日期：2026-11-03～11-04
 - 只改報告、traceability、THREAT_MODEL 或 CI 紀錄的 commit 依 P4 慣例不列。
 - 撰寫：Claude Code；審查：待工程師；獨立核對：待（CLAUDE.md：由未參與實作的子代理人核對）
 - 輸入：spec v1.1 P6／G6／§4／§7／§8、ADR-0001～0022（重點 ADR-0013 的 B06 延後項目）、manifest B01–B08、
@@ -34,7 +34,7 @@
 ## 3. 需求 → test ID → fixture／hash → 結果
 
 fixture hash（前 12 碼）：B01 `1a409bb195b5`、B02 `7861dc6039a9`、B03 `74bd86c71d2c`、B04 `db65ca0699c0`、B05 `e6cb11e5a755`、B06 `ef732af2d87c`。
-「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝run [41773028292](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41773028292)（commit `2ae6716`）windows-latest 466 passed、macos-15 466 passed。
+「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝CI 待補（第四輪核對處理後推送）。
 
 | 需求 ID | test ID | fixture | 本機 | CI |
 | --- | --- | --- | --- | --- |
@@ -58,12 +58,13 @@ uv run pytest -q                                        → exit 0，440 passed�
 uv run pytest -q                                        → exit 0，445 passed（Windows 製作機，c2bd36a，第一輪核對補 5 項）
 uv run pytest -q                                        → exit 0，455 passed（Windows 製作機，34479a3，第二輪核對補 10 組）
 uv run pytest -q                                        → exit 0，466 passed（Windows 製作機，222d4ff，第三輪核對補 11 組）
+uv run pytest -q                                        → exit 0，476 passed（Windows 製作機，aaec696，第四輪核對補 10 組）
 uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 ```
 
-- P6 新增 60 項測試：`test_edit_cell.py` 45 項（含參數化 37 組）、`test_table_grid.py` 9 項（參數化 3 組）、`test_cell_service.py` 3 項、`test_cell_ui.py` 3 項。
+- P6 新增 70 項測試：`test_edit_cell.py` 55 項（含參數化 46 組）、`test_table_grid.py` 9 項（參數化 3 組）、`test_cell_service.py` 3 項、`test_cell_ui.py` 3 項。
   既有測試只改 `test_analyzer.py`：B06 移出 `DEFERRED`，B 組加驗目標格（收緊，沒有放寬預期）；P5 既有 406 項全數通過。
-- **反向驗證**（repo 外的臨時腳本；工作區先提交乾淨，逐一改壞實作、跑對應測試、再以 `git checkout` 還原）：32 項中 31 項被測試抓到，M29 沒有（見表後說明）（M14 為 U2 處理後補做，M15–M20 為第一輪、M21–M26 為第二輪、M27–M32 為第三輪核對處理後補做）——
+- **反向驗證**（repo 外的臨時腳本；工作區先提交乾淨，逐一改壞實作、跑對應測試、再以 `git checkout` 還原）：37 項中 36 項被測試抓到，M29 沒有（見表後說明）（M14 為 U2 處理後補做，M15–M20 為第一輪、M21–M26 為第二輪、M27–M32 為第三輪、M33–M37 為第四輪核對處理後補做）——
 
   | # | 改壞的內容 | 失敗的測試 |
   | --- | --- | --- |
@@ -99,18 +100,24 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
   | M30 | 與文字重疊的填色形狀不略過（S4 修正前） | `test_fill_over_text_does_not_cut_into_text[thick_strike]`（第一次沒抓到：新文字太短沒碰到刪除線右緣，改成較長的新文字（`56dfe3b`）後重做抓到） |
   | M31 | 沒有底線區（底線、填空線也擋） | `test_underline_and_nearby_lines_do_not_block` 2 組（延伸到右邊的底線、填空線） |
   | M32 | 斜邊不計線寬 | `test_any_drawing_blocks_long_text[thick_diagonal_outside]` |
+  | M33 | 墨跡門檻回到 48 | `test_faint_hidden_and_tight_lines_block_long_text` 2 組（淡灰、淡紅影像） |
+  | M34 | 不裁註解範圍 | 同上 3 組（圖層 OFF、只在列印顯示、緊貼文字的註解）、`test_annotation_over_text_rejects_and_link_does_not_block` |
+  | M35 | 不認緊貼文字的直線 | 同上 `[image_in_margin]` |
+  | M36 | 渲染最外圈也看（T4 修正前） | `test_text_near_border_can_grow` 2 組 |
+  | M37 | 連結註解也當障礙 | `test_annotation_over_text_rejects_and_link_does_not_block` |
 
 - 第一次在 `d6438e0` 跑全套時超過 600 秒，被 Claude Code 因系統記憶體不足終止（無輸出、不是測試失敗）；2026-11-04 重跑 163 秒、439 passed。
 - Q4 第一版檢查區域內所有障礙線，L03 的 8 項既有測試失敗（manifest 區域是字形外框，上下碰到紅框的水平線）；改為只檢查垂直線（直立文字只沿基線延伸）後通過（`c2bd36a`）。
 - 第二輪核對處理後第一次反向驗證，M22–M25 沒被抓到：測試樣本不夠嚴（曲線兩端點本身就連成垂直線、新文字與原文共用開頭使改字起點不受左邊界影響）、M23 的改法本身無效、M24 只拿掉一處而另兩處仍會擋；改用往上凸的曲線與整段替換（`891c292`）、修正改法後重做，全部抓到。重做時一度因改動字串不符，cell.py 的暫時改動沒有還原，發現後以 `git checkout` 還原並確認工作區乾淨。
 - 第二輪核對者的樣本（c00–c18、d01–d08）以處理後的程式重跑：R1、R2 的樣本長字溢出或拒絕；R3 的 d01–d03、c16、c18 可改，與 `8e1b844` 結果相同（c15 在 `8e1b844` 也拒絕：框內只畫了一半的線使整個框成為合併格，屬結構判定）。
 - 第三輪核對處理：`test_lines_drawn_any_way_block_region[curve]` 的預期由 `TEXT_OVERFLOW` 改為 `UNSUPPORTED_LAYOUT`：曲線改為細分折線後，往上凸的曲線穿過該行區域成為斜邊，依 ADR-0023 §2 整行拒絕（行為改變，不是放寬）。第三輪核對者的探針樣本（`probe.py` 13 組、`probe_r3.py` 8 組）以處理後的程式重跑：S1–S3 的長字全部被擋；7 pt 粗刪除線、延伸到右邊的底線、填空線可改；底色塊、比文字長的粗刪除線、文字右側基線高度的 0 寬線、文字內的小直線仍擋（§9 U6）。修改測試時一度以正規表示式誤刪一大段測試（未提交），以 `git checkout` 還原後改用精準替換。
+- 第四輪核對處理：M34 的半透明註解（`[annot_transparent]`）沒有單獨被抓到——拿掉註解範圍後，`/CA 0.15` 的黑線與底色相差約 38，仍超過新門檻 24，由墨跡檢查擋下（同 M29 的多一層防護）。
 - 本機 pytest 收集階段會印出一次 `Windows fatal exception: access violation`（`pypdfium2` 載入時 faulthandler 回報已處理的例外，P5 報告 §4 已查明，與本段無關）。
-- CI：run [41773028292](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41773028292)（commit `2ae6716`）windows-latest 466 passed、macos-15 466 passed；先前 run [41767780036](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41767780036)（commit `85c7273`）windows-latest 455 passed、macos-15 455 passed（第三輪核對處理前）；run [41763225080](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41763225080)（commit `ee23f84`）windows-latest 445 passed、macos-15 445 passed（第二輪核對處理前）；run [41758086017](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41758086017)（commit `75a804f`）windows-latest 440 passed、macos-15 440 passed（第一輪核對處理前）；run [41757007669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41757007669)（commit `37b9767`）windows-latest 439 passed、macos-15 439 passed（U2 前，只作歷史紀錄）。
+- CI：CI 待補（第四輪核對處理後推送）；先前 run [41782916232](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41782916232)（commit `477c058`）、run [41773442853](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41773442853)（commit `6590885`）只改報告，雙平台 466 passed（第四輪核對 T8 補列）；run [41773028292](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41773028292)（commit `2ae6716`）windows-latest 466 passed、macos-15 466 passed（第三輪核對處理後）；run [41767780036](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41767780036)（commit `85c7273`）windows-latest 455 passed、macos-15 455 passed（第三輪核對處理前）；run [41763225080](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41763225080)（commit `ee23f84`）windows-latest 445 passed、macos-15 445 passed（第二輪核對處理前）；run [41758086017](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41758086017)（commit `75a804f`）windows-latest 440 passed、macos-15 440 passed（第一輪核對處理前）；run [41757007669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41757007669)（commit `37b9767`）windows-latest 439 passed、macos-15 439 passed（U2 前，只作歷史紀錄）。
 
 ## 5. 真修改證據
 
-證據包 `reports/P6/evidence/`（`scripts/p6_evidence.py` 於 `c2bd36a` 重產（第一輪核對 Q6），`61ecba2` 再重產（第二輪核對處理後，只有隨機值與浮點尾數不同），`56dfe3b` 再重產（第三輪核對處理後：墨跡檢查以像素為單位，可改動區域縮小約 0.3 pt）；`output.pdf` 不入庫，SHA-256 記於 `summary.json`，trailer `/ID` 隨機，重產後雜湊不同）。
+證據包 `reports/P6/evidence/`（`scripts/p6_evidence.py` 於 `c2bd36a` 重產（第一輪核對 Q6），`61ecba2` 再重產（第二輪核對處理後，只有隨機值與浮點尾數不同），`56dfe3b` 再重產（第三輪核對處理後：墨跡檢查以像素為單位，可改動區域縮小約 0.3 pt），`aaec696` 處理後再重產（第四輪核對 T4：渲染最外圈不看，可改動區域回到向量裁切的邊界，放大約 0.1–0.4 pt）；`output.pdf` 不入庫，SHA-256 記於 `summary.json`，trailer `/ID` 隨機，重產後雜湊不同）。
 每案以 manifest 原文／新文改目標格中含原文的那一行；B06 拒絕。
 
 | 案例 | 目標格（列, 欄, 跨列, 跨欄） | 行 | 模式 | 格線 | 其他格與同格其他行 | 遮罩外差異（MuPDF／PDFium） | 其他格超標像素 | 擷取目標格 |
@@ -162,11 +169,12 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 | U3 | 同一行模式 B 改過後無法再改同一行（P2 限制） | 需先復原再改 | **接受**（工程師 2026-11-04） |
 | U4 | 格線偵測只認水平、垂直線；Form 內與旋轉表格不偵測 | 這類表格不自動偵測；文字在頁面層級時可用人工選格（框選會檢查 Form 內的線，第一輪核對 Q2）；文字也在 Form 內時文字本身即不支援 | **接受**（工程師 2026-11-04；不在 MVP 範圍） |
 | U6 | 第三輪核對處理後的保守行為（ADR-0023 §2、後果）：(a) 底色塊、比文字長的刪除線讓新文字不能長過它們（`8e1b844` 時可以）；(b) 曲線、斜線穿過該行的區域即整行拒絕（圓角框、斜線表頭的格不能改）；(c) 人工框選的判定只用向量，墨跡檢查在規劃時才做；(d) 文字範圍內的非文字墨跡無法和字形區分；(e) MuPDF 渲染空白的 7 份檔只有向量判斷 | 可改的範圍比 `8e1b844` 小；(d)(e) 為殘餘 | **(a)(b)(c) 接受、(d)(e) 列殘餘**（工程師 2026-11-04；ADR-0023 後果、THREAT_MODEL T11 已列） |
+| U7 | 第四輪核對處理後的保守行為：除 Link、Popup 外的註解範圍與文字重疊即該行拒絕（螢光筆、包住整格的方框註解、蓋在文字上的表單欄位），不看註解是否顯示 | 這類格不能改；原本可改 | 待工程師決定 |
 | U5 | 儲存格 UI 只有 offscreen 證據 | 實機行為未驗證 | **併入 P8 實機驗收**（工程師 2026-11-04） |
 
 ## 10. 關卡結果
 
-- **關卡結果：BLOCKED**。G6-01～G6-07 本機全部通過，反向驗證 32 項中 31 項被抓到（M29 由墨跡檢查兜底，§4）；run [41773028292](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41773028292)（commit `2ae6716`）windows-latest 466 passed、macos-15 466 passed；U1–U6 已由工程師決定並處理（§9）；已經三輪獨立核對（§11），第一輪 Q1–Q8、第二輪 R1–R3、第三輪 S1–S6 已處理；工程師決定再做第四輪獨立核對（聚焦墨跡檢查），關卡結果於第四輪後決定。
+- **關卡結果：BLOCKED**。G6-01～G6-07 本機全部通過，反向驗證 37 項中 36 項被抓到（M29 由墨跡檢查兜底，§4）；CI 待補（第四輪核對處理後推送）；U1–U6 已由工程師決定並處理、U7 待工程師決定（§9）；已經四輪獨立核對（§11），第一輪 Q1–Q8、第二輪 R1–R3、第三輪 S1–S6、第四輪 T1–T8 已處理；工程師決定做範圍很小的第五輪核對（只確認 T1–T4 修正本身），關卡結果於第五輪後決定。
 - **下一段可開始：否**（條件：工程師決定並更新本節）。
 
 ## 11. 獨立核對紀錄
@@ -228,11 +236,11 @@ CI run 41763225080（`ee23f84`）、41763722255（`d62002c`）雙平台 445 pass
 
 | # | 內容 | 處理 |
 | --- | --- | --- |
-| T1（must-fix，或列殘餘） | 淡色、半透明的線不算墨跡（`INK_TOL = 48`）：以註解外觀畫的灰 0.82、淡紅、黑線加 `/CA 0.15` 的直線，長字 ready、另存通過，新文字穿過線（向量畫的淺灰線本來就會被向量判斷擋下） | 待工程師決定 |
-| T2（must-fix） | MuPDF 不畫、其他閱讀器或列印會出現的內容：註解帶 `/OC`（OCG 預設 OFF）、註解 `F=36`（NoView＋Print），墨跡檢查看不到，長字 ready、另存通過，PDFium 一般渲染或列印渲染可見新字壓過黑線；不屬已列殘餘 (e) | 待工程師決定 |
-| T3（should-fix） | 文字外框外擴 1 pt 內的直線（以註解或 inline image 畫、從格頂到格底）不算墨跡，新字穿過；向量畫的同樣線會被裁；不屬已列殘餘 (d)（那是文字範圍內） | 待工程師決定 |
-| T4（should-fix） | L03 回歸（過度拒絕）：文字外框貼近紅框內緣，紅框反鋸齒落在渲染範圍第 0 列與最後一列，左右掃描把每一欄都當成墨跡，右界被裁在文字右緣＋1 pt；L03 格內加長 1 字或 3 字在 `8e1b844` ready、現在 `TEXT_OVERFLOW`，UI 也改不了；文字貼近格線的格都會中 | 待工程師決定 |
-| T5（備查） | 底線區的墨跡與向量判斷不一致：從下方伸進文字下方 1/4 的直條，以 inline image 畫時不擋、以向量畫時擋；底線區的小方塊不擋（符合 S5 設計，但可能壓到下伸部） | 待工程師決定 |
-| T6（備查） | 曲線細分讓表格偵測上限更早觸發：任意位置有隨機曲線時，`8e1b844` 20,000 條仍偵測得到，HEAD 約 6,000 條（7,000 條）即無格；建議 ADR 補實際數字 | 待工程師決定 |
-| T7（備查） | 效能：每次 `plan_cell_edit` fixture 平均 27 ms（最大 109 ms）、整頁大影像 0.15–0.19 s；`preview_edit` 1.21 s；大影像頁重播 40 筆儲存格編輯 HEAD 36.0 s、`8e1b844` 29.8 s，兩者都達到或超過 30 秒逾時（主因每筆 reopen，既有問題；墨跡檢查多約 20%），replay 沒有筆數上限 | 待工程師決定 |
-| T8（備查） | 報告只引用到 run 41773028292（`2ae6716`），之後 41773442853、41782916232 未列；本機 466 passed 記在 `222d4ff`，`56dfe3b` 改測試參數後本機未重跑（CI 有涵蓋） | 待工程師決定 |
+| T1（must-fix，或列殘餘） | 淡色、半透明的線不算墨跡（`INK_TOL = 48`）：以註解外觀畫的灰 0.82、淡紅、黑線加 `/CA 0.15` 的直線，長字 ready、另存通過，新文字穿過線（向量畫的淺灰線本來就會被向量判斷擋下） | 工程師決定全部照建議處理（2026-11-04）。`aaec696`：註解範圍一律當障礙（不靠渲染）；墨跡門檻 48 → 24；與底色相差 ≤24 的極淡線條列殘餘（ADR-0023 後果、THREAT_MODEL T11）；測試 `test_faint_hidden_and_tight_lines_block_long_text`（淡灰、淡紅影像、半透明註解；M33、M34） |
+| T2（must-fix） | MuPDF 不畫、其他閱讀器或列印會出現的內容：註解帶 `/OC`（OCG 預設 OFF）、註解 `F=36`（NoView＋Print），墨跡檢查看不到，長字 ready、另存通過，PDFium 一般渲染或列印渲染可見新字壓過黑線；不屬已列殘餘 (e) | `aaec696`：除 Link、Popup 外所有註解的範圍不看旗標與 /OC 一律當障礙，與文字重疊即拒絕；測試同上 `[annot_oc_off]`、`[annot_print_only]`、`test_annotation_over_text_rejects_and_link_does_not_block`（M34、M37）；新增保守行為列 §9 U7 |
+| T3（should-fix） | 文字外框外擴 1 pt 內的直線（以註解或 inline image 畫、從格頂到格底）不算墨跡，新字穿過；向量畫的同樣線會被裁；不屬已列殘餘 (d)（那是文字範圍內） | `aaec696`：外擴 1 pt 內墨跡佔文字列至少一半、又延伸到文字列外的欄當作直線；註解畫的由註解範圍擋；測試 `[image_in_margin]`、`[annot_in_margin]`（M35、M34） |
+| T4（should-fix） | L03 回歸（過度拒絕）：文字外框貼近紅框內緣，紅框反鋸齒落在渲染範圍第 0 列與最後一列，左右掃描把每一欄都當成墨跡，右界被裁在文字右緣＋1 pt；L03 格內加長 1 字或 3 字在 `8e1b844` ready、現在 `TEXT_OVERFLOW`，UI 也改不了；文字貼近格線的格都會中 | `aaec696`：渲染範圍最外圈的列與欄不看；L03 格內加長 1 字、3 字恢復可改（與 `8e1b844` 相同）；測試 `test_text_near_border_can_grow`（M36） |
+| T5（備查） | 底線區的墨跡與向量判斷不一致：從下方伸進文字下方 1/4 的直條，以 inline image 畫時不擋、以向量畫時擋；底線區的小方塊不擋（符合 S5 設計，但可能壓到下伸部） | ADR-0023 後果、THREAT_MODEL T11 註明底線區可能壓到下伸部 |
+| T6（備查） | 曲線細分讓表格偵測上限更早觸發：任意位置有隨機曲線時，`8e1b844` 20,000 條仍偵測得到，HEAD 約 6,000 條（7,000 條）即無格；建議 ADR 補實際數字 | ADR-0023 §1 補實際數字（約 6,000 條） |
+| T7（備查） | 效能：每次 `plan_cell_edit` fixture 平均 27 ms（最大 109 ms）、整頁大影像 0.15–0.19 s；`preview_edit` 1.21 s；大影像頁重播 40 筆儲存格編輯 HEAD 36.0 s、`8e1b844` 29.8 s，兩者都達到或超過 30 秒逾時（主因每筆 reopen，既有問題；墨跡檢查多約 20%），replay 沒有筆數上限 | THREAT_MODEL T5 註明重播耗時與 30 秒逾時（同 P3 f008），列 P7 |
+| T8（備查） | 報告只引用到 run 41773028292（`2ae6716`），之後 41773442853、41782916232 未列；本機 466 passed 記在 `222d4ff`，`56dfe3b` 改測試參數後本機未重跑（CI 有涵蓋） | §4 CI 補列 41773442853、41782916232；本機於 `aaec696` 重跑全套 |

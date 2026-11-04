@@ -1,6 +1,6 @@
 {
-  "plan_id": "15dadd92cccbc805",
-  "document_id": "67f9f95d5706db6c",
+  "plan_id": "6491e4e4ccedc079",
+  "document_id": "0461bb80f1b9de44",
   "preconditions": {
     "sha256": "e6cb11e5a75593aef6c35c08729582035677cf6bc131135bf692c143efead2e2",
     "revision": 0
@@ -41,10 +41,10 @@
   "mode": "B",
   "font_policy": "replace_with_packaged",
   "allowed_change_mask": [
-    373.44,
+    373.15001,
     180.98,
-    522.7199999999999,
-    216.95999999999998
+    522.94,
+    217.0999999999999
   ],
   "geometry": {
     "baseline_start": [
