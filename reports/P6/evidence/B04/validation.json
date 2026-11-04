@@ -1,7 +1,7 @@
 {
-  "output_hash": "cee30881ec824c5524fd1e109a10b4bc0999f217d582ff025ad59995a1c2043c",
+  "output_hash": "4b40535e212d65abd4d380c75291b16cd0d989f577cbaabbc6c94d9f50f76e87",
   "validation_report": {
-    "sha256": "cee30881ec824c5524fd1e109a10b4bc0999f217d582ff025ad59995a1c2043c",
+    "sha256": "4b40535e212d65abd4d380c75291b16cd0d989f577cbaabbc6c94d9f50f76e87",
     "qpdf_baseline": 0,
     "qpdf_output": 0,
     "qpdf_new_problems": [],

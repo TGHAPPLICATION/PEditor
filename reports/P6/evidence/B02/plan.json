@@ -1,6 +1,6 @@
 {
-  "plan_id": "6cee379026b6b358",
-  "document_id": "2004aa33874e4170",
+  "plan_id": "f77a6764126e0c7b",
+  "document_id": "1ecf6e0780e8f80c",
   "preconditions": {
     "sha256": "7861dc6039a9f302553a34d6c36a9311372f10fb9573bb67f1d549eb464ac3ed",
     "revision": 0
@@ -43,8 +43,8 @@
   "allowed_change_mask": [
     72.5,
     122.82,
-    271.5,
-    159.5
+    271.2,
+    159.35999999999999
   ],
   "geometry": {
     "baseline_start": [
