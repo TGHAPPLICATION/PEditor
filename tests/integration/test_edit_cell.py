@@ -15,7 +15,7 @@ import pymupdf
 import pypdfium2
 import pytest
 import visual
-from cell_samples import cell_box, table_pdf
+from cell_samples import cell_box, ops_pdf, table_pdf, text
 
 from peditor.core.protocol import ProtocolError
 from peditor.worker import analyzer, cell, edit, export, span, table
@@ -100,8 +100,8 @@ def test_all_supported_cell_cases(fid, tmp_path):
     assert plan["mode"] in ("A", "B") and plan["target"]["cell"]["cell_id"] == target["cell_id"]
     assert all(c["page_index"] == 0 for c in report["content_changes"])
     texts = _texts_in(output, target["inner_bbox"])
-    for engine, text in texts.items():
-        assert row["new_text"] in text and row["original_text"] not in text, (engine, text)
+    for engine, extracted in texts.items():
+        assert row["new_text"] in extracted and row["original_text"] not in extracted, engine
     mask = visual.mask_pixels(original, 0, region)
     for engine in visual.engines(fid):
         stats = visual.diff_stats(visual.render(engine, original), visual.render(engine, output),
@@ -300,5 +300,119 @@ def test_text_api_respects_cell_judgement(tmp_path):
         assert edit.plan_text_edit(document, {"target_id": item.span_id, "new_text": "Iten"})[
             "ready"
         ]
+    finally:
+        document.close()
+
+
+FRAME = "0 G 1 w 30 60 340 180 re S"  # 外框：PDF 空間 x 30–370、y 60–240（頁面空間 y 60–240）
+INNER_LAYOUTS = {
+    # 外框內右側一排空白數字格（不碰外框）：身分證字號格
+    "id_boxes": ["200 170 m 350 170 l S", "200 200 m 350 200 l S"]
+    + [f"{x} 170 m {x} 200 l S" for x in (200, 230, 260, 290, 320, 350)],
+    # 外框內右側另一個 2×2 表格
+    "nested_table": ["200 120 m 350 120 l S", "200 160 m 350 160 l S", "200 200 m 350 200 l S",
+                     "200 120 m 200 200 l S", "275 120 m 275 200 l S", "350 120 m 350 200 l S"],
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("layout", sorted(INNER_LAYOUTS))
+def test_frame_with_inner_lines_clips_region(layout, tmp_path):
+    """Q1：外框格內還有其他格線時，可改動區域裁到不碰那些線；新文字不能畫進內層格。"""
+    path = tmp_path / f"{layout}.pdf"
+    ops_pdf(path, [FRAME, *INNER_LAYOUTS[layout], text(40, 180, "ID No.")])
+    document = analyzer.open_document(str(path))
+    try:
+        page = analyzer.inspect_page(document, 0)
+        frame = next(c for c in page["cell_targets"] if c["bbox"][0] == 30)
+        assert [line["text"] for line in frame["lines"]] == ["ID No."]
+        long_text = "ID No. (national identification card number)"  # 會越過 x=200 的內層格線
+        plan = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"], "new_text": long_text})
+        assert plan["unsupported_reasons"] == ["TEXT_OVERFLOW"]
+        plan = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"], "new_text": "ID No. 2"})
+        assert plan["ready"] and plan["allowed_change_mask"][2] <= 200 - 0.5
+        edit.apply_edit(document, plan["plan_id"], 0)
+        report = export.export_document(document, str(tmp_path / "out.pdf"))["validation_report"]
+        assert report["ok"], report["failures"]
+    finally:
+        document.close()
+
+
+def test_manual_box_sees_form_lines(tmp_path):
+    """Q2：格線畫在 Form 內、文字在頁面層級：框選跨過 Form 內的線拒絕；
+    另存前比對含 Form 內的線。"""
+    form = ["0 G 1 w 50 250 m 350 250 l S", "50 220 m 350 220 l S", "50 250 m 50 220 l S",
+            "150 250 m 150 220 l S", "350 250 m 350 220 l S"]  # fmt: skip
+    path = tmp_path / "form_lines.pdf"
+    ops_pdf(path, ["q /Fm0 Do Q", text(56, 230, "Pen"), text(156, 230, "12")], form)
+    document = analyzer.open_document(str(path))
+    try:
+        assert analyzer.inspect_page(document, 0)["cell_targets"] == []  # Form 內的線不偵測格
+        across = [52, 52, 348, 78]
+        assert cell.assess_cell_box(document, {"cell_box": across, "page_index": 0})[
+            "capability"]["reasons"] == ["UNSUPPORTED_LAYOUT"]  # fmt: skip
+        left = [52, 52, 148, 78]
+        assert cell.assess_cell_box(document, {"cell_box": left, "page_index": 0})[
+            "capability"]["status"] == "support"  # fmt: skip
+        plan = cell.plan_cell_edit(document, {"cell_box": left, "page_index": 0, "new_text": "Ink"})
+        assert plan["ready"]
+        edit.apply_edit(document, plan["plan_id"], 0)
+        dest = tmp_path / "out.pdf"
+        assert export.export_document(document, str(dest))["validation_report"]["ok"]
+        with pikepdf.open(dest) as pdf:
+            form_stream = pdf.pages[0].Resources.XObject.Fm0
+            form_stream.write(form_stream.read_bytes().replace(b"1 w", b"2 w", 1))
+            buf = io.BytesIO()
+            pdf.save(buf)
+        assert export.rules_check(document, buf.getvalue()) == [0]
+    finally:
+        document.close()
+
+
+def test_frame_keeps_previous_text_edits(tmp_path):
+    """Q3：頁框內有一段旋轉文字時只擋那一行，其他文字（main 上可改）仍可改；
+    同一行間距大的兩段文字分成兩個片段，各自可改。"""
+    path = tmp_path / "frame.pdf"
+    ops_pdf(path, ["0 G 1 w 20 20 360 260 re S", text(40, 250, "Title"), text(40, 200, "Body"),
+                   text(0, 0, "Side", "0 1 -1 0 360 100"), text(40, 150, "Left"),
+                   text(300, 150, "Right")])  # fmt: skip
+    document = analyzer.open_document(str(path))
+    try:
+        frame = analyzer.inspect_page(document, 0)["cell_targets"][0]
+        assert frame["capability"]["status"] == "support"
+        by_text = {line["text"]: i for i, line in enumerate(frame["lines"])}
+        assert {"Title", "Body", "Side", "Left", "Right"} <= set(by_text)
+        assert frame["lines"][by_text["Side"]]["capability"]["status"] == "reject"
+        title = span.find(document, 0, "Title")
+        assert edit.plan_text_edit(document, {"target_id": title.span_id, "new_text": "Tytle"})[
+            "ready"
+        ]
+
+        def plan(name, new):
+            params = {"cell_id": frame["cell_id"], "line_index": by_text[name], "new_text": new}
+            return cell.plan_cell_edit(document, params)
+
+        for name, new in (("Title", "Tytle"), ("Right", "Rigid")):
+            assert plan(name, new)["ready"], name
+        left_box = frame["lines"][by_text["Left"]]["bbox"]
+        assert plan("Right", "Rigid")["allowed_change_mask"][0] > left_box[2]  # 不含同列左邊的片段
+        assert not plan("Side", "Sides")["ready"]
+    finally:
+        document.close()
+
+
+def test_text_api_region_cannot_cross_borders():
+    """Q4：plan_text_edit 由呼叫端給的可改動區域有格線穿過時拒絕；
+    manifest 的格範圍（線在邊上）照常。"""
+    row = _row("B01")
+    document = analyzer.open_document(str(visual.FILES / "B01.pdf"))
+    try:
+        target = span.find(document, 0, row["original_text"])
+        whole = [72.0, 100.0, 522.0, 190.0]
+        plan = edit.plan_text_edit(document, {"target_id": target.span_id, "new_text": "21",
+                                              "editable_region": whole})  # fmt: skip
+        assert plan["unsupported_reasons"] == ["UNSUPPORTED_LAYOUT"]
+        region = _floats(row["editable_region_pt"])
+        assert edit.plan_text_edit(document, {"target_id": target.span_id, "new_text": "21",
+                                              "editable_region": region})["ready"]  # fmt: skip
     finally:
         document.close()

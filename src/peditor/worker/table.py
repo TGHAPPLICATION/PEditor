@@ -8,12 +8,14 @@
 - 格內文字：文字目標完整落在格內緣以內者屬於該格，依垂直位置分行；跨過格線的文字使該格拒絕；
   空白格拒絕（只修改既有文字，ADR-0023 §2）。
 - 人工選格：使用者框選的範圍不能有線穿過、不能跨多個已偵測的格或碰到合併格，其餘判定同上。
+- 障礙線（P6 核對 Q1、Q2）：頁面與 Form 內所有水平、垂直線段，以及厚度 ≤6 pt 的細長填色矩形。
+  格的偵測只用頁面層級的格線；可改動區域裁到不碰任何障礙線，人工框選與另存前比對也用障礙線。
 """
 
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from peditor.core.geometry import Matrix, apply
 from peditor.core.limits import MAX_RULE_PAIRS, MAX_TABLE_CELLS
@@ -22,6 +24,7 @@ from peditor.worker.content import PageContent
 MAX_THICKNESS = 2.0  # 填色矩形視為線的最大厚度（pt）
 TOL = 1.0  # 同一條線的位置差、相接片段的間隙、線段涵蓋判定（pt）
 TEXT_TOL = 0.5  # 文字外框落在格內緣的容許（pt）
+OBSTACLE_THICKNESS = 6.0  # 填色矩形視為障礙線的最大厚度（pt；較粗的框線）
 
 
 @dataclass
@@ -38,35 +41,94 @@ class Rules:
     horizontal: list[Line]
     vertical: list[Line]
     truncated: bool = False  # 線段過多，未做偵測
+    obstacles: list[Line] = field(default_factory=list)  # 障礙線（含 Form 內、較粗的框線）
+
+
+def _rect_line(pts, max_thickness: float) -> Line | None:
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    width, height = max(xs) - min(xs), max(ys) - min(ys)
+    if height <= max_thickness and width > 3 * height:
+        return Line(True, (min(ys) + max(ys)) / 2, min(xs), max(xs), height)
+    if width <= max_thickness and height > 3 * width:
+        return Line(False, (min(xs) + max(xs)) / 2, min(ys), max(ys), width)
+    return None
 
 
 def rules(content: PageContent, to_page: Matrix) -> Rules:
-    """頁面層級的格線（合併後）。"""
+    """頁面層級的格線（合併後）與障礙線。"""
     if content.paths_truncated:
         return Rules([], [], truncated=True)
-    raw: list[Line] = []
+    grid: list[Line] = []
+    blocks: list[Line] = []
     for stroke in content.strokes:
-        if stroke.form_path:
-            continue
         (x0, y0), (x1, y1) = apply(to_page, *stroke.p0), apply(to_page, *stroke.p1)
         if abs(y0 - y1) <= 0.01 and abs(x0 - x1) > 0.01:
-            raw.append(Line(True, (y0 + y1) / 2, min(x0, x1), max(x0, x1), stroke.width))
+            line = Line(True, (y0 + y1) / 2, min(x0, x1), max(x0, x1), stroke.width)
         elif abs(x0 - x1) <= 0.01 and abs(y0 - y1) > 0.01:
-            raw.append(Line(False, (x0 + x1) / 2, min(y0, y1), max(y0, y1), stroke.width))
-    for rect in content.filled_rects:
-        if rect.form_path:
+            line = Line(False, (x0 + x1) / 2, min(y0, y1), max(y0, y1), stroke.width)
+        else:
             continue
+        blocks.append(line)
+        if not stroke.form_path:
+            grid.append(Line(line.horizontal, line.pos, line.a, line.b, line.width))
+    for rect in content.filled_rects:
         pts = [apply(to_page, *p) for p in rect.corners]
-        xs, ys = [p[0] for p in pts], [p[1] for p in pts]
-        width, height = max(xs) - min(xs), max(ys) - min(ys)
-        if height <= MAX_THICKNESS and width > height:
-            raw.append(Line(True, (min(ys) + max(ys)) / 2, min(xs), max(xs), height))
-        elif width <= MAX_THICKNESS and height > width:
-            raw.append(Line(False, (min(xs) + max(xs)) / 2, min(ys), max(ys), width))
-    hs, vs = _merge([r for r in raw if r.horizontal]), _merge([r for r in raw if not r.horizontal])
+        line = _rect_line(pts, OBSTACLE_THICKNESS)
+        if line is not None:
+            blocks.append(line)
+        thin = _rect_line(pts, MAX_THICKNESS) if not rect.form_path else None
+        if thin is not None:
+            grid.append(thin)
+    hs, vs = (
+        _merge([r for r in grid if r.horizontal]),
+        _merge([r for r in grid if not r.horizontal]),
+    )
     if len(hs) * len(vs) > MAX_RULE_PAIRS:  # 交會判定為平方級：線太多即不偵測
         return Rules([], [], truncated=True)
-    return Rules(hs, vs)
+    obstacles = _merge([r for r in blocks if r.horizontal]) + _merge(
+        [r for r in blocks if not r.horizontal]
+    )
+    return Rules(hs, vs, obstacles=obstacles)
+
+
+def crosses(region, obstacles: list[Line]) -> bool:
+    """區域內部（扣 TOL）有障礙線穿過。邊上的線不算。"""
+    x0, y0, x1, y1 = region
+    for line in obstacles:
+        if line.horizontal:
+            if y0 + TOL < line.pos < y1 - TOL and min(line.b, x1) - max(line.a, x0) > TOL:
+                return True
+        elif x0 + TOL < line.pos < x1 - TOL and min(line.b, y1) - max(line.a, y0) > TOL:
+            return True
+    return False
+
+
+def clip(region, text_bbox, obstacles: list[Line]) -> list[float] | None:
+    """把可改動區域裁到不碰任何障礙線（文字往四周延伸到第一條線為止，扣半個線寬）；
+    有線穿過文字本身時回 None（P6 核對 Q1）。"""
+    x0, y0, x1, y1 = region
+    tx0, ty0, tx1, ty1 = text_bbox
+    for line in (o for o in obstacles if not o.horizontal):
+        if min(line.b, y1) - max(line.a, y0) <= TOL or not x0 - TOL < line.pos < x1 + TOL:
+            continue
+        if tx0 + TOL < line.pos < tx1 - TOL:
+            return None
+        if line.pos <= tx0 + TOL:
+            x0 = max(x0, line.pos + line.width / 2)
+        else:
+            x1 = min(x1, line.pos - line.width / 2)
+    for line in (o for o in obstacles if o.horizontal):
+        if min(line.b, x1) - max(line.a, x0) <= TOL or not y0 - TOL < line.pos < y1 + TOL:
+            continue
+        if ty0 + TOL < line.pos < ty1 - TOL:
+            return None
+        if line.pos <= ty0 + TOL:
+            y0 = max(y0, line.pos + line.width / 2)
+        else:
+            y1 = min(y1, line.pos - line.width / 2)
+    if x0 >= x1 or y0 >= y1:
+        return None
+    return [x0, y0, x1, y1]
 
 
 def _merge(lines: list[Line]) -> list[Line]:
@@ -205,7 +267,11 @@ def _overlaps(a, b, tol: float = 0.0) -> bool:
 
 
 def assess(box: list[float], text_targets: list[dict], reasons: list[str]) -> dict:
-    """格內文字分行與能力判定。reasons 為此格已知的拒絕理由（文件層、合併格等）。"""
+    """格內文字分行與能力判定。reasons 為此格已知的結構性拒絕理由（文件層、合併格等）。
+
+    格本身只因結構問題拒絕（合併格、跨格文字、空白格）；格內某段文字不支援時只擋它所在的行
+    （P6 核對 Q3）。同一基線上間距大於一個字高的文字分成不同的行（片段）。
+    """
     reasons = list(reasons)
     members, touching = [], []
     for target in text_targets:
@@ -217,24 +283,35 @@ def assess(box: list[float], text_targets: list[dict], reasons: list[str]) -> di
             reasons.append("UNSUPPORTED_LAYOUT")  # 文字跨過格線
             continue
         members.append(target)
-        reasons += target["capability"]["reasons"]
-    lines: list[list[dict]] = []
+    rows: list[list[dict]] = []
     for target in sorted(members, key=lambda t: (t["bbox"][1] + t["bbox"][3]) / 2):
         center = (target["bbox"][1] + target["bbox"][3]) / 2
-        if lines:
-            last = lines[-1][0]["bbox"]
+        if rows:
+            last = rows[-1][0]["bbox"]
             if abs(center - (last[1] + last[3]) / 2) <= (last[3] - last[1]) / 2:
-                lines[-1].append(target)
+                rows[-1].append(target)
                 continue
-        lines.append([target])
+        rows.append([target])
+    segments: list[list[dict]] = []
+    for row in rows:
+        row.sort(key=lambda t: t["bbox"][0])
+        em = max(t["bbox"][3] - t["bbox"][1] for t in row)
+        segments.append([row[0]])
+        for target in row[1:]:
+            if target["bbox"][0] - max(t["bbox"][2] for t in segments[-1]) > em:
+                segments.append([target])
+            else:
+                segments[-1].append(target)
     out_lines = []
-    for line in lines:
-        line.sort(key=lambda t: t["bbox"][0])
+    for line in segments:
+        line_reasons = list(dict.fromkeys(r for t in line for r in t["capability"]["reasons"]))
         out_lines.append({
             "text": "".join(t["text"] for t in line),
             "target_ids": [t["target_id"] for t in line],
             "bbox": [min(t["bbox"][0] for t in line), min(t["bbox"][1] for t in line),
                      max(t["bbox"][2] for t in line), max(t["bbox"][3] for t in line)],
+            "capability": {"status": "reject" if line_reasons else "support",
+                           "reasons": line_reasons},
         })  # fmt: skip
     if not out_lines:
         reasons.append("UNSUPPORTED_LAYOUT")  # 空白格：只修改既有文字
@@ -266,13 +343,8 @@ def assess_box(box, found: Rules, cells: list[Cell], text_targets, doc_reasons) 
     reasons = list(doc_reasons)
     if found.truncated:
         reasons.append("RESOURCE_LIMIT")
-    x0, y0, x1, y1 = box
-    for line in found.horizontal:
-        if y0 + TOL < line.pos < y1 - TOL and min(line.b, x1) - max(line.a, x0) > TOL:
-            reasons.append("UNSUPPORTED_LAYOUT")
-    for line in found.vertical:
-        if x0 + TOL < line.pos < x1 - TOL and min(line.b, y1) - max(line.a, y0) > TOL:
-            reasons.append("UNSUPPORTED_LAYOUT")
+    if crosses(box, found.obstacles):  # 含 Form 內的線（P6 核對 Q2）
+        reasons.append("UNSUPPORTED_LAYOUT")
     touched = [c for c in cells if _overlaps(c.inner, box, TOL)]
     if len(touched) > 1 or any(c.row_span > 1 or c.col_span > 1 for c in touched):
         reasons.append("UNSUPPORTED_LAYOUT")

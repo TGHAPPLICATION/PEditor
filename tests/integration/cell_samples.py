@@ -41,3 +41,29 @@ def cell_box(row: int, col: int) -> list[float]:
     top = 300 - TOP_Y + ROW_H * row
     left = ORIGIN_X + COL_W * col
     return [left, top, left + COL_W, top + ROW_H]
+
+
+def ops_pdf(path, ops: list[str], form_ops: list[str] | None = None) -> None:
+    """自訂內容的樣本：ops 為頁面內容（Helvetica 為 /F1）；
+    form_ops 給定時另建 /Fm0（整頁 BBox）。"""
+    pdf = pikepdf.new()
+    pdf.add_blank_page(page_size=(400, 300))
+    font = pdf.make_indirect(pikepdf.Dictionary(
+        Type=pikepdf.Name.Font, Subtype=pikepdf.Name.Type1, BaseFont=pikepdf.Name.Helvetica,
+        Encoding=pikepdf.Name.WinAnsiEncoding))  # fmt: skip
+    resources = pikepdf.Dictionary(Font=pikepdf.Dictionary(F1=font))
+    if form_ops is not None:
+        form = pdf.make_stream("\n".join(form_ops).encode("ascii"))
+        form.Type, form.Subtype = pikepdf.Name.XObject, pikepdf.Name.Form
+        form.BBox = [0, 0, 400, 300]
+        resources.XObject = pikepdf.Dictionary(Fm0=form)
+    page = pdf.pages[0]
+    page.Resources = resources
+    page.Contents = pdf.make_stream("\n".join(ops).encode("ascii"))
+    pdf.save(path)
+
+
+def text(x: float, y: float, s: str, matrix: str | None = None) -> str:
+    """PDF 空間 (x, y) 的 12 pt 文字；matrix 給定時用 Tm（例如旋轉）。"""
+    place = f"{matrix} Tm" if matrix else f"{x} {y} Td"
+    return f"BT /F1 12 Tf {place} ({s}) Tj ET"

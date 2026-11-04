@@ -19,7 +19,7 @@ from peditor.core.editplan import EditPlan, SpanTarget, parse_target_id, validat
 from peditor.core.geometry import apply, bbox_of, contains
 from peditor.core.limits import MAX_OBJECT_WALK
 from peditor.core.protocol import ProtocolError
-from peditor.worker import analyzer, fontb, span, tagged
+from peditor.worker import analyzer, fontb, span, table, tagged
 from peditor.worker.content import TextRun
 
 POSITION_TOL = 0.01  # pt；溢出判定的數值容許
@@ -105,6 +105,15 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
     if not plan.unsupported_reasons:
         plan.unsupported_reasons += _cell_blockers(document, selection.page_index,
                                                    plan.target["change"]["target_ids"])  # fmt: skip
+    if not plan.unsupported_reasons and params["editable_region"] is not None:
+        tables = document.tables.get(selection.page_index)
+        # 呼叫端給的可改動區域不能有格線（障礙線）穿過（P6 核對 Q4）
+        if tables is not None and (
+            tables[0].truncated or table.crosses(region, tables[0].obstacles)
+        ):
+            plan.unsupported_reasons.append(
+                "RESOURCE_LIMIT" if tables[0].truncated else "UNSUPPORTED_LAYOUT"
+            )
     if plan.unsupported_reasons:
         return _store(document, plan, None)
     runs = [selection.runs[p.run_index] for p in change.pieces]
@@ -190,8 +199,9 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
 
 
 def _cell_blockers(document: analyzer.Document, page_index: int, target_ids) -> list[str]:
-    """改到的文字落在（或跨過）不支援的儲存格時，沿用該格的拒絕理由（P6 報告 U2、ADR-0023 §1）：
-    文字層 API 不能繞過格判定（例如合併格 B06）。"""
+    """改到的文字落在（或跨過）結構上不支援的儲存格（合併格、跨格文字）時，沿用該格的拒絕理由
+    （P6 報告 U2、ADR-0023 §1）：文字層 API 不能繞過格判定（例如 B06）。格內其他文字不支援不影響
+    （P6 核對 Q3）。"""
     tables = document.tables.get(page_index)
     if tables is None:
         return []

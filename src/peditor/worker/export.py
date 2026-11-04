@@ -220,7 +220,7 @@ def image_text_check(document: analyzer.Document, data: bytes) -> list[int]:
 
 
 def rules_check(document: analyzer.Document, data: bytes) -> list[int]:
-    """有儲存格改字的頁面，格線（合併後的位置、起訖、線寬，取到 0.01 pt）須與原檔相同。
+    """有儲存格改字的頁面，格線與障礙線（合併後的位置、起訖、線寬，取到 0.01 pt）須與原檔相同。
 
     回傳不同的頁。
     """
@@ -236,7 +236,7 @@ def rules_check(document: analyzer.Document, data: bytes) -> list[int]:
                 page = pdf.pages[page_index]
                 to_page = analyzer.page_geometry(page).pdf_to_page()
                 rules = table.rules(interpret(page), to_page)
-                lines = rules.horizontal + rules.vertical
+                lines = rules.horizontal + rules.vertical + rules.obstacles  # 含 Form 內（Q2）
                 found.append([(r.horizontal, round(r.pos, 2), round(r.a, 2), round(r.b, 2),
                                round(r.width, 2)) for r in lines])  # fmt: skip
             if found[0] != found[1]:
