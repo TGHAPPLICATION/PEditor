@@ -401,6 +401,9 @@ def render_page(document: Document, page_index, dpi) -> dict:
     rect = document.mu[page_index].rect
     if rect.width * rect.height * (dpi / 72) ** 2 > MAX_RENDER_PIXELS:  # P1 安全掃描 f016
         raise ProtocolError("RESOURCE_LIMIT", "頁面渲染尺寸超過上限")
+    # 內容超過工作量或解壓上限的頁面（壓縮炸彈等）不交給 MuPDF 渲染（P7，ADR-0024）
+    if "RESOURCE_LIMIT" in inspect_page(document, page_index)["capabilities"]["reasons"]:
+        raise ProtocolError("RESOURCE_LIMIT", "頁面內容超過處理上限")
     pix = document.mu[page_index].get_pixmap(dpi=dpi)
     return {"width": pix.width, "height": pix.height,
             "png_base64": base64.b64encode(pix.tobytes("png")).decode("ascii")}  # fmt: skip
