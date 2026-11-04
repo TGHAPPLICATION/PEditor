@@ -163,10 +163,17 @@ def _test_hook(operation: str, params: dict) -> dict:
     raise ProtocolError("INVALID_REQUEST", "未知操作")
 
 
+def _deny_network(event: str, args) -> None:
+    if event.startswith("socket."):
+        raise RuntimeError(f"network: {event}")
+
+
 def main() -> int:
     from peditor.core.sandbox import limit_self
 
     limit_self()  # POSIX：讀任何請求之前設定行程限制（Windows 由主行程的 Job Object 負責）
+    if _TEST_HOOKS and os.environ.get("PEDITOR_TEST_DENY_NETWORK") == "1":
+        sys.addaudithook(_deny_network)  # G7-01 測試：任何 socket 操作即失敗
     stdin, stdout = sys.stdin.buffer, sys.stdout.buffer
     sys.stdout = sys.stderr  # 任何 print 都不得進入協定通道
     return serve(stdin, stdout)
