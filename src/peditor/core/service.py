@@ -29,6 +29,7 @@ from peditor.core.protocol import (
     decode,
     encode,
 )
+from peditor.core.sandbox import CREATE_SUSPENDED, SandboxError, WorkerJob
 from peditor.export import transaction
 
 
@@ -69,9 +70,18 @@ def _used_assets(entries) -> set[str]:
     return {e["params"]["asset_id"] for e in entries if e.get("op") == "image"}
 
 
+def _processes(command: list[str]) -> int:
+    """Job 內允許的行程數：venv 的 python.exe 是轉介程式，會再啟動真正的直譯器（ADR-0024）。"""
+    base = getattr(sys, "_base_executable", sys.executable)
+    launcher = (
+        os.path.normcase(command[0]) == os.path.normcase(sys.executable) != os.path.normcase(base)
+    )
+    return 2 if sys.platform == "win32" and not getattr(sys, "frozen", False) and launcher else 1
+
+
 class _WorkerProcess:
     def __init__(self, command: list[str]) -> None:
-        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | CREATE_SUSPENDED
         self.proc = subprocess.Popen(  # noqa: S603 — 固定命令，不含使用者輸入
             command,
             stdin=subprocess.PIPE,
@@ -80,6 +90,13 @@ class _WorkerProcess:
             creationflags=flags,
             env={**os.environ, "PYTHONUNBUFFERED": "1"},
         )
+        # 送出任何請求（含檔案路徑）之前先套用 OS 限制；套用不了就不使用這個 worker（ADR-0024）
+        try:
+            self.job = WorkerJob(self.proc.pid, _processes(command))
+        except SandboxError:
+            self.proc.kill()
+            self.proc.wait()
+            raise ServiceError("WORKER_FAILED", "無法限制處理程序", retryable=False) from None
         self.lines: queue.Queue[bytes | None] = queue.Queue()
         threading.Thread(target=self._read, daemon=True).start()
 
@@ -111,6 +128,7 @@ class _WorkerProcess:
                     stream.close()
                 except OSError:
                     pass
+        self.job.close()
 
 
 class DocumentService:

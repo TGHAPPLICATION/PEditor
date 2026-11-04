@@ -113,9 +113,9 @@ def serve(stdin: BinaryIO, stdout: BinaryIO) -> int:
         try:
             message = decode(line)
             request_id = message.get("request_id")
-            if _TEST_HOOKS and message.get("operation") == "_sleep":
-                time.sleep(float(message.get("params", {}).get("seconds", 0)))
-                response = {"request_id": request_id, "ok": True, "result": {}}
+            if _TEST_HOOKS and str(message.get("operation")).startswith("_"):
+                result = _test_hook(message["operation"], message.get("params", {}))
+                response = {"request_id": request_id, "ok": True, "result": result}
             else:
                 validate_request(message)
                 if worker is None:
@@ -123,6 +123,9 @@ def serve(stdin: BinaryIO, stdout: BinaryIO) -> int:
                 response = {"request_id": request_id, "ok": True, "result": worker.handle(message)}
         except ProtocolError as exc:
             response = {"request_id": request_id, "ok": False, "error": exc.to_dict()}
+        except MemoryError:  # 超過 worker 記憶體上限（Windows Job Object；ADR-0024）
+            error = ProtocolError("RESOURCE_LIMIT", "處理文件所需記憶體超過上限")
+            response = {"request_id": request_id, "ok": False, "error": error.to_dict()}
         except Exception as exc:  # noqa: BLE001 — 任何未預期錯誤都回受控失敗，不洩漏細節
             sys.stderr.write(f"worker: {type(exc).__name__}\n")
             error = ProtocolError("WORKER_FAILED", "處理文件時發生未預期錯誤")
@@ -135,7 +138,29 @@ def serve(stdin: BinaryIO, stdout: BinaryIO) -> int:
     return 0
 
 
+def _test_hook(operation: str, params: dict) -> dict:
+    """測試用（PEDITOR_WORKER_TEST_HOOKS=1 才啟用）：製造長操作、配置記憶體、嘗試建立子行程。"""
+    if operation == "_sleep":
+        time.sleep(float(params.get("seconds", 0)))
+        return {}
+    if operation == "_alloc":
+        block = bytearray(int(params["bytes"]))
+        return {"allocated": len(block)}
+    if operation == "_spawn":
+        import subprocess
+
+        try:
+            subprocess.run([sys.executable, "-c", "pass"], check=True, timeout=10)  # noqa: S603
+        except (OSError, subprocess.SubprocessError):
+            return {"spawned": False}
+        return {"spawned": True}
+    raise ProtocolError("INVALID_REQUEST", "未知操作")
+
+
 def main() -> int:
+    from peditor.core.sandbox import limit_self
+
+    limit_self()  # POSIX：讀任何請求之前設定行程限制（Windows 由主行程的 Job Object 負責）
     stdin, stdout = sys.stdin.buffer, sys.stdout.buffer
     sys.stdout = sys.stderr  # 任何 print 都不得進入協定通道
     return serve(stdin, stdout)
