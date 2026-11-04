@@ -18,6 +18,7 @@ from peditor.core.limits import (
     MAX_FORM_DEPTH,
     MAX_FORM_INVOCATIONS,
     MAX_GSTATE_DEPTH,
+    MAX_PAINTED_POINTS,
     MAX_RULE_PATHS,
     LimitExceeded,
 )
@@ -103,6 +104,18 @@ class FilledRect:
 
 
 @dataclass
+class PaintedPath:
+    """實際畫出的子路徑（描邊或填色，含曲線；曲線以控制點連成的折線表示，偏保守），PDF 空間。
+    障礙線用（P6 第二輪核對 R1）：不論以何種方式畫，水平、垂直的邊都擋可改動區域，
+    斜的邊使該區域拒絕。"""
+
+    points: list[tuple[float, float]]
+    closed: bool
+    width: float  # 描邊線寬；只填色時為 0
+    form_path: tuple[str, ...]
+
+
+@dataclass
 class PageContent:
     runs: list[TextRun] = field(default_factory=list)
     images: list[ImageUse] = field(default_factory=list)
@@ -110,6 +123,7 @@ class PageContent:
     inline_images: int = 0
     strokes: list[Stroke] = field(default_factory=list)
     filled_rects: list[FilledRect] = field(default_factory=list)
+    painted: list[PaintedPath] = field(default_factory=list)
     paths_truncated: bool = False  # 線段超過 MAX_RULE_PATHS：不再記錄，不做表格偵測
 
 
@@ -144,6 +158,7 @@ class _Interpreter:
         self.bt_count = 0
         self.operators = 0
         self.form_calls = 0
+        self.painted_points = 0
 
     # --- 進入點 -------------------------------------------------------
     def run(self) -> PageContent:
@@ -305,7 +320,15 @@ class _Interpreter:
         fill = op in ("f", "F", "f*", "B", "B*", "b", "b*")
         a, b, c, d, _, _ = gs.ctm
         width = abs(gs.line_width) * abs(a * d - b * c) ** 0.5
-        for pts, is_re, curved in path:
+        for pts, is_re, curved, poly in path:
+            self.painted_points += len(poly)
+            if self.painted_points > MAX_PAINTED_POINTS:
+                self.result.paths_truncated = True
+                return
+            closed = fill or is_re or op in ("s", "b", "b*")
+            self.result.painted.append(
+                PaintedPath(list(poly), closed, width if stroke else 0.0, form_path)
+            )
             if curved:
                 continue
             if len(self.result.strokes) + len(self.result.filled_rects) >= MAX_RULE_PATHS:
@@ -327,15 +350,18 @@ class _Interpreter:
             pts = [
                 apply(ctm, px, py) for px, py in ((x, y), (x + w, y), (x + w, y + h), (x, y + h))
             ]
-            path.append((pts, True, False))
+            path.append((pts, True, False, list(pts)))
         elif op == "m":
-            path.append(([apply(ctm, nums[0], nums[1])], False, False))
+            start = apply(ctm, nums[0], nums[1])
+            path.append(([start], False, False, [start]))
         elif op == "h":
             return
         elif path:
-            pts, is_re, curved = path[-1]
+            pts, is_re, curved, poly = path[-1]
             pts.append(apply(ctm, nums[-2], nums[-1]))
-            path[-1] = (pts, is_re, curved or op in ("c", "v", "y"))
+            # 含曲線控制點的折線（障礙線用）；pts 只含端點（clip 判定沿用 P1 行為）
+            poly.extend(apply(ctm, nums[i], nums[i + 1]) for i in range(0, len(nums) - 1, 2))
+            path[-1] = (pts, is_re, curved or op in ("c", "v", "y"), poly)
 
     # --- XObject ------------------------------------------------------
     def _do(self, key, index, name, resources, gs: _GState, form_path) -> None:
@@ -376,7 +402,7 @@ def _has_actual_text(ops, resources) -> bool:
 
 
 def _make_clip(path) -> Clip:
-    points = [p for pts, _, _ in path for p in pts]
+    points = [p for pts, *_ in path for p in pts]
     xs, ys = [p[0] for p in points], [p[1] for p in points]
     bbox = (min(xs), min(ys), max(xs), max(ys))
     if len(path) != 1 or path[0][2]:

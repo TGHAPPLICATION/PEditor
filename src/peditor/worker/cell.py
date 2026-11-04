@@ -52,9 +52,11 @@ def plan_cell_edit(document: analyzer.Document, params: dict) -> dict:
     line = lines[params["line_index"]]
     if line["capability"]["reasons"]:  # 這一行的文字本身不支援（只擋這一行；P6 核對 Q3）
         return _reject(document, params, page_index, info, line["capability"]["reasons"])
+    found = document.tables[page_index][0]
     region = table.clip(_line_band(cell["inner_bbox"], lines, params["line_index"]),
-                        line["bbox"], document.tables[page_index][0].obstacles)  # fmt: skip
-    if region is None:  # 有線穿過這一行的文字
+                        line["bbox"], found.obstacles)  # fmt: skip
+    # 有垂直線穿過這一行的文字，或區域內有斜邊（斜線表頭等；第二輪核對 R2）
+    if region is None or table.hits_diagonal(region, found.diagonals):
         return _reject(document, params, page_index, info, ["UNSUPPORTED_LAYOUT"])
     texts = {t["target_id"]: t["text"] for t in analyzer.inspect_page(document, page_index)[
         "text_targets"]}  # fmt: skip

@@ -8,8 +8,10 @@
 - 格內文字：文字目標完整落在格內緣以內者屬於該格，依垂直位置分行；跨過格線的文字使該格拒絕；
   空白格拒絕（只修改既有文字，ADR-0023 §2）。
 - 人工選格：使用者框選的範圍不能有線穿過、不能跨多個已偵測的格或碰到合併格，其餘判定同上。
-- 障礙線（P6 核對 Q1、Q2）：頁面與 Form 內所有水平、垂直線段，以及厚度 ≤6 pt 的細長填色矩形。
-  格的偵測只用頁面層級的格線；可改動區域裁到不碰任何障礙線，人工框選與另存前比對也用障礙線。
+- 障礙線（P6 核對 Q1、Q2；第二輪 R1、R2）：頁面與 Form 內每一個實際畫出的子路徑
+  （描邊或填色、`re` 或多邊形、含曲線——曲線以控制點連成的折線表示，偏保守）的邊；
+  水平、垂直的邊為障礙線，斜的邊另存。格的偵測只用頁面層級的細格線；可改動區域裁到
+  不碰任何障礙線、碰到斜邊即拒絕；人工框選與另存前比對也用障礙線。
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ from peditor.worker.content import PageContent
 MAX_THICKNESS = 2.0  # 填色矩形視為線的最大厚度（pt）
 TOL = 1.0  # 同一條線的位置差、相接片段的間隙、線段涵蓋判定（pt）
 TEXT_TOL = 0.5  # 文字外框落在格內緣的容許（pt）
-OBSTACLE_THICKNESS = 6.0  # 填色矩形視為障礙線的最大厚度（pt；較粗的框線）
+THIN_SHAPE = 6.0  # 已繪製路徑外框厚度 ≤此值且長度超過厚度 3 倍時視為一條線（底線、細框線）
 
 
 @dataclass
@@ -41,7 +43,10 @@ class Rules:
     horizontal: list[Line]
     vertical: list[Line]
     truncated: bool = False  # 線段過多，未做偵測
-    obstacles: list[Line] = field(default_factory=list)  # 障礙線（含 Form 內、較粗的框線）
+    obstacles: list[Line] = field(
+        default_factory=list
+    )  # 障礙線：已繪製路徑的水平、垂直邊（含 Form 內）
+    diagonals: list[tuple] = field(default_factory=list)  # 已繪製路徑的斜邊 ((x0, y0), (x1, y1))
 
 
 def _rect_line(pts, max_thickness: float) -> Line | None:
@@ -59,26 +64,37 @@ def rules(content: PageContent, to_page: Matrix) -> Rules:
     if content.paths_truncated:
         return Rules([], [], truncated=True)
     grid: list[Line] = []
-    blocks: list[Line] = []
     for stroke in content.strokes:
-        (x0, y0), (x1, y1) = apply(to_page, *stroke.p0), apply(to_page, *stroke.p1)
-        if abs(y0 - y1) <= 0.01 and abs(x0 - x1) > 0.01:
-            line = Line(True, (y0 + y1) / 2, min(x0, x1), max(x0, x1), stroke.width)
-        elif abs(x0 - x1) <= 0.01 and abs(y0 - y1) > 0.01:
-            line = Line(False, (x0 + x1) / 2, min(y0, y1), max(y0, y1), stroke.width)
-        else:
+        if stroke.form_path:
             continue
-        blocks.append(line)
-        if not stroke.form_path:
-            grid.append(Line(line.horizontal, line.pos, line.a, line.b, line.width))
-    for rect in content.filled_rects:
-        pts = [apply(to_page, *p) for p in rect.corners]
-        line = _rect_line(pts, OBSTACLE_THICKNESS)
+        line = _axis_line(apply(to_page, *stroke.p0), apply(to_page, *stroke.p1), stroke.width)
         if line is not None:
-            blocks.append(line)
-        thin = _rect_line(pts, MAX_THICKNESS) if not rect.form_path else None
+            grid.append(line)
+    for rect in content.filled_rects:
+        thin = None if rect.form_path else _rect_line([apply(to_page, *p) for p in rect.corners],
+                                                      MAX_THICKNESS)  # fmt: skip
         if thin is not None:
             grid.append(thin)
+    blocks: list[Line] = []
+    diagonals: list[tuple] = []
+    for painted in content.painted:
+        pts = [apply(to_page, *p) for p in painted.points]
+        thin = _rect_line(pts, THIN_SHAPE) if len(pts) > 1 else None
+        if thin is not None:  # 細長的形狀（填色底線、細框線）整個視為一條線，不拆成四邊
+            thin.width = max(thin.width, painted.width)
+            blocks.append(thin)
+            continue
+        edges = list(zip(pts, pts[1:], strict=False))
+        if painted.closed and len(pts) > 2:
+            edges.append((pts[-1], pts[0]))
+        for p0, p1 in edges:
+            if abs(p0[0] - p1[0]) <= 0.01 and abs(p0[1] - p1[1]) <= 0.01:
+                continue
+            line = _axis_line(p0, p1, painted.width)
+            if line is not None:
+                blocks.append(line)
+            else:
+                diagonals.append((p0, p1))
     hs, vs = (
         _merge([r for r in grid if r.horizontal]),
         _merge([r for r in grid if not r.horizontal]),
@@ -88,44 +104,83 @@ def rules(content: PageContent, to_page: Matrix) -> Rules:
     obstacles = _merge([r for r in blocks if r.horizontal]) + _merge(
         [r for r in blocks if not r.horizontal]
     )
-    return Rules(hs, vs, obstacles=obstacles)
+    return Rules(hs, vs, obstacles=obstacles, diagonals=diagonals)
+
+
+def _axis_line(p0, p1, width: float) -> Line | None:
+    (x0, y0), (x1, y1) = p0, p1
+    if abs(y0 - y1) <= 0.01 and abs(x0 - x1) > 0.01:
+        return Line(True, (y0 + y1) / 2, min(x0, x1), max(x0, x1), width)
+    if abs(x0 - x1) <= 0.01 and abs(y0 - y1) > 0.01:
+        return Line(False, (x0 + x1) / 2, min(y0, y1), max(y0, y1), width)
+    return None
 
 
 def crosses(region, obstacles: list[Line]) -> bool:
-    """區域內部（扣 TOL）有障礙線穿過。邊上的線不算。"""
+    """區域內部（扣 TOL）有障礙線穿過；短段（點線）也算（第二輪核對 R1）。邊上的線不算。"""
     x0, y0, x1, y1 = region
     for line in obstacles:
         if line.horizontal:
-            if y0 + TOL < line.pos < y1 - TOL and min(line.b, x1) - max(line.a, x0) > TOL:
+            if y0 + TOL < line.pos < y1 - TOL and min(line.b, x1) - max(line.a, x0) > 0:
                 return True
-        elif x0 + TOL < line.pos < x1 - TOL and min(line.b, y1) - max(line.a, y0) > TOL:
+        elif x0 + TOL < line.pos < x1 - TOL and min(line.b, y1) - max(line.a, y0) > 0:
             return True
     return False
 
 
+def hits_diagonal(region, diagonals) -> bool:
+    """任一斜邊與區域內部相交（Liang–Barsky；第二輪核對 R2：斜線表頭等）。"""
+    x0, y0, x1, y1 = region[0] + 0.01, region[1] + 0.01, region[2] - 0.01, region[3] - 0.01
+    for (ax, ay), (bx, by) in diagonals:
+        dx, dy = bx - ax, by - ay
+        lo, hi = 0.0, 1.0
+        for p, q in ((-dx, ax - x0), (dx, x1 - ax), (-dy, ay - y0), (dy, y1 - ay)):
+            if p == 0:
+                if q < 0:
+                    break
+            elif p < 0:
+                lo = max(lo, q / p)
+            else:
+                hi = min(hi, q / p)
+        else:
+            if lo <= hi:
+                return True
+    return False
+
+
 def clip(region, text_bbox, obstacles: list[Line]) -> list[float] | None:
-    """把可改動區域裁到不碰任何障礙線（文字往四周延伸到第一條線為止，扣半個線寬）；
-    有線穿過文字本身時回 None（P6 核對 Q1）。"""
+    """把可改動區域裁到不碰任何障礙線（P6 核對 Q1；第二輪核對 R3），依障礙線與文字的相對位置：
+
+    - 與文字垂直範圍重疊（在文字旁邊）：
+      - 也與文字水平範圍重疊：水平線（底線、刪除線）不擋——新文字只沿基線延伸；
+        垂直線即穿過文字，回 None。
+      - 在文字左或右：裁左右邊界到線為止（扣半個線寬）。
+    - 不與文字垂直範圍重疊（在文字上或下）：裁上下邊界。
+    """
     x0, y0, x1, y1 = region
     tx0, ty0, tx1, ty1 = text_bbox
-    for line in (o for o in obstacles if not o.horizontal):
-        if min(line.b, y1) - max(line.a, y0) <= TOL or not x0 - TOL < line.pos < x1 + TOL:
-            continue
-        if tx0 + TOL < line.pos < tx1 - TOL:
-            return None
-        if line.pos <= tx0 + TOL:
-            x0 = max(x0, line.pos + line.width / 2)
+    for line in obstacles:
+        half = line.width / 2
+        if line.horizontal:
+            ox0, ox1, oy0, oy1 = line.a, line.b, line.pos - half, line.pos + half
         else:
-            x1 = min(x1, line.pos - line.width / 2)
-    for line in (o for o in obstacles if o.horizontal):
-        if min(line.b, x1) - max(line.a, x0) <= TOL or not y0 - TOL < line.pos < y1 + TOL:
-            continue
-        if ty0 + TOL < line.pos < ty1 - TOL:
-            return None
-        if line.pos <= ty0 + TOL:
-            y0 = max(y0, line.pos + line.width / 2)
+            ox0, ox1, oy0, oy1 = line.pos - half, line.pos + half, line.a, line.b
+        if not (ox0 < x1 + TOL and ox1 > x0 - TOL and oy0 < y1 + TOL and oy1 > y0 - TOL):
+            continue  # 不碰區域
+        beside = min(oy1, ty1 + TOL) - max(oy0, ty0 - TOL) > 0
+        if beside:
+            if min(ox1, tx1) - max(ox0, tx0) > 0:
+                if line.horizontal:
+                    continue  # 底線、刪除線
+                return None  # 垂直線穿過文字
+            if ox0 >= tx1:
+                x1 = min(x1, ox0)
+            else:
+                x0 = max(x0, ox1)
+        elif oy1 <= ty0:
+            y0 = max(y0, oy1)
         else:
-            y1 = min(y1, line.pos - line.width / 2)
+            y1 = min(y1, oy0)
     if x0 >= x1 or y0 >= y1:
         return None
     return [x0, y0, x1, y1]
@@ -343,7 +398,9 @@ def assess_box(box, found: Rules, cells: list[Cell], text_targets, doc_reasons) 
     reasons = list(doc_reasons)
     if found.truncated:
         reasons.append("RESOURCE_LIMIT")
-    if crosses(box, found.obstacles):  # 含 Form 內的線（P6 核對 Q2）
+    if crosses(box, found.obstacles) or hits_diagonal(
+        box, found.diagonals
+    ):  # 含 Form 內（Q2、R1、R2）
         reasons.append("UNSUPPORTED_LAYOUT")
     touched = [c for c in cells if _overlaps(c.inner, box, TOL)]
     if len(touched) > 1 or any(c.row_span > 1 or c.col_span > 1 for c in touched):

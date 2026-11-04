@@ -416,3 +416,60 @@ def test_text_api_region_cannot_cross_borders():
                                               "editable_region": region})["ready"]  # fmt: skip
     finally:
         document.close()
+
+
+ROUND2 = {
+    # 第二輪核對 R1：非描邊、非 re 的畫法
+    "fill_polygon": ["119.5 160 m 120.5 160 l 120.5 245 l 119.5 245 l h f"],
+    "curve": ["0.5 w 120 160 m 120 180 120 220 120 245 c S"],
+    "dotted_segments": [f"0.5 w 120 {y} m 120 {y + 0.8} l S" for y in range(160, 245, 2)],
+    "thick_fill": ["116 160 8 85 re f"],
+    # 第二輪核對 R2：斜線表頭
+    "diagonal": ["0.5 w 50 250 m 350 150 l S"],
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("kind", sorted(ROUND2))
+def test_lines_drawn_any_way_block_region(kind, tmp_path):
+    """第二輪 R1、R2：以填色多邊形、曲線、點線、粗填色畫的內層線也擋住新文字；斜線使該行拒絕。"""
+    path = tmp_path / f"{kind}.pdf"
+    ops_pdf(path, ["0 G 1 w 50 150 300 100 re S", *ROUND2[kind], text(56, 230, "AB")])
+    document = analyzer.open_document(str(path))
+    try:
+        frame = analyzer.inspect_page(document, 0)["cell_targets"][0]
+        plan = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"],
+                                              "new_text": "ABCDEFGHIJKLMNOPQ"})  # fmt: skip
+        expected = "UNSUPPORTED_LAYOUT" if kind == "diagonal" else "TEXT_OVERFLOW"
+        assert plan["unsupported_reasons"] == [expected], plan["unsupported_reasons"]
+        box = [52, 52, 348, 98]  # 人工框選整個外框內緣：框內有內層線或斜線即拒絕
+        assert cell.assess_cell_box(document, {"cell_box": box, "page_index": 0})[
+            "capability"]["reasons"] == ["UNSUPPORTED_LAYOUT"]  # fmt: skip
+    finally:
+        document.close()
+
+
+ROUND2_FREE = {
+    # 第二輪核對 R3：不應擋的線（相對 8e1b844 不得回歸）
+    "underline_fill": ["56 226 14 0.6 re f"],
+    "underline_stroke": ["0.5 w 56 226.5 m 70 226.5 l S"],
+    "strike": ["0.5 w 56 234 m 70 234 l S"],
+    "line_right_same_height": ["0.5 w 200 234 m 340 234 l S"],
+    "box_below": ["0.5 w 60 160 40 40 re S"],
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("kind", sorted(ROUND2_FREE))
+def test_underline_and_nearby_lines_do_not_block(kind, tmp_path):
+    """第二輪 R3：底線、刪除線、文字右側同高的線、文字下方的小框不擋改字；另存通過。"""
+    path = tmp_path / f"{kind}.pdf"
+    ops_pdf(path, ["0 G 1 w 50 150 300 100 re S", *ROUND2_FREE[kind], text(56, 230, "AB")])
+    document = analyzer.open_document(str(path))
+    try:
+        frame = analyzer.inspect_page(document, 0)["cell_targets"][0]
+        plan = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"], "new_text": "ABC"})
+        assert plan["ready"], plan["unsupported_reasons"]
+        edit.apply_edit(document, plan["plan_id"], 0)
+        report = export.export_document(document, str(tmp_path / "out.pdf"))["validation_report"]
+        assert report["ok"], report["failures"]
+    finally:
+        document.close()

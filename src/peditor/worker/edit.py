@@ -110,7 +110,10 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
         # 呼叫端給的可改動區域不能有垂直的格線（障礙線）穿過（P6 核對 Q4）：支援的文字都是直立的，
         # 新文字只沿基線（水平）延伸；水平線在區域內（例如 L03 字形外框碰到紅框）不會讓新字越線
         vertical = [o for o in tables[0].obstacles if not o.horizontal] if tables else []
-        if tables is not None and (tables[0].truncated or table.crosses(region, vertical)):
+        blocked = tables is not None and (
+            table.crosses(region, vertical) or table.hits_diagonal(region, tables[0].diagonals)
+        )
+        if tables is not None and (tables[0].truncated or blocked):
             plan.unsupported_reasons.append(
                 "RESOURCE_LIMIT" if tables[0].truncated else "UNSUPPORTED_LAYOUT"
             )
