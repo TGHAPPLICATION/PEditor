@@ -421,7 +421,8 @@ def test_text_api_region_cannot_cross_borders():
 ROUND2 = {
     # 第二輪核對 R1：非描邊、非 re 的畫法
     "fill_polygon": ["119.5 160 m 120.5 160 l 120.5 245 l 119.5 245 l h f"],
-    "curve": ["0.5 w 120 160 m 120 180 120 220 120 245 c S"],
+    # 兩端點在下方、往上凸穿過文字列的曲線：只看端點會是一條在文字下方的水平線
+    "curve": ["0.5 w 100 152 m 100 280 340 280 340 152 c S"],
     "dotted_segments": [f"0.5 w 120 {y} m 120 {y + 0.8} l S" for y in range(160, 245, 2)],
     "thick_fill": ["116 160 8 85 re f"],
     # 第二輪核對 R2：斜線表頭
@@ -466,7 +467,8 @@ def test_underline_and_nearby_lines_do_not_block(kind, tmp_path):
     document = analyzer.open_document(str(path))
     try:
         frame = analyzer.inspect_page(document, 0)["cell_targets"][0]
-        plan = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"], "new_text": "ABC"})
+        # 整段替換（改字起點在文字開頭），左右邊界都會被檢查到
+        plan = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"], "new_text": "ZZZZ"})
         assert plan["ready"], plan["unsupported_reasons"]
         edit.apply_edit(document, plan["plan_id"], 0)
         report = export.export_document(document, str(tmp_path / "out.pdf"))["validation_report"]
