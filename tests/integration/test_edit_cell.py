@@ -527,6 +527,90 @@ def test_any_drawing_blocks_long_text(kind, tmp_path):
         document.close()
 
 
+LINE_AP = "0 G 2 w 200 150 m 200 250 l S"
+
+
+def _image(cm: str, cs: str, hexdata: str) -> str:
+    """1×1 inline image（ASCIIHex），以 cm 放大成直條。"""
+    return f"q {cm} cm BI /W 1 /H 1 /CS /{cs} /BPC 8 /F /AHx ID {hexdata}> EI Q"
+
+
+ROUND4 = {
+    # 第四輪核對 T1：淡色的線（與底色相差 24–48）
+    "faint_gray_image": dict(ops=[_image("2 0 0 100 199 150", "G", "D1")]),
+    "light_red_image": dict(ops=[_image("2 0 0 100 199 150", "RGB", "FFD7D7")]),
+    "annot_transparent": dict(annots=[([195, 150, 205, 250], LINE_AP, {"CA": 0.15})]),
+    # T2：MuPDF 不畫、其他閱讀器或列印會畫的註解
+    "annot_oc_off": dict(annots=[([195, 150, 205, 250], LINE_AP, {"oc_off": True})]),
+    "annot_print_only": dict(annots=[([195, 150, 205, 250], LINE_AP, {"F": 36})]),
+    # T3：緊貼文字（文字外框外 1 pt 內）、從格頂到格底的直線；「AB」外框右緣 x=72
+    "image_in_margin": dict(ops=[_image("0.3 0 0 100 72.4 150", "G", "00")], short="BA"),
+    "annot_in_margin": dict(annots=[([72.2, 150, 72.8, 250], "0 G 0.6 w 72.5 150 m 72.5 250 l S",
+                                     {"F": 36})], short="BA"),
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("kind", sorted(ROUND4))
+def test_faint_hidden_and_tight_lines_block_long_text(kind, tmp_path):
+    """第四輪 T1–T3：淡色線、MuPDF 不畫的註解（圖層 OFF、只在列印顯示）、緊貼文字的直線
+    都擋住新文字；不碰到它們的改字照常可改。"""
+    case = ROUND4[kind]
+    path = tmp_path / f"{kind}.pdf"
+    rich_pdf(path, ["0 G 1 w 50 150 300 100 re S", *case.get("ops", []), text(56, 230, "AB")],
+             annots=case.get("annots"))  # fmt: skip
+    document = analyzer.open_document(str(path))
+    try:
+        frame = analyzer.inspect_page(document, 0)["cell_targets"][0]
+        long_text = "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGH"
+        plan = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"], "new_text": long_text})
+        assert not plan["ready"], plan["allowed_change_mask"]
+        short = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"],
+                                               "new_text": case.get("short", "ABC")})  # fmt: skip
+        assert short["ready"], short["unsupported_reasons"]
+    finally:
+        document.close()
+
+
+def test_annotation_over_text_rejects_and_link_does_not_block(tmp_path):
+    """第四輪 T2：蓋在文字上的註解使該行拒絕；連結註解沒有外觀，不擋。"""
+    over = tmp_path / "over.pdf"
+    rich_pdf(over, ["0 G 1 w 50 150 300 100 re S", text(56, 230, "AB")],
+             annots=[([54, 226, 74, 242], "0 G 1 w 54 226 20 16 re S", {"F": 36})])  # fmt: skip
+    link = tmp_path / "link.pdf"
+    rich_pdf(link, ["0 G 1 w 50 150 300 100 re S", text(56, 230, "AB")],
+             annots=[([54, 160, 300, 242], "", {"Subtype": "/Link"})])  # fmt: skip
+    for path, ready in ((over, False), (link, True)):
+        document = analyzer.open_document(str(path))
+        try:
+            frame = analyzer.inspect_page(document, 0)["cell_targets"][0]
+            plan = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"],
+                                                  "new_text": "ABCDEFGH"})  # fmt: skip
+            assert plan["ready"] is ready, plan["unsupported_reasons"]
+            if not ready:
+                assert plan["unsupported_reasons"] == ["UNSUPPORTED_LAYOUT"]
+        finally:
+            document.close()
+
+
+@pytest.mark.parametrize("extra", ["甲", "甲乙丙"])
+def test_text_near_border_can_grow(extra, tmp_path):
+    """第四輪 T4：文字緊貼紅框（L03），框線的反鋸齒不把可改動區域裁在文字右緣；
+    格內加長可改、另存通過。"""
+    document = analyzer.open_document(str(visual.FILES / "L03.pdf"))
+    try:
+        target = analyzer.inspect_page(document, 0)["cell_targets"][0]
+        line = target["lines"][0]
+        plan = cell.plan_cell_edit(document, {"cell_id": target["cell_id"], "line_index": 0,
+                                              "new_text": line["text"] + extra})  # fmt: skip
+        assert plan["ready"], plan["unsupported_reasons"]
+        assert plan["allowed_change_mask"][2] > line["bbox"][2] + 10
+        edit.apply_edit(document, plan["plan_id"], 0)
+        report = export.export_document(document, str(tmp_path / "out.pdf"))["validation_report"]
+        assert report["ok"], report["failures"]
+    finally:
+        document.close()
+
+
 @pytest.mark.parametrize(
     "ops,new_text",
     # 粗刪除線：新文字長過刪除線右緣（刪除線的邊不得把區域裁在文字右緣）；底色塊：在底色範圍內改字
