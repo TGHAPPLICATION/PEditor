@@ -1,0 +1,82 @@
+{
+  "plan_id": "daa03c5fc096bc0e",
+  "document_id": "522a1cadd9137fc2",
+  "preconditions": {
+    "sha256": "db65ca0699c0f4a5560aba3b9d07c5203350dbfd1ddc0a39fffda7153eb025cd",
+    "revision": 0
+  },
+  "target": {
+    "span_id": "span:t:r0:p0:s2.0:o93:f:gb26c4ad0129b:c0-3",
+    "page_index": 0,
+    "selected_text": "300",
+    "change": {
+      "target_ids": [
+        "t:r0:p0:s2.0:o93:f:gb26c4ad0129b"
+      ],
+      "glyph_range": [
+        [
+          0,
+          2
+        ]
+      ],
+      "old_text": "30",
+      "new_text": "25"
+    },
+    "cell": {
+      "cell_id": "c:r0:p0:t0:2.1:gd689e1347930",
+      "row": 2,
+      "col": 1,
+      "manual": false,
+      "inner_bbox": [
+        185.65,
+        139.5,
+        298.45,
+        162.5
+      ],
+      "line_index": 0
+    }
+  },
+  "new_text": "250",
+  "policy": "prefer_a",
+  "mode": "B",
+  "font_policy": "replace_with_packaged",
+  "allowed_change_mask": [
+    185.65,
+    139.50076377952803,
+    298.45,
+    162.5
+  ],
+  "geometry": {
+    "baseline_start": [
+      188.3,
+      156.151
+    ],
+    "baseline_end": [
+      201.62,
+      156.151
+    ],
+    "font_size": 12.0,
+    "pdfium_width_residual_pt": 0.0
+  },
+  "resource_changes": [
+    {
+      "page_index": 0,
+      "kind": "Font",
+      "added": "/PEditorB1",
+      "font": "NotoSansTC-Regular"
+    }
+  ],
+  "font_changes": [
+    {
+      "from": "CAAAAA+NotoSerifTC-Regular",
+      "to": "NotoSansTC-Regular",
+      "text": "25"
+    }
+  ],
+  "warnings": [
+    "字型已替換為 Noto Sans TC，需人工確認版面（ADR-0018 §4）",
+    "選取範圍內原字型與 Noto Sans TC 並存（只重建實際改動的字）"
+  ],
+  "unsupported_reasons": [],
+  "ready": true
+}

@@ -19,7 +19,7 @@ from peditor.core.editplan import EditPlan, SpanTarget, parse_target_id, validat
 from peditor.core.geometry import apply, bbox_of, contains
 from peditor.core.limits import MAX_OBJECT_WALK
 from peditor.core.protocol import ProtocolError
-from peditor.worker import analyzer, fontb, span, tagged
+from peditor.worker import analyzer, fontb, span, table, tagged
 from peditor.worker.content import TextRun
 
 POSITION_TOL = 0.01  # pt；溢出判定的數值容許
@@ -58,6 +58,7 @@ class _Pending:
     font_name: str | None = None  # 模式 B 新增的字型資源名稱
     sync: tagged.ActualTextSync | None = None  # 需同步的結構元素 /ActualText（ADR-0017）
     params: dict | None = None  # 規劃參數（preview_edit 回滾後以此重新規劃）
+    op: str = "text"  # text 或 cell（儲存格改字，ADR-0023；params 為 plan_cell_edit 參數）
 
 
 def _span_target(document: analyzer.Document, target_id: str) -> SpanTarget:
@@ -101,6 +102,22 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
         allowed_change_mask=region,
         unsupported_reasons=list(change.reasons),
     )
+    if not plan.unsupported_reasons:
+        plan.unsupported_reasons += _cell_blockers(document, selection.page_index,
+                                                   plan.target["change"]["target_ids"])  # fmt: skip
+    if not plan.unsupported_reasons and params["editable_region"] is not None:
+        tables = document.tables.get(selection.page_index)
+        # 呼叫端給的可改動區域不能有垂直的格線（障礙線）穿過（P6 核對 Q4）：支援的文字都是直立的，
+        # 新文字只沿基線（水平）延伸；水平線在區域內（例如 L03 字形外框碰到紅框）不會讓新字越線
+        vertical = [o for o in tables[0].obstacles if not o.horizontal] if tables else []
+        blocked = tables is not None and (
+            table.crosses(region, vertical, _selection_box(selection))
+            or table.hits_diagonal(region, tables[0].diagonals)
+        )
+        if tables is not None and (tables[0].truncated or blocked):
+            plan.unsupported_reasons.append(
+                "RESOURCE_LIMIT" if tables[0].truncated else "UNSUPPORTED_LAYOUT"
+            )
     if plan.unsupported_reasons:
         return _store(document, plan, None)
     runs = [selection.runs[p.run_index] for p in change.pieces]
@@ -183,6 +200,20 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
         })  # fmt: skip
         plan.warnings.append("已同步更新結構樹 /ActualText（ADR-0017）")
     return _store(document, plan, _Pending(plan, edits, change.new_text, font_name, sync, params))
+
+
+def _cell_blockers(document: analyzer.Document, page_index: int, target_ids) -> list[str]:
+    """改到的文字落在（或跨過）結構上不支援的儲存格（合併格、跨格文字）時，沿用該格的拒絕理由
+    （P6 報告 U2、ADR-0023 §1）：文字層 API 不能繞過格判定（例如 B06）。格內其他文字不支援不影響
+    （P6 核對 Q3）。"""
+    tables = document.tables.get(page_index)
+    if tables is None:
+        return []
+    reasons: list[str] = []
+    for cell in tables[2].values():
+        if cell["capability"]["status"] != "support" and set(cell["text_ids"]) & set(target_ids):
+            reasons += cell["capability"]["reasons"]
+    return list(dict.fromkeys(reasons))
 
 
 def _mode_b_blocker(policy: str, run: TextRun, text: str) -> tuple[str, ...] | None:
@@ -397,7 +428,7 @@ def apply_edit(document: analyzer.Document, plan_id, expected_revision) -> dict:
 
 
 def _op(pending) -> str:
-    """計畫種類：text（文字）或 image（圖片替換，ADR-0022）。"""
+    """計畫種類：text（文字）、image（圖片替換，ADR-0022）或 cell（儲存格改字，ADR-0023）。"""
     return getattr(pending, "op", "text")
 
 
@@ -406,6 +437,10 @@ def _planner(op: str):
         from peditor.worker import image
 
         return image.plan_image_edit
+    if op == "cell":
+        from peditor.worker import cell
+
+        return cell.plan_cell_edit
     if op == "text":
         return plan_text_edit
     raise ProtocolError("INVALID_REQUEST", "重播參數錯誤")
@@ -444,7 +479,7 @@ def preview_edit(document: analyzer.Document, plan_id) -> dict:
 
 def replay(document: analyzer.Document, commands, revision, reset) -> dict:
     """依 command log 重新規劃並套用（undo／redo、worker 重啟後還原；ADR-0020 §1）。
-    每筆的 op 為 text（預設）或 image（ADR-0022）。
+    每筆的 op 為 text（預設）、image（ADR-0022）或 cell（ADR-0023）。
 
     reset 為真時先回到開檔時的原始位元組。每筆先把 revision 設回該筆規劃時的版本
     （target_id 含 revision），全部成功後設為 revision；任一筆失敗即回到重播前的狀態。

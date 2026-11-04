@@ -17,8 +17,7 @@ FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 DEFERRED = {
     "F03": "GLYPH_MISSING 取決於新文字，於 plan_text_edit 判定（P2，G2-04）",
     "F08": "GLYPH_MISSING 取決於新文字，於 plan_text_edit 判定（P2，G2-04）",
-    "B06": "合併儲存格偵測屬 P6（P1 S2 工程師決定 2026-10-21）",
-}
+}  # B06 合併格已於 P6 以儲存格判定（ADR-0023），不再延後
 DOCUMENT_REASONS = {
     "ENCRYPTED_DOCUMENT",
     "MALFORMED_DOCUMENT",
@@ -82,6 +81,18 @@ def test_capability_matches_manifest(service, available_rows):
             ), fid
             checked.append(fid)
             continue
+
+        if target.startswith("cell("):
+            # P6（ADR-0023）：目標格的能力判定與格線中線範圍（manifest 可改動區域）
+            r, c = map(int, target.removeprefix("cell(").removesuffix(")").split(","))
+            cell = next(x for x in page["cell_targets"] if (x["row"], x["col"]) == (r, c))
+            assert cell["capability"]["status"] == expected, (fid, cell["capability"])
+            assert cell["capability"]["reasons"] == ([reason] if reason else []), fid
+            region = [float(v) for v in row["editable_region_pt"].split(",")]
+            assert all(abs(a - b) <= 0.5 for a, b in zip(cell["bbox"], region, strict=True)), fid
+            if expected == "reject":
+                checked.append(fid)
+                continue
 
         targets = page["text_targets"]
         spans = find_text(targets, row["original_text"])

@@ -29,6 +29,7 @@ from peditor.core.limits import (
 )
 from peditor.core.protocol import ProtocolError
 from peditor.worker import fonts as fontmod
+from peditor.worker import table
 from peditor.worker.content import ImageUse, PageContent, TextRun, image_rect, interpret
 
 LOCATE_TOL = 0.5  # G1：字形定位與 PyMuPDF 擷取位置的容許誤差（pt）
@@ -52,6 +53,8 @@ class Document:
     runs: dict[int, tuple[list[TextRun], dict[str, int]]] = field(default_factory=dict)
     # 每頁圖片 target_id → 出現位置（供圖片替換，ADR-0022）
     images: dict[int, dict[str, ImageUse]] = field(default_factory=dict)
+    # 每頁格線、偵測到的格與 cell_id → 格目標（表格儲存格，ADR-0023）
+    tables: dict[int, tuple] = field(default_factory=dict)
     # 已登記的新圖（asset_id → 圖片；ADR-0022）；重新開啟不清除，undo／redo 重播需要
     assets: dict[str, object] = field(default_factory=dict)
     plans: dict[str, object] = field(default_factory=dict)  # plan_id → 待套用的計畫（worker 內部）
@@ -92,6 +95,7 @@ class Document:
         self.pages.clear()
         self.runs.clear()
         self.images.clear()
+        self.tables.clear()
         self.plans.clear()
 
 
@@ -588,8 +592,15 @@ def _analyze_page(document: Document, page_index: int) -> dict:
         for target in text_targets + image_targets:
             target["capability"] = _capability([*target["capability"]["reasons"], *error_reasons])
 
+    # 表格儲存格（P6、ADR-0023）：格線推估、格內文字分行、合併格與跨格文字拒絕
+    found = table.rules(content, to_page)
+    cells = table.detect(found)
+    cell_targets = table.cell_targets(cells, text_targets, rev, page_index,
+                                      [*doc_reasons, *error_reasons])  # fmt: skip
+    document.tables[page_index] = (found, cells, {c["cell_id"]: c for c in cell_targets})
+
     result = _page_result(page_index, geom, text_targets, image_targets, content.inline_images,
-                          page_reasons)  # fmt: skip
+                          page_reasons, cell_targets)  # fmt: skip
     result["notices"] = _preview_notices(content.runs)
     return result
 
@@ -607,7 +618,8 @@ def _preview_notices(runs: list[TextRun]) -> list[str]:
     return []
 
 
-def _page_result(page_index, geom, text_targets, image_targets, inline_images, reasons) -> dict:
+def _page_result(page_index, geom, text_targets, image_targets, inline_images, reasons,
+                 cell_targets=None) -> dict:  # fmt: skip
     return {
         "page_index": page_index,
         "page_geometry": {
@@ -619,6 +631,7 @@ def _page_result(page_index, geom, text_targets, image_targets, inline_images, r
         "text_targets": text_targets,
         "image_targets": image_targets,
         "inline_images": inline_images,
+        "cell_targets": cell_targets or [],
         "capabilities": _capability(reasons),
     }
 

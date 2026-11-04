@@ -1,0 +1,25 @@
+{
+  "target_before": {
+    "mupdf": "300",
+    "pdfium": "300"
+  },
+  "target_after": {
+    "mupdf": "250",
+    "pdfium": "250"
+  },
+  "protected_text_unchanged": true,
+  "rules_unchanged": true,
+  "rules_count": 8,
+  "visual": {
+    "mupdf": {
+      "outside_fraction": 0.0,
+      "outside_limit": 0.0001,
+      "protected_over_total": 0
+    },
+    "pdfium": {
+      "outside_fraction": 0.0,
+      "outside_limit": 0.0001,
+      "protected_over_total": 0
+    }
+  }
+}

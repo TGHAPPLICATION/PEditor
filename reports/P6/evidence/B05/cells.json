@@ -1,0 +1,295 @@
+[
+  {
+    "cell_id": "c:r0:p0:t0:0.0:g5718855ac65f",
+    "table": 0,
+    "row": 0,
+    "col": 0,
+    "row_span": 1,
+    "col_span": 1,
+    "bbox": [
+      72.26,
+      108.26,
+      222.53,
+      144.74
+    ],
+    "inner_bbox": [
+      72.5,
+      108.5,
+      222.29,
+      144.5
+    ],
+    "lines": [
+      {
+        "text": "名稱",
+        "target_ids": [
+          "t:r0:p0:s4.0:o45:f:gfdc41306015b"
+        ],
+        "bbox": [
+          77.66,
+          119.78,
+          101.66,
+          133.22
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
+      }
+    ],
+    "empty": false,
+    "text_ids": [
+      "t:r0:p0:s4.0:o45:f:gfdc41306015b"
+    ],
+    "capability": {
+      "status": "support",
+      "reasons": []
+    }
+  },
+  {
+    "cell_id": "c:r0:p0:t0:0.1:geecb5480cebe",
+    "table": 0,
+    "row": 0,
+    "col": 1,
+    "row_span": 1,
+    "col_span": 1,
+    "bbox": [
+      222.53,
+      108.26,
+      372.91,
+      144.74
+    ],
+    "inner_bbox": [
+      222.77,
+      108.5,
+      372.67,
+      144.5
+    ],
+    "lines": [
+      {
+        "text": "數量",
+        "target_ids": [
+          "t:r0:p0:s4.0:o78:f:g6e4f813d0898"
+        ],
+        "bbox": [
+          227.93,
+          119.78,
+          251.93,
+          133.22
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
+      }
+    ],
+    "empty": false,
+    "text_ids": [
+      "t:r0:p0:s4.0:o78:f:g6e4f813d0898"
+    ],
+    "capability": {
+      "status": "support",
+      "reasons": []
+    }
+  },
+  {
+    "cell_id": "c:r0:p0:t0:0.2:g27dca40954bc",
+    "table": 0,
+    "row": 0,
+    "col": 2,
+    "row_span": 1,
+    "col_span": 1,
+    "bbox": [
+      372.91,
+      108.26,
+      523.18,
+      144.74
+    ],
+    "inner_bbox": [
+      373.15,
+      108.5,
+      522.94,
+      144.5
+    ],
+    "lines": [
+      {
+        "text": "說明",
+        "target_ids": [
+          "t:r0:p0:s4.0:o111:f:gccb480985379"
+        ],
+        "bbox": [
+          378.31,
+          119.78,
+          402.31,
+          133.22
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
+      }
+    ],
+    "empty": false,
+    "text_ids": [
+      "t:r0:p0:s4.0:o111:f:gccb480985379"
+    ],
+    "capability": {
+      "status": "support",
+      "reasons": []
+    }
+  },
+  {
+    "cell_id": "c:r0:p0:t0:1.0:gfd31efe4a09a",
+    "table": 0,
+    "row": 1,
+    "col": 0,
+    "row_span": 1,
+    "col_span": 1,
+    "bbox": [
+      72.26,
+      144.74,
+      222.53,
+      217.34
+    ],
+    "inner_bbox": [
+      72.5,
+      144.98,
+      222.29,
+      217.1
+    ],
+    "lines": [
+      {
+        "text": "樣品",
+        "target_ids": [
+          "t:r0:p0:s4.0:o172:f:g1ba69b36e99a"
+        ],
+        "bbox": [
+          77.66,
+          156.26,
+          101.66,
+          169.7
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
+      }
+    ],
+    "empty": false,
+    "text_ids": [
+      "t:r0:p0:s4.0:o172:f:g1ba69b36e99a"
+    ],
+    "capability": {
+      "status": "support",
+      "reasons": []
+    }
+  },
+  {
+    "cell_id": "c:r0:p0:t0:1.1:g81283025013a",
+    "table": 0,
+    "row": 1,
+    "col": 1,
+    "row_span": 1,
+    "col_span": 1,
+    "bbox": [
+      222.53,
+      144.74,
+      372.91,
+      217.34
+    ],
+    "inner_bbox": [
+      222.77,
+      144.98,
+      372.67,
+      217.1
+    ],
+    "lines": [
+      {
+        "text": "5",
+        "target_ids": [
+          "t:r0:p0:s4.0:o203:f:g75d941ae3379"
+        ],
+        "bbox": [
+          227.93,
+          156.26,
+          234.59,
+          169.7
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
+      }
+    ],
+    "empty": false,
+    "text_ids": [
+      "t:r0:p0:s4.0:o203:f:g75d941ae3379"
+    ],
+    "capability": {
+      "status": "support",
+      "reasons": []
+    }
+  },
+  {
+    "cell_id": "c:r0:p0:t0:1.2:g37272ade1e99",
+    "table": 0,
+    "row": 1,
+    "col": 2,
+    "row_span": 1,
+    "col_span": 1,
+    "bbox": [
+      372.91,
+      144.74,
+      523.18,
+      217.34
+    ],
+    "inner_bbox": [
+      373.15,
+      144.98,
+      522.94,
+      217.1
+    ],
+    "lines": [
+      {
+        "text": "第一行",
+        "target_ids": [
+          "t:r0:p0:s4.0:o234:f:g36f9fe2aa6bf"
+        ],
+        "bbox": [
+          378.31,
+          156.26,
+          414.31,
+          169.7
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
+      },
+      {
+        "text": "第二行",
+        "target_ids": [
+          "t:r0:p0:s4.0:o260:f:gbe6cdc1373b4"
+        ],
+        "bbox": [
+          378.31,
+          192.26,
+          414.31,
+          205.7
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
+      }
+    ],
+    "empty": false,
+    "text_ids": [
+      "t:r0:p0:s4.0:o234:f:g36f9fe2aa6bf",
+      "t:r0:p0:s4.0:o260:f:gbe6cdc1373b4"
+    ],
+    "capability": {
+      "status": "support",
+      "reasons": []
+    }
+  }
+]

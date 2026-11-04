@@ -18,6 +18,13 @@ MAX_NEW_TEXT = 200  # 字元；固定框內替換，不做長文排版
 POLICIES = frozenset({"prefer_a", "a_only"})  # ADR-0001：預設 A、A 不可行才 B；a_only 為嚴格 A
 PLAN_PARAMS = frozenset({"target_id", "new_text", "policy", "editable_region"})
 IMAGE_PLAN_PARAMS = frozenset({"target_id", "asset_id"})  # ADR-0022
+CELL_PLAN_PARAMS = frozenset(
+    {"cell_id", "cell_box", "page_index", "line_index", "new_text", "policy"}
+)  # ADR-0023
+_CELL_RE = re.compile(
+    r"^c:r(?P<rev>\d+):p(?P<page>\d+):t(?P<table>\d+):(?P<row>\d+)\.(?P<col>\d+)"
+    r":g(?P<geom>[0-9a-f]{12})$"
+)
 _ASSET_ID_RE = re.compile(r"^[0-9a-f]{64}$")
 
 _TARGET_RE = re.compile(
@@ -99,16 +106,29 @@ def common_affixes(old: str, new: str) -> tuple[int, int]:
     return prefix, suffix
 
 
+def _check_new_text(new_text) -> str:
+    if not isinstance(new_text, str) or not 0 < len(new_text) <= MAX_NEW_TEXT:
+        raise ProtocolError("INVALID_REQUEST", "new_text 長度錯誤")
+    if any(unicodedata.category(ch) in ("Cc", "Cf", "Cs", "Co", "Cn") for ch in new_text):
+        raise ProtocolError("INVALID_REQUEST", "new_text 含控制或未定義字元")
+    return new_text
+
+
+def _check_box(box) -> list[float]:
+    if (not isinstance(box, list) or len(box) != 4
+            or not all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                       and math.isfinite(v) for v in box)
+            or box[0] >= box[2] or box[1] >= box[3]):  # fmt: skip
+        raise ProtocolError("INVALID_REQUEST", "矩形格式錯誤")
+    return [float(v) for v in box]
+
+
 def validate_plan_params(params: dict) -> dict:
     """plan_text_edit 的參數白名單與型別；回傳正規化後的參數。"""
     unknown = set(params) - PLAN_PARAMS
     if unknown:
         raise ProtocolError("INVALID_REQUEST", "不支援的參數")
-    new_text = params.get("new_text")
-    if not isinstance(new_text, str) or not 0 < len(new_text) <= MAX_NEW_TEXT:
-        raise ProtocolError("INVALID_REQUEST", "new_text 長度錯誤")
-    if any(unicodedata.category(ch) in ("Cc", "Cf", "Cs", "Co", "Cn") for ch in new_text):
-        raise ProtocolError("INVALID_REQUEST", "new_text 含控制或未定義字元")
+    new_text = _check_new_text(params.get("new_text"))
     policy = params.get("policy", "prefer_a")
     if policy not in POLICIES:
         raise ProtocolError("INVALID_REQUEST", "未知 policy")
@@ -117,18 +137,44 @@ def validate_plan_params(params: dict) -> dict:
         raise ProtocolError("INVALID_REQUEST", "缺少 target_id")
     region = params.get("editable_region")
     if region is not None:
-        if (not isinstance(region, list) or len(region) != 4
-                or not all(isinstance(v, (int, float)) and not isinstance(v, bool)
-                           and math.isfinite(v) for v in region)
-                or region[0] >= region[2] or region[1] >= region[3]):  # fmt: skip
-            raise ProtocolError("INVALID_REQUEST", "editable_region 格式錯誤")
-        region = [float(v) for v in region]
+        region = _check_box(region)
     return {
         "target_id": target_id,
         "new_text": new_text,
         "policy": policy,
         "editable_region": region,
     }
+
+
+def validate_cell_params(params: dict, require_text: bool = True) -> dict:
+    """plan_cell_edit 的參數白名單與型別（ADR-0023）：cell_id 與 cell_box（人工框選，
+    須給 page_index）擇一；line_index 為格內第幾行（0 起）。"""
+    if set(params) - CELL_PLAN_PARAMS:
+        raise ProtocolError("INVALID_REQUEST", "不支援的參數")
+    cell_id, box = params.get("cell_id"), params.get("cell_box")
+    if (cell_id is None) == (box is None):
+        raise ProtocolError("INVALID_REQUEST", "cell_id 與 cell_box 須擇一")
+    page_index = params.get("page_index")
+    if cell_id is not None:
+        match = _CELL_RE.match(cell_id) if isinstance(cell_id, str) else None
+        if match is None:
+            raise ProtocolError("INVALID_REQUEST", "cell_id 格式錯誤")
+        if page_index is not None and page_index != int(match["page"]):
+            raise ProtocolError("INVALID_REQUEST", "page_index 與 cell_id 不符")
+        page_index = int(match["page"])
+    else:
+        box = _check_box(box)
+    if not isinstance(page_index, int) or isinstance(page_index, bool) or page_index < 0:
+        raise ProtocolError("INVALID_REQUEST", "page_index 錯誤")
+    line_index = params.get("line_index", 0)
+    if not isinstance(line_index, int) or isinstance(line_index, bool) or line_index < 0:
+        raise ProtocolError("INVALID_REQUEST", "line_index 錯誤")
+    new_text = _check_new_text(params.get("new_text")) if require_text else None
+    policy = params.get("policy", "prefer_a")
+    if policy not in POLICIES:
+        raise ProtocolError("INVALID_REQUEST", "未知 policy")
+    return {"cell_id": cell_id, "cell_box": box, "page_index": page_index,
+            "line_index": line_index, "new_text": new_text, "policy": policy}  # fmt: skip
 
 
 def validate_image_params(params: dict) -> dict:
@@ -153,7 +199,9 @@ class EditPlan:
     target: dict  # span_id、page_index、selected_text、change（實際改動範圍）
     new_text: str
     policy: str
-    mode: str | None  # "A"、"B"、"image"（圖片替換，ADR-0022）；拒絕時為 None
+    mode: (
+        str | None
+    )  # "A"、"B"、"image"（圖片替換，ADR-0022）；拒絕時為 None（儲存格改字沿用 A／B）
     font_policy: str
     allowed_change_mask: list[float] | None  # 可改動區域（頁面座標 pt）
     geometry: dict = field(default_factory=dict)

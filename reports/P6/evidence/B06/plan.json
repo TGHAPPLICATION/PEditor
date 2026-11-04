@@ -1,0 +1,37 @@
+{
+  "plan_id": "ecab7ff5efac1350",
+  "document_id": "9cf5970d0a66c983",
+  "preconditions": {
+    "sha256": "ef732af2d87c18fa8a3928b6a2a1c81c87a9a9bedd582b90ff694fb5bdd0223d",
+    "revision": 0
+  },
+  "target": {
+    "page_index": 0,
+    "cell": {
+      "cell_id": "c:r0:p0:t0:1.0:ge9c43468109b",
+      "row": 1,
+      "col": 0,
+      "manual": false,
+      "inner_bbox": [
+        72.25,
+        109.9,
+        298.45,
+        130.0
+      ],
+      "line_index": 0
+    }
+  },
+  "new_text": "X",
+  "policy": "prefer_a",
+  "mode": null,
+  "font_policy": "keep_original",
+  "allowed_change_mask": null,
+  "geometry": {},
+  "resource_changes": [],
+  "font_changes": [],
+  "warnings": [],
+  "unsupported_reasons": [
+    "UNSUPPORTED_LAYOUT"
+  ],
+  "ready": false
+}

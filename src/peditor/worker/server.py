@@ -68,6 +68,10 @@ class Worker:
             from peditor.worker import image
 
             return image.plan_image_edit(document, params)
+        if operation in ("plan_cell_edit", "assess_cell_box"):
+            from peditor.worker import cell
+
+            return getattr(cell, operation)(document, params)
         if operation == "apply_edit":
             from peditor.worker import edit
 

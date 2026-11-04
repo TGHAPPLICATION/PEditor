@@ -54,7 +54,8 @@ class _Doc:
     worker_id: str | None
     revision: int = 0
     # command log：每筆 {"params": plan_text_edit 參數, "base_revision": 規劃時的 revision}
-    # （ADR-0020 §1）；圖片替換另加 "op": "image"，params 為 plan_image_edit 參數（ADR-0022）
+    # （ADR-0020 §1）；圖片替換另加 "op": "image"，params 為 plan_image_edit 參數（ADR-0022）；
+    # 儲存格改字為 "op": "cell"，params 為 plan_cell_edit 參數（ADR-0023）
     log: list[dict] = field(default_factory=list)
     position: int = 0  # 已套用的筆數；log[position:] 為可重做
     plans: dict[str, dict] = field(default_factory=dict)  # plan_id → 尚未套用的 log 項目
@@ -212,6 +213,38 @@ class DocumentService:
                 "op": "image", "params": params, "base_revision": plan["preconditions"]["revision"]
             }  # fmt: skip
         return plan
+
+    def plan_cell_edit(
+        self,
+        document_id: str,
+        cell_id: str | None,
+        new_text: str,
+        line_index: int = 0,
+        policy: str = "prefer_a",
+        expected_revision: int | None = None,
+        cell_box: list[float] | None = None,
+        page_index: int | None = None,
+    ):
+        """表格儲存格改字（spec §7 plan_cell_edit；ADR-0023）：一次改格內一行。
+        cell_id 為 inspect_page 的 cell_targets；人工框選時改給 cell_box 與 page_index。"""
+        params = {"cell_id": cell_id, "new_text": new_text, "line_index": line_index,
+                  "policy": policy}  # fmt: skip
+        if cell_box is not None:  # 存副本：呼叫端之後改動不影響 command log（同 P3 f006）
+            params["cell_box"] = list(cell_box)
+        if page_index is not None:
+            params["page_index"] = page_index
+        plan = self._doc_call(document_id, "plan_cell_edit", params, expected_revision)
+        if plan.get("ready"):
+            self._docs[document_id].plans[plan["plan_id"]] = {
+                "op": "cell", "params": params, "base_revision": plan["preconditions"]["revision"]
+            }  # fmt: skip
+        return plan
+
+    def assess_cell_box(self, document_id: str, page_index: int, cell_box: list[float],
+                        expected_revision: int | None = None) -> dict:  # fmt: skip
+        """人工框選範圍的能力判定與分行（只讀；ADR-0023 §3）。"""
+        params = {"cell_id": None, "cell_box": list(cell_box), "page_index": page_index}
+        return self._doc_call(document_id, "assess_cell_box", params, expected_revision)
 
     def preview_edit(self, document_id: str, plan_id: str, expected_revision: int) -> dict:
         """前後對照圖（PNG base64）與改動區域像素框；不提交、revision 不變（ADR-0021 §2）。"""

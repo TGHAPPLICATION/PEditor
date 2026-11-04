@@ -18,6 +18,8 @@ from peditor.core.limits import (
     MAX_FORM_DEPTH,
     MAX_FORM_INVOCATIONS,
     MAX_GSTATE_DEPTH,
+    MAX_PAINTED_POINTS,
+    MAX_RULE_PATHS,
     LimitExceeded,
 )
 from peditor.worker.fonts import FontInfo, load_font
@@ -84,11 +86,45 @@ class ImageUse:
 
 
 @dataclass
+class Stroke:
+    """描邊的直線段（PDF 空間）與線寬；表格格線偵測用（P6、ADR-0023）。"""
+
+    p0: tuple[float, float]
+    p1: tuple[float, float]
+    width: float
+    form_path: tuple[str, ...]
+
+
+@dataclass
+class FilledRect:
+    """填色的 `re` 矩形四角（PDF 空間）；細長者視為格線（Word 以細矩形畫框線）。"""
+
+    corners: list[tuple[float, float]]
+    form_path: tuple[str, ...]
+
+
+@dataclass
+class PaintedPath:
+    """實際畫出的子路徑（描邊或填色，含曲線；曲線以控制點連成的折線表示，偏保守），PDF 空間。
+    障礙線用（P6 第二輪核對 R1）：不論以何種方式畫，水平、垂直的邊都擋可改動區域，
+    斜的邊使該區域拒絕。"""
+
+    points: list[tuple[float, float]]
+    closed: bool
+    width: float  # 描邊線寬；只填色時為 0
+    form_path: tuple[str, ...]
+
+
+@dataclass
 class PageContent:
     runs: list[TextRun] = field(default_factory=list)
     images: list[ImageUse] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)  # 解析失敗原因（不含原文）
     inline_images: int = 0
+    strokes: list[Stroke] = field(default_factory=list)
+    filled_rects: list[FilledRect] = field(default_factory=list)
+    painted: list[PaintedPath] = field(default_factory=list)
+    paths_truncated: bool = False  # 線段超過 MAX_RULE_PATHS：不再記錄，不做表格偵測
 
 
 @dataclass
@@ -102,6 +138,7 @@ class _GState:
     scale: float = 1.0
     leading: float = 0.0
     rise: float = 0.0
+    line_width: float = 1.0
 
     def copy(self) -> _GState:
         new = _GState(**self.__dict__)
@@ -121,6 +158,7 @@ class _Interpreter:
         self.bt_count = 0
         self.operators = 0
         self.form_calls = 0
+        self.painted_points = 0
 
     # --- 進入點 -------------------------------------------------------
     def run(self) -> PageContent:
@@ -174,7 +212,11 @@ class _Interpreter:
                     self._path_op(op, ops, gs.ctm, path)
                 elif op in ("W", "W*"):
                     pending_clip = True
+                elif op == "w":
+                    gs.line_width = _num(ops[0])
                 elif op in _PAINT:
+                    if op != "n" and path:
+                        self._record_paths(op, path, gs, form_path)
                     if pending_clip and path:
                         if len(gs.clips) >= MAX_CLIPS:
                             raise LimitExceeded("clips")
@@ -272,6 +314,34 @@ class _Interpreter:
         return text_m
 
     # --- 路徑與 clip --------------------------------------------------
+    def _record_paths(self, op, path, gs: _GState, form_path) -> None:
+        """記錄描邊的直線段與填色矩形（不含曲線）；表格格線偵測用（ADR-0023）。"""
+        stroke = op in ("S", "s", "B", "B*", "b", "b*")
+        fill = op in ("f", "F", "f*", "B", "B*", "b", "b*")
+        a, b, c, d, _, _ = gs.ctm
+        width = abs(gs.line_width) * abs(a * d - b * c) ** 0.5
+        for pts, is_re, curved, poly in path:
+            self.painted_points += len(poly)
+            if self.painted_points > MAX_PAINTED_POINTS:
+                self.result.paths_truncated = True
+                return
+            closed = fill or is_re or op in ("s", "b", "b*")
+            self.result.painted.append(
+                PaintedPath(list(poly), closed, width if stroke else 0.0, form_path)
+            )
+            if curved:
+                continue
+            if len(self.result.strokes) + len(self.result.filled_rects) >= MAX_RULE_PATHS:
+                self.result.paths_truncated = True
+                return
+            if fill and is_re:
+                self.result.filled_rects.append(FilledRect(list(pts), form_path))
+            if stroke:
+                closed = is_re or op in ("s", "b", "b*")
+                points = [*pts, pts[0]] if closed and len(pts) > 2 else pts
+                for p0, p1 in zip(points, points[1:], strict=False):
+                    self.result.strokes.append(Stroke(p0, p1, width, form_path))
+
     @staticmethod
     def _path_op(op, ops, ctm: Matrix, path) -> None:
         nums = [_num(v) for v in ops]
@@ -280,15 +350,28 @@ class _Interpreter:
             pts = [
                 apply(ctm, px, py) for px, py in ((x, y), (x + w, y), (x + w, y + h), (x, y + h))
             ]
-            path.append((pts, True, False))
+            path.append((pts, True, False, list(pts)))
         elif op == "m":
-            path.append(([apply(ctm, nums[0], nums[1])], False, False))
+            start = apply(ctm, nums[0], nums[1])
+            path.append(([start], False, False, [start]))
         elif op == "h":
             return
         elif path:
-            pts, is_re, curved = path[-1]
+            pts, is_re, curved, poly = path[-1]
             pts.append(apply(ctm, nums[-2], nums[-1]))
-            path[-1] = (pts, is_re, curved or op in ("c", "v", "y"))
+            # 障礙線用的折線：曲線細分成 CURVE_STEPS 段（第三輪核對 S1：控制點折線不一定碰到曲線）；
+            # pts 只含端點（clip 判定沿用 P1 行為）
+            points = [apply(ctm, nums[i], nums[i + 1]) for i in range(0, len(nums) - 1, 2)]
+            if op == "l" or not poly:
+                poly.append(points[-1])
+            else:
+                start = poly[-1]
+                c1, c2, end = {"c": points, "v": [start, *points], "y": [points[0], *points]}[op][
+                    :3
+                ]
+                poly.extend(_bezier(start, c1, c2, end, k / CURVE_STEPS)
+                            for k in range(1, CURVE_STEPS + 1))  # fmt: skip
+            path[-1] = (pts, is_re, curved or op in ("c", "v", "y"), poly)
 
     # --- XObject ------------------------------------------------------
     def _do(self, key, index, name, resources, gs: _GState, form_path) -> None:
@@ -328,8 +411,18 @@ def _has_actual_text(ops, resources) -> bool:
     return isinstance(props, pikepdf.Dictionary) and "/ActualText" in props
 
 
+CURVE_STEPS = 16  # 曲線細分段數（障礙線用）
+
+
+def _bezier(p0, p1, p2, p3, s: float) -> tuple[float, float]:
+    u = 1 - s
+    w0, w1, w2, w3 = u**3, 3 * u * u * s, 3 * u * s * s, s**3
+    return (w0 * p0[0] + w1 * p1[0] + w2 * p2[0] + w3 * p3[0],
+            w0 * p0[1] + w1 * p1[1] + w2 * p2[1] + w3 * p3[1])  # fmt: skip
+
+
 def _make_clip(path) -> Clip:
-    points = [p for pts, _, _ in path for p in pts]
+    points = [p for pts, *_ in path for p in pts]
     xs, ys = [p[0] for p in points], [p[1] for p in points]
     bbox = (min(xs), min(ys), max(xs), max(ys))
     if len(path) != 1 or path[0][2]:

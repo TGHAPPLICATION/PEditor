@@ -1,0 +1,25 @@
+{
+  "target_before": {
+    "mupdf": "第一行：辦理地點第二行：市府大樓",
+    "pdfium": "第一行：辦理地點第二行：市府大樓"
+  },
+  "target_after": {
+    "mupdf": "第一行：辦理地點第二行：市政大樓",
+    "pdfium": "第一行：辦理地點第二行：市政大樓"
+  },
+  "protected_text_unchanged": true,
+  "rules_unchanged": true,
+  "rules_count": 5,
+  "visual": {
+    "mupdf": {
+      "outside_fraction": 0.0,
+      "outside_limit": 0.0001,
+      "protected_over_total": 0
+    },
+    "pdfium": {
+      "outside_fraction": 0.0,
+      "outside_limit": 0.0001,
+      "protected_over_total": 0
+    }
+  }
+}

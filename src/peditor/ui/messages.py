@@ -5,7 +5,8 @@ from __future__ import annotations
 REASONS = {
     "UNSUPPORTED_ENCODING": "字型編碼無法可靠對應文字（缺少或不一致的 ToUnicode），無法安全修改",
     "UNSUPPORTED_LAYOUT": (
-        "版面不支援（直排、旋轉、Form 內的文字或圖片、非矩形剪裁、換行顯示或跨段落等）"
+        "版面不支援（直排、旋轉、Form 內的文字或圖片、非矩形剪裁、換行顯示、跨段落，"
+        "或合併格、跨格文字、空白格等）"
     ),
     "UNSUPPORTED_FEATURE": (
         "含不支援的功能（例如 /ActualText、XFA、PDF/A、跨標記內容），或不支援的圖片格式"

@@ -1,0 +1,372 @@
+[
+  {
+    "cell_id": "c:r0:p0:t0:0.0:gacbb8582bf76",
+    "table": 0,
+    "row": 0,
+    "col": 0,
+    "row_span": 1,
+    "col_span": 1,
+    "bbox": [
+      72.0,
+      89.05,
+      185.4,
+      109.65
+    ],
+    "inner_bbox": [
+      72.25,
+      89.3,
+      185.15,
+      109.4
+    ],
+    "lines": [
+      {
+        "text": "項目",
+        "target_ids": [
+          "t:r0:p0:s2.0:o23:f:g8e59f043bdc3"
+        ],
+        "bbox": [
+          74.95,
+          92.15,
+          98.95,
+          106.55
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
+      }
+    ],
+    "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o23:f:g8e59f043bdc3"
+    ],
+    "capability": {
+      "status": "support",
+      "reasons": []
+    }
+  },
+  {
+    "cell_id": "c:r0:p0:t0:0.1:g2e124444b42a",
+    "table": 0,
+    "row": 0,
+    "col": 1,
+    "row_span": 1,
+    "col_span": 1,
+    "bbox": [
+      185.4,
+      89.05,
+      298.7,
+      109.65
+    ],
+    "inner_bbox": [
+      185.65,
+      89.3,
+      298.45,
+      109.4
+    ],
+    "lines": [
+      {
+        "text": "數量",
+        "target_ids": [
+          "t:r0:p0:s2.0:o33:f:g8bd70df263af"
+        ],
+        "bbox": [
+          188.3,
+          92.15,
+          212.3,
+          106.55
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
+      }
+    ],
+    "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o33:f:g8bd70df263af"
+    ],
+    "capability": {
+      "status": "support",
+      "reasons": []
+    }
+  },
+  {
+    "cell_id": "c:r0:p0:t0:0.2:g717a60d1947d",
+    "table": 0,
+    "row": 0,
+    "col": 2,
+    "row_span": 1,
+    "col_span": 1,
+    "bbox": [
+      298.7,
+      89.05,
+      412.2,
+      109.65
+    ],
+    "inner_bbox": [
+      298.95,
+      89.3,
+      411.95,
+      109.4
+    ],
+    "lines": [
+      {
+        "text": "備註",
+        "target_ids": [
+          "t:r0:p0:s2.0:o43:f:g2539428c47d1"
+        ],
+        "bbox": [
+          301.65,
+          92.15,
+          325.65,
+          106.55
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
+      }
+    ],
+    "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o43:f:g2539428c47d1"
+    ],
+    "capability": {
+      "status": "support",
+      "reasons": []
+    }
+  },
+  {
+    "cell_id": "c:r0:p0:t0:1.0:ge9c43468109b",
+    "table": 0,
+    "row": 1,
+    "col": 0,
+    "row_span": 1,
+    "col_span": 2,
+    "bbox": [
+      72.0,
+      109.65,
+      298.7,
+      130.25
+    ],
+    "inner_bbox": [
+      72.25,
+      109.9,
+      298.45,
+      130.0
+    ],
+    "lines": [
+      {
+        "text": "合併格",
+        "target_ids": [
+          "t:r0:p0:s2.0:o53:f:g8bddbc3c935a"
+        ],
+        "bbox": [
+          74.95,
+          112.75,
+          110.95,
+          127.15
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
+      }
+    ],
+    "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o53:f:g8bddbc3c935a"
+    ],
+    "capability": {
+      "status": "reject",
+      "reasons": [
+        "UNSUPPORTED_LAYOUT"
+      ]
+    }
+  },
+  {
+    "cell_id": "c:r0:p0:t0:1.2:g9f170646f69b",
+    "table": 0,
+    "row": 1,
+    "col": 2,
+    "row_span": 1,
+    "col_span": 1,
+    "bbox": [
+      298.7,
+      109.65,
+      412.2,
+      130.25
+    ],
+    "inner_bbox": [
+      298.95,
+      109.9,
+      411.95,
+      130.0
+    ],
+    "lines": [
+      {
+        "text": "備考",
+        "target_ids": [
+          "t:r0:p0:s2.0:o63:f:gaca17adec307"
+        ],
+        "bbox": [
+          301.65,
+          112.75,
+          325.65,
+          127.15
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
+      }
+    ],
+    "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o63:f:gaca17adec307"
+    ],
+    "capability": {
+      "status": "support",
+      "reasons": []
+    }
+  },
+  {
+    "cell_id": "c:r0:p0:t0:2.0:g1f3951d0abe4",
+    "table": 0,
+    "row": 2,
+    "col": 0,
+    "row_span": 1,
+    "col_span": 1,
+    "bbox": [
+      72.0,
+      130.25,
+      185.4,
+      150.85
+    ],
+    "inner_bbox": [
+      72.25,
+      130.5,
+      185.15,
+      150.6
+    ],
+    "lines": [
+      {
+        "text": "紙張",
+        "target_ids": [
+          "t:r0:p0:s2.0:o73:f:g364f4da2e9f1"
+        ],
+        "bbox": [
+          74.95,
+          133.35,
+          98.95,
+          147.75
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
+      }
+    ],
+    "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o73:f:g364f4da2e9f1"
+    ],
+    "capability": {
+      "status": "support",
+      "reasons": []
+    }
+  },
+  {
+    "cell_id": "c:r0:p0:t0:2.1:g2f8060352a49",
+    "table": 0,
+    "row": 2,
+    "col": 1,
+    "row_span": 1,
+    "col_span": 1,
+    "bbox": [
+      185.4,
+      130.25,
+      298.7,
+      150.85
+    ],
+    "inner_bbox": [
+      185.65,
+      130.5,
+      298.45,
+      150.6
+    ],
+    "lines": [
+      {
+        "text": "300",
+        "target_ids": [
+          "t:r0:p0:s2.0:o83:f:gc126e2a6032f"
+        ],
+        "bbox": [
+          188.3,
+          133.35,
+          208.26,
+          147.75
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
+      }
+    ],
+    "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o83:f:gc126e2a6032f"
+    ],
+    "capability": {
+      "status": "support",
+      "reasons": []
+    }
+  },
+  {
+    "cell_id": "c:r0:p0:t0:2.2:gd777bca40dad",
+    "table": 0,
+    "row": 2,
+    "col": 2,
+    "row_span": 1,
+    "col_span": 1,
+    "bbox": [
+      298.7,
+      130.25,
+      412.2,
+      150.85
+    ],
+    "inner_bbox": [
+      298.95,
+      130.5,
+      411.95,
+      150.6
+    ],
+    "lines": [
+      {
+        "text": "資料",
+        "target_ids": [
+          "t:r0:p0:s2.0:o93:f:g26fc939bef99"
+        ],
+        "bbox": [
+          301.65,
+          133.35,
+          325.65,
+          147.75
+        ],
+        "capability": {
+          "status": "support",
+          "reasons": []
+        }
+      }
+    ],
+    "empty": false,
+    "text_ids": [
+      "t:r0:p0:s2.0:o93:f:g26fc939bef99"
+    ],
+    "capability": {
+      "status": "support",
+      "reasons": []
+    }
+  }
+]
