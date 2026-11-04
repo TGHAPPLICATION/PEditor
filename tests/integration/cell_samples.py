@@ -67,3 +67,43 @@ def text(x: float, y: float, s: str, matrix: str | None = None) -> str:
     """PDF 空間 (x, y) 的 12 pt 文字；matrix 給定時用 Tm（例如旋轉）。"""
     place = f"{matrix} Tm" if matrix else f"{x} {y} Td"
     return f"BT /F1 12 Tf {place} ({s}) Tj ET"
+
+
+def rich_pdf(path, ops: list[str], shading: bool = False, annots=None, type3: bool = False) -> None:
+    """含非路徑畫法的樣本（第三輪核對 S2）：shading /Sh0（全黑）、Square 註解外觀、Type3 字型 /F3
+    （字碼 124 的 CharProc 畫一條往上 8000 單位的直線，字形外框很小）。"""
+    pdf = pikepdf.new()
+    pdf.add_blank_page(page_size=(400, 300))
+    font = pdf.make_indirect(pikepdf.Dictionary(
+        Type=pikepdf.Name.Font, Subtype=pikepdf.Name.Type1, BaseFont=pikepdf.Name.Helvetica,
+        Encoding=pikepdf.Name.WinAnsiEncoding))  # fmt: skip
+    fonts = pikepdf.Dictionary(F1=font)
+    resources = pikepdf.Dictionary(Font=fonts)
+    if shading:
+        function = pdf.make_indirect(pikepdf.Dictionary(FunctionType=2, Domain=[0, 1], C0=[0],
+                                                        C1=[0], N=1))  # fmt: skip
+        sh = pikepdf.Dictionary(ShadingType=2, ColorSpace=pikepdf.Name.DeviceGray,
+                                Coords=[0, 0, 1, 0], Extend=[True, True],
+                                Function=function)  # fmt: skip
+        resources.Shading = pikepdf.Dictionary(Sh0=pdf.make_indirect(sh))
+    if type3:
+        proc = pdf.make_stream(b"1 0 0 0 0 0 d0 0 G 2 w 0 0 m 0 8000 l S")
+        fonts.F3 = pdf.make_indirect(pikepdf.Dictionary(
+            Type=pikepdf.Name.Font, Subtype=pikepdf.Name.Type3, FontBBox=[0, 0, 1, 1],
+            FontMatrix=[0.001, 0, 0, 0.001, 0, 0], CharProcs=pikepdf.Dictionary(bar=proc),
+            Encoding=pikepdf.Dictionary(Type=pikepdf.Name.Encoding,
+                                        Differences=[124, pikepdf.Name.bar]),
+            FirstChar=124, LastChar=124, Widths=[600], Resources=pikepdf.Dictionary()))  # fmt: skip
+    page = pdf.pages[0]
+    page.Resources = resources
+    page.Contents = pdf.make_stream("\n".join(ops).encode("ascii"))
+    if annots:
+        items = []
+        for rect, ap_ops in annots:
+            ap = pdf.make_stream(ap_ops.encode("ascii"))
+            ap.Type, ap.Subtype, ap.BBox = pikepdf.Name.XObject, pikepdf.Name.Form, rect
+            items.append(pdf.make_indirect(pikepdf.Dictionary(
+                Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Square, Rect=rect, F=4,
+                AP=pikepdf.Dictionary(N=ap))))  # fmt: skip
+        page.Annots = pdf.make_indirect(pikepdf.Array(items))
+    pdf.save(path)

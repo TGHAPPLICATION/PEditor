@@ -2,14 +2,19 @@
 
 格內一次只改一行（ADR-0023 §1）：以該行的文字目標組成 span，沿用 P2 `plan_text_edit`（模式 A／B、
 溢出判定、真修改），可改動區域為「格內緣 × 該行所在的水平帶」，扣掉與同格其他行（片段）之間的一半，
-再裁到不碰任何障礙線（含 Form 內的線；P6 核對 Q1、Q2），不包含同格其他行與其他格。
+再裁到不碰任何障礙線（含 Form 內的線；P6 核對 Q1、Q2），最後以渲染結果的墨跡為準再裁一次
+（第三輪核對 S1–S3：shading、註解、Type3、影像等任何畫法），不包含同格其他行與其他格。
 不自動換行、不重排；新文字超出可改動區域回 `TEXT_OVERFLOW`。格本身不支援時（合併格、跨格文字、
 空白格、人工框選不合規則）直接拒絕，不規劃。
 """
 
 from __future__ import annotations
 
+import collections
+import math
 import secrets
+
+import pymupdf
 
 from peditor.core.editplan import EditPlan, SpanTarget, validate_cell_params
 from peditor.core.protocol import ProtocolError
@@ -58,6 +63,9 @@ def plan_cell_edit(document: analyzer.Document, params: dict) -> dict:
     # 有垂直線穿過這一行的文字，或區域內有斜邊（斜線表頭等；第二輪核對 R2）
     if region is None or table.hits_diagonal(region, found.diagonals):
         return _reject(document, params, page_index, info, ["UNSUPPORTED_LAYOUT"])
+    region = _ink_clip(document, page_index, region, line["bbox"])
+    if region is None:
+        return _reject(document, params, page_index, info, ["UNSUPPORTED_LAYOUT"])
     texts = {t["target_id"]: t["text"] for t in analyzer.inspect_page(document, page_index)[
         "text_targets"]}  # fmt: skip
     target = SpanTarget(tuple(line["target_ids"]), 0, len(texts[line["target_ids"][-1]]))
@@ -70,6 +78,76 @@ def plan_cell_edit(document: analyzer.Document, params: dict) -> dict:
         pending.plan.target["cell"] = info
         pending.op, pending.params = "cell", params
     return plan
+
+
+INK_ZOOM = 150 / 72  # 墨跡檢查的渲染解析度（150 DPI，與另存視覺驗證相同）
+INK_TOL = 48  # 與區域底色任一通道相差超過此值即為墨跡（避開反鋸齒的淡邊）
+TEXT_MARGIN = 1.0  # 目標文字外框外擴（pt），其內的墨跡是這一行自己的字形
+
+
+def _ink_clip(document, page_index: int, region: list[float], text_bbox) -> list[float] | None:
+    """以渲染結果為準裁切可改動區域（ADR-0023 §2，第三輪核對）：MuPDF 渲染目前工作文件的這一頁
+    （含註解外觀、shading、Type3、影像），扣掉目標文字自己的範圍後，與區域底色不同的像素即為墨跡；
+    從文字往左右延伸到第一個有墨跡的欄、再往上下延伸到第一個有墨跡的列。渲染空白的檔案
+    （ADR-0015）沒有墨跡，只靠向量障礙線。"""
+    with pymupdf.open(stream=document.current, filetype="pdf") as doc:
+        page = doc[page_index]
+        page.set_rotation(0)  # 與頁面空間（未套用 /Rotate）一致
+        pix = page.get_pixmap(matrix=pymupdf.Matrix(INK_ZOOM, INK_ZOOM), clip=pymupdf.Rect(*region),
+                              alpha=False, colorspace=pymupdf.csRGB)  # fmt: skip
+    width, height, stride, data = pix.width, pix.height, pix.stride, pix.samples
+    if not width or not height:
+        return None
+    samples = (data[r * stride + c * 3 : r * stride + c * 3 + 3]
+               for r in range(0, height, 2) for c in range(0, width, 2))  # fmt: skip
+    counts = collections.Counter(samples)
+    background = counts.most_common(1)[0][0]
+
+    def ink(row: int, col: int) -> bool:
+        i = row * stride + col * 3
+        return max(abs(data[i + k] - background[k]) for k in range(3)) > INK_TOL
+
+    def col_of(x: float) -> int:
+        return min(width, max(0, math.floor(x * INK_ZOOM) - pix.x))
+
+    def row_of(y: float) -> int:
+        return min(height, max(0, math.floor(y * INK_ZOOM) - pix.y))
+
+    tx0, ty0, tx1, ty1 = (text_bbox[0] - TEXT_MARGIN, text_bbox[1] - TEXT_MARGIN,
+                          text_bbox[2] + TEXT_MARGIN, text_bbox[3] + TEXT_MARGIN)  # fmt: skip
+    c0, c1, r0, r1 = (
+        col_of(tx0),
+        max(col_of(tx1) + 1, col_of(tx0) + 1),
+        row_of(ty0),
+        row_of(ty1) + 1,
+    )
+    rows = range(r0, min(r1, height))
+    left, right = 0, width
+    for col in range(min(c1, width), width):  # 文字右側：第一個有墨跡的欄
+        if any(ink(r, col) for r in rows):
+            right = col
+            break
+    for col in range(min(c0, width) - 1, -1, -1):  # 文字左側
+        if any(ink(r, col) for r in rows):
+            left = col + 1
+            break
+    cols = range(left, right)
+    top, bottom = 0, height
+    for row in range(r0 - 1, -1, -1):  # 文字上方：第一個有墨跡的列
+        if any(ink(row, c) for c in cols):
+            top = row + 1
+            break
+    for row in range(min(r1, height), height):  # 文字下方
+        if any(ink(row, c) for c in cols):
+            bottom = row
+            break
+    z = INK_ZOOM
+    clipped = [max(region[0], (pix.x + left) / z), max(region[1], (pix.y + top) / z),
+               min(region[2], (pix.x + right) / z),
+               min(region[3], (pix.y + bottom) / z)]  # fmt: skip
+    if clipped[0] >= clipped[2] or clipped[1] >= clipped[3]:
+        return None
+    return clipped
 
 
 def _reject(document, params, page_index, info, reasons, warnings=()) -> dict:

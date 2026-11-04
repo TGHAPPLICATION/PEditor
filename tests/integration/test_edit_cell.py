@@ -15,7 +15,7 @@ import pymupdf
 import pypdfium2
 import pytest
 import visual
-from cell_samples import cell_box, ops_pdf, table_pdf, text
+from cell_samples import cell_box, ops_pdf, rich_pdf, table_pdf, text
 
 from peditor.core.protocol import ProtocolError
 from peditor.worker import analyzer, cell, edit, export, span, table
@@ -440,7 +440,8 @@ def test_lines_drawn_any_way_block_region(kind, tmp_path):
         frame = analyzer.inspect_page(document, 0)["cell_targets"][0]
         plan = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"],
                                               "new_text": "ABCDEFGHIJKLMNOPQ"})  # fmt: skip
-        expected = "UNSUPPORTED_LAYOUT" if kind == "diagonal" else "TEXT_OVERFLOW"
+        # 斜線與曲線（第三輪核對 S1 起曲線細分成折線，穿過該行的區域即為斜邊）使該行拒絕
+        expected = "UNSUPPORTED_LAYOUT" if kind in ("diagonal", "curve") else "TEXT_OVERFLOW"
         assert plan["unsupported_reasons"] == [expected], plan["unsupported_reasons"]
         box = [52, 52, 348, 98]  # 人工框選整個外框內緣：框內有內層線或斜線即拒絕
         assert cell.assess_cell_box(document, {"cell_box": box, "page_index": 0})[
@@ -470,6 +471,72 @@ def test_underline_and_nearby_lines_do_not_block(kind, tmp_path):
         # 整段替換（改字起點在文字開頭），左右邊界都會被檢查到
         plan = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"], "new_text": "ZZZZ"})
         assert plan["ready"], plan["unsupported_reasons"]
+        edit.apply_edit(document, plan["plan_id"], 0)
+        report = export.export_document(document, str(tmp_path / "out.pdf"))["validation_report"]
+        assert report["ok"], report["failures"]
+    finally:
+        document.close()
+
+
+ROUND3 = {
+    # 第三輪核對 S1：曲線本身穿過文字列，控制點折線卻在格外
+    "curve_outside_polyline": dict(ops=["0.5 w 200 245 m 400 245 400 60 200 60 c S"]),
+    # S2：不是路徑的畫法
+    "shading_bar": dict(ops=["q 199 150 2 100 re W n /Sh0 sh Q"], shading=True),
+    "annotation_line": dict(ops=[],
+                            annots=[([195, 150, 205, 250], "0 G 2 w 200 150 m 200 250 l S")]),
+    "type3_bar": dict(ops=[text(200, 160, "|").replace("/F1", "/F3")], type3=True),
+    "inline_image": dict(ops=["q 2 0 0 100 199 150 cm BI /W 1 /H 1 /CS /G /BPC 8 ID \x00 EI Q"]),
+    # S3：線帽與粗斜線
+    "square_cap": dict(ops=["0 G 20 w 2 J 200 160 m 200 222 l S"]),
+    "thick_diagonal_outside": dict(ops=["0 G 100 w 385 250 m 395 150 l S"]),
+}  # fmt: skip
+
+
+DIAGONAL_KINDS = {"curve_outside_polyline", "thick_diagonal_outside"}
+
+
+@pytest.mark.parametrize("kind", sorted(ROUND3))
+def test_any_drawing_blocks_long_text(kind, tmp_path):
+    """第三輪 S1–S3：曲線、shading、註解、Type3、影像、線帽、粗斜線畫出的東西都擋住新文字
+    （墨跡檢查）。"""
+    case = ROUND3[kind]
+    path = tmp_path / f"{kind}.pdf"
+    rich_pdf(path, ["0 G 1 w 50 150 300 100 re S", *case["ops"], text(56, 230, "AB")],
+             shading=case.get("shading", False), annots=case.get("annots"),
+             type3=case.get("type3", False))  # fmt: skip
+    document = analyzer.open_document(str(path))
+    try:
+        frame = next(c for c in analyzer.inspect_page(document, 0)["cell_targets"]
+                     if any(line["text"] == "AB" for line in c["lines"]))  # fmt: skip
+        index = next(i for i, line in enumerate(frame["lines"]) if line["text"] == "AB")
+        long_text = "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGH"
+        plan = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"], "line_index": index,
+                                              "new_text": long_text})  # fmt: skip
+        assert not plan["ready"], plan["allowed_change_mask"]
+        short = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"], "line_index": index,
+                                               "new_text": "ABC"})  # fmt: skip
+        if kind in DIAGONAL_KINDS:  # 曲線、粗斜線穿過這一行的區域：整行拒絕（ADR-0023 §2）
+            assert short["unsupported_reasons"] == ["UNSUPPORTED_LAYOUT"]
+        else:  # 不碰到畫出的東西就照常可改
+            assert short["ready"], short["unsupported_reasons"]
+    finally:
+        document.close()
+
+
+@pytest.mark.parametrize("ops", [["56 232 16 7 re f"], ["54 225 22 16 re f"]],
+                         ids=["thick_strike", "highlight"])  # fmt: skip
+def test_fill_over_text_does_not_cut_into_text(ops, tmp_path):
+    """第三輪 S4：7 pt 粗刪除線、文字底色塊不把可改動區域裁進文字裡；在它們範圍內的改字照常可改。"""
+    path = tmp_path / "fill.pdf"
+    ops_pdf(path, ["0 G 1 w 50 150 300 100 re S", "0.6 g", *ops, "0 g", text(56, 230, "AB")])
+    document = analyzer.open_document(str(path))
+    try:
+        frame = analyzer.inspect_page(document, 0)["cell_targets"][0]
+        plan = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"], "new_text": "ZZ"})
+        assert plan["ready"], plan["unsupported_reasons"]
+        mask, text_box = plan["allowed_change_mask"], frame["lines"][0]["bbox"]
+        assert mask[0] <= text_box[0] and mask[1] <= text_box[1] and mask[3] >= text_box[3]
         edit.apply_edit(document, plan["plan_id"], 0)
         report = export.export_document(document, str(tmp_path / "out.pdf"))["validation_report"]
         assert report["ok"], report["failures"]

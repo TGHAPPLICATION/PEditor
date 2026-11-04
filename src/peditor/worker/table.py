@@ -36,6 +36,7 @@ class Line:
     a: float  # 起點（水平線 x0、垂直線 y0）
     b: float
     width: float  # 線寬或細矩形厚度
+    owner: tuple | None = None  # 填色形狀的邊：該形狀的外框（頁面空間；第三輪核對 S4）
 
 
 @dataclass
@@ -46,7 +47,7 @@ class Rules:
     obstacles: list[Line] = field(
         default_factory=list
     )  # 障礙線：已繪製路徑的水平、垂直邊（含 Form 內）
-    diagonals: list[tuple] = field(default_factory=list)  # 已繪製路徑的斜邊 ((x0, y0), (x1, y1))
+    diagonals: list[tuple] = field(default_factory=list)  # 斜邊 ((x0, y0), (x1, y1), 線寬)
 
 
 def _rect_line(pts, max_thickness: float) -> Line | None:
@@ -76,14 +77,18 @@ def rules(content: PageContent, to_page: Matrix) -> Rules:
         if thin is not None:
             grid.append(thin)
     blocks: list[Line] = []
+    fill_edges: list[Line] = []  # 只填色（不描邊）的形狀的邊：不合併，保留所屬形狀
     diagonals: list[tuple] = []
     for painted in content.painted:
         pts = [apply(to_page, *p) for p in painted.points]
         thin = _rect_line(pts, THIN_SHAPE) if len(pts) > 1 else None
         if thin is not None:  # 細長的形狀（填色底線、細框線）整個視為一條線，不拆成四邊
             thin.width = max(thin.width, painted.width)
+            _extend(thin)
             blocks.append(thin)
             continue
+        xs, ys = [q[0] for q in pts], [q[1] for q in pts]
+        owner = (min(xs), min(ys), max(xs), max(ys)) if not painted.width else None
         edges = list(zip(pts, pts[1:], strict=False))
         if painted.closed and len(pts) > 2:
             edges.append((pts[-1], pts[0]))
@@ -91,10 +96,14 @@ def rules(content: PageContent, to_page: Matrix) -> Rules:
             if abs(p0[0] - p1[0]) <= 0.01 and abs(p0[1] - p1[1]) <= 0.01:
                 continue
             line = _axis_line(p0, p1, painted.width)
-            if line is not None:
-                blocks.append(line)
+            if line is None:
+                diagonals.append((p0, p1, painted.width))
+            elif owner is not None:
+                line.owner = owner
+                fill_edges.append(line)
             else:
-                diagonals.append((p0, p1))
+                _extend(line)  # 線帽（方形、圓形）沿長度方向延伸半個線寬（第三輪核對 S3）
+                blocks.append(line)
     hs, vs = (
         _merge([r for r in grid if r.horizontal]),
         _merge([r for r in grid if not r.horizontal]),
@@ -104,7 +113,12 @@ def rules(content: PageContent, to_page: Matrix) -> Rules:
     obstacles = _merge([r for r in blocks if r.horizontal]) + _merge(
         [r for r in blocks if not r.horizontal]
     )
-    return Rules(hs, vs, obstacles=obstacles, diagonals=diagonals)
+    return Rules(hs, vs, obstacles=obstacles + fill_edges, diagonals=diagonals)
+
+
+def _extend(line: Line) -> None:
+    line.a -= line.width / 2
+    line.b += line.width / 2
 
 
 def _axis_line(p0, p1, width: float) -> Line | None:
@@ -116,10 +130,13 @@ def _axis_line(p0, p1, width: float) -> Line | None:
     return None
 
 
-def crosses(region, obstacles: list[Line]) -> bool:
-    """區域內部（扣 TOL）有障礙線穿過；短段（點線）也算（第二輪核對 R1）。邊上的線不算。"""
+def crosses(region, obstacles: list[Line], text_bbox=None) -> bool:
+    """區域內部（扣 TOL）有障礙線穿過；短段（點線）也算（第二輪核對 R1）。邊上的線不算。
+    給 text_bbox 時，與文字重疊的填色形狀（粗刪除線、底色塊）的邊不算（第三輪核對 S4，同 clip）。"""
     x0, y0, x1, y1 = region
     for line in obstacles:
+        if text_bbox is not None and line.owner is not None and _overlaps(line.owner, text_bbox):
+            continue
         if line.horizontal:
             if y0 + TOL < line.pos < y1 - TOL and min(line.b, x1) - max(line.a, x0) > 0:
                 return True
@@ -129,9 +146,13 @@ def crosses(region, obstacles: list[Line]) -> bool:
 
 
 def hits_diagonal(region, diagonals) -> bool:
-    """任一斜邊與區域內部相交（Liang–Barsky；第二輪核對 R2：斜線表頭等）。"""
-    x0, y0, x1, y1 = region[0] + 0.01, region[1] + 0.01, region[2] - 0.01, region[3] - 0.01
-    for (ax, ay), (bx, by) in diagonals:
+    """任一斜邊（含線寬：區域外擴半個線寬）與區域內部相交。
+
+    Liang–Barsky；第二輪核對 R2、第三輪核對 S3。
+    """
+    for (ax, ay), (bx, by), width in diagonals:
+        grow = width / 2 - 0.01
+        x0, y0, x1, y1 = region[0] - grow, region[1] - grow, region[2] + grow, region[3] + grow
         dx, dy = bx - ax, by - ay
         lo, hi = 0.0, 1.0
         for p, q in ((-dx, ax - x0), (dx, x1 - ax), (-dy, ay - y0), (dy, y1 - ay)):
@@ -156,10 +177,15 @@ def clip(region, text_bbox, obstacles: list[Line]) -> list[float] | None:
         垂直線即穿過文字，回 None。
       - 在文字左或右：裁左右邊界到線為止（扣半個線寬）。
     - 不與文字垂直範圍重疊（在文字上或下）：裁上下邊界。
+    - 只填色的形狀與文字重疊（粗刪除線、底色塊）時，向量判斷略過它的邊，交給墨跡檢查
+      （第三輪核對 S4）。
+    範圍判斷含端點（零寬的邊也正確判位置）。
     """
     x0, y0, x1, y1 = region
     tx0, ty0, tx1, ty1 = text_bbox
     for line in obstacles:
+        if line.owner is not None and _overlaps(line.owner, text_bbox):
+            continue
         half = line.width / 2
         if line.horizontal:
             ox0, ox1, oy0, oy1 = line.a, line.b, line.pos - half, line.pos + half
@@ -167,17 +193,20 @@ def clip(region, text_bbox, obstacles: list[Line]) -> list[float] | None:
             ox0, ox1, oy0, oy1 = line.pos - half, line.pos + half, line.a, line.b
         if not (ox0 < x1 + TOL and ox1 > x0 - TOL and oy0 < y1 + TOL and oy1 > y0 - TOL):
             continue  # 不碰區域
-        beside = min(oy1, ty1 + TOL) - max(oy0, ty0 - TOL) > 0
-        if beside:
-            if min(ox1, tx1) - max(ox0, tx0) > 0:
-                if line.horizontal:
+        if oy0 <= ty1 + TOL and oy1 >= ty0 - TOL:  # 在文字旁邊（垂直範圍重疊，含端點）
+            if line.horizontal:
+                if min(ox1, tx1) - max(ox0, tx0) > 0:
                     continue  # 底線、刪除線
+                inside = False
+            else:
+                inside = tx0 + TOL < line.pos < tx1 - TOL
+            if inside:
                 return None  # 垂直線穿過文字
-            if ox0 >= tx1:
+            if ox0 >= tx1 - TOL:
                 x1 = min(x1, ox0)
             else:
                 x0 = max(x0, ox1)
-        elif oy1 <= ty0:
+        elif oy1 < ty0 - TOL:
             y0 = max(y0, oy1)
         else:
             y1 = min(y1, oy0)

@@ -359,8 +359,18 @@ class _Interpreter:
         elif path:
             pts, is_re, curved, poly = path[-1]
             pts.append(apply(ctm, nums[-2], nums[-1]))
-            # 含曲線控制點的折線（障礙線用）；pts 只含端點（clip 判定沿用 P1 行為）
-            poly.extend(apply(ctm, nums[i], nums[i + 1]) for i in range(0, len(nums) - 1, 2))
+            # 障礙線用的折線：曲線細分成 CURVE_STEPS 段（第三輪核對 S1：控制點折線不一定碰到曲線）；
+            # pts 只含端點（clip 判定沿用 P1 行為）
+            points = [apply(ctm, nums[i], nums[i + 1]) for i in range(0, len(nums) - 1, 2)]
+            if op == "l" or not poly:
+                poly.append(points[-1])
+            else:
+                start = poly[-1]
+                c1, c2, end = {"c": points, "v": [start, *points], "y": [points[0], *points]}[op][
+                    :3
+                ]
+                poly.extend(_bezier(start, c1, c2, end, k / CURVE_STEPS)
+                            for k in range(1, CURVE_STEPS + 1))  # fmt: skip
             path[-1] = (pts, is_re, curved or op in ("c", "v", "y"), poly)
 
     # --- XObject ------------------------------------------------------
@@ -399,6 +409,16 @@ def _has_actual_text(ops, resources) -> bool:
         table = resources.get("/Properties")
         props = table.get(props) if isinstance(table, pikepdf.Dictionary) else None
     return isinstance(props, pikepdf.Dictionary) and "/ActualText" in props
+
+
+CURVE_STEPS = 16  # 曲線細分段數（障礙線用）
+
+
+def _bezier(p0, p1, p2, p3, s: float) -> tuple[float, float]:
+    u = 1 - s
+    w0, w1, w2, w3 = u**3, 3 * u * u * s, 3 * u * s * s, s**3
+    return (w0 * p0[0] + w1 * p1[0] + w2 * p2[0] + w3 * p3[0],
+            w0 * p0[1] + w1 * p1[1] + w2 * p2[1] + w3 * p3[1])  # fmt: skip
 
 
 def _make_clip(path) -> Clip:

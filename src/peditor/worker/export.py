@@ -237,7 +237,9 @@ def rules_check(document: analyzer.Document, data: bytes) -> list[int]:
                 to_page = analyzer.page_geometry(page).pdf_to_page()
                 rules = table.rules(interpret(page), to_page)
                 lines = rules.horizontal + rules.vertical + rules.obstacles  # 含 Form 內（Q2）
-                diagonals = [tuple(round(v, 2) for p in d for v in p) for d in rules.diagonals]
+                diagonals = [
+                    tuple(round(v, 2) for v in (*d[0], *d[1], d[2])) for d in rules.diagonals
+                ]
                 found.append([(r.horizontal, round(r.pos, 2), round(r.a, 2), round(r.b, 2),
                                round(r.width, 2)) for r in lines] + diagonals)  # fmt: skip
             if found[0] != found[1]:
