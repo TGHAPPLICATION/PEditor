@@ -457,6 +457,9 @@ ROUND2_FREE = {
     "strike": ["0.5 w 56 234 m 70 234 l S"],
     "line_right_same_height": ["0.5 w 200 234 m 340 234 l S"],
     "box_below": ["0.5 w 60 160 40 40 re S"],
+    # 第三輪核對 S5：延伸到右邊的底線、文字後面同高的填空線（在上面填字）
+    "underline_to_right": ["0 G 0.5 w 56 227 m 300 227 l S"],
+    "fill_in_blank": ["0 G 0.5 w 76 227 m 250 227 l S"],
 }  # fmt: skip
 
 

@@ -121,7 +121,9 @@ def _ink_clip(document, page_index: int, region: list[float], text_bbox) -> list
         row_of(ty0),
         row_of(ty1) + 1,
     )
-    rows = range(r0, min(r1, height))
+    # 左右延伸只看文字的上方 3/4：底線區的墨跡（底線、填空線）不擋（同 table.clip）
+    core = row_of(ty0 + (ty1 - ty0) * (1 - table.UNDERLINE_ZONE)) + 1
+    rows = range(r0, min(core, height))
     left, right = 0, width
     for col in range(min(c1, width), width):  # 文字右側：第一個有墨跡的欄
         if any(ink(r, col) for r in rows):

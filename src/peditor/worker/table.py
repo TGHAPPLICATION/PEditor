@@ -26,6 +26,7 @@ from peditor.worker.content import PageContent
 MAX_THICKNESS = 2.0  # 填色矩形視為線的最大厚度（pt）
 TOL = 1.0  # 同一條線的位置差、相接片段的間隙、線段涵蓋判定（pt）
 TEXT_TOL = 0.5  # 文字外框落在格內緣的容許（pt）
+UNDERLINE_ZONE = 0.25  # 文字外框下方這一比例為底線區：其中的水平線（底線、填空線）不擋左右延伸
 THIN_SHAPE = 6.0  # 已繪製路徑外框厚度 ≤此值且長度超過厚度 3 倍時視為一條線（底線、細框線）
 
 
@@ -177,12 +178,15 @@ def clip(region, text_bbox, obstacles: list[Line]) -> list[float] | None:
         垂直線即穿過文字，回 None。
       - 在文字左或右：裁左右邊界到線為止（扣半個線寬）。
     - 不與文字垂直範圍重疊（在文字上或下）：裁上下邊界。
+    - 文字外框下方 UNDERLINE_ZONE 的底線區裡的水平線（底線、「姓名：＿＿」的填空線）不擋
+      （第三輪核對 S5）。
     - 只填色的形狀與文字重疊（粗刪除線、底色塊）時，向量判斷略過它的邊，交給墨跡檢查
       （第三輪核對 S4）。
     範圍判斷含端點（零寬的邊也正確判位置）。
     """
     x0, y0, x1, y1 = region
     tx0, ty0, tx1, ty1 = text_bbox
+    core_bottom = ty0 + (ty1 - ty0) * (1 - UNDERLINE_ZONE)
     for line in obstacles:
         if line.owner is not None and _overlaps(line.owner, text_bbox):
             continue
@@ -195,8 +199,8 @@ def clip(region, text_bbox, obstacles: list[Line]) -> list[float] | None:
             continue  # 不碰區域
         if oy0 <= ty1 + TOL and oy1 >= ty0 - TOL:  # 在文字旁邊（垂直範圍重疊，含端點）
             if line.horizontal:
-                if min(ox1, tx1) - max(ox0, tx0) > 0:
-                    continue  # 底線、刪除線
+                if line.pos > core_bottom or min(ox1, tx1) - max(ox0, tx0) > 0:
+                    continue  # 底線區的線（底線、填空線）、與文字重疊的刪除線
                 inside = False
             else:
                 inside = tx0 + TOL < line.pos < tx1 - TOL
