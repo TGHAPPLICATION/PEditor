@@ -33,17 +33,17 @@
 ## 3. 需求 → test ID → fixture／hash → 結果
 
 fixture hash（前 12 碼）：B01 `1a409bb195b5`、B02 `7861dc6039a9`、B03 `74bd86c71d2c`、B04 `db65ca0699c0`、B05 `e6cb11e5a755`、B06 `ef732af2d87c`。
-「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝待推送後補上。
+「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝run [41757007669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41757007669)（commit `37b9767`）windows-latest 439 passed、macos-15 439 passed。
 
 | 需求 ID | test ID | fixture | 本機 | CI |
 | --- | --- | --- | --- | --- |
-| G6-01 | `tests/integration/test_edit_cell.py::test_all_supported_cell_cases`（5 組）：目標格格線中線與 manifest 可改動區域 ≤0.5 pt；計畫 ready（B01 模式 A、其餘模式 B）；另存驗證含格線不變；兩引擎擷取目標格為新文字、不含原文；遮罩外差異 ≤0.01% | B01–B05 | PASS | 待補 |
-| G6-02 | `::test_borders_and_other_cells_unchanged`（5 組）：格線位置、範圍、線寬完全相同；其他格與同格其他行兩引擎擷取相同、像素無超標差異；`::test_rules_check_detects_changed_borders`：拿掉一條線或改線寬時另存前驗證能偵測 | B01–B05 | PASS | 待補 |
-| G6-03 | `::test_cell_overflow_rejected`（2 組）：60 字新文字回 `TEXT_OVERFLOW` | B01、B04 | PASS | 待補 |
-| G6-04 | `::test_manual_cell_requires_assessment`：B06 合併格（1×2）偵測與框選都拒絕、框選跨兩格拒絕；無框線表格框選切到文字、有線穿過拒絕，框好可改、溢出仍拒絕；`::test_text_crossing_border_rejected`；`tests/unit/test_table_grid.py`（9 項：規則網格與線寬、細填色矩形、合併格與未封閉區域、斜線／Form／底色不算、上限、解譯器記錄、框選判定）；`test_analyzer.py::test_capability_matches_manifest`（B06 移出 `DEFERRED`，B 組改驗目標格判定與範圍） | B01–B06、測試內樣本 | PASS | 待補 |
-| G6-05 | `::test_multiline_cell_line_layout`（B02、B05 第 2 行）：只改指定行、可改動區域不含另一行、另一行擷取不變、行號超出回 `INVALID_REQUEST`；`::test_empty_cell_rejected` | B02、B05、測試內樣本 | PASS | 待補 |
-| G6-06 | `tests/integration/test_cell_service.py`（3 項：預覽不提交、undo／redo、worker 重啟重播、另存；復原草稿；人工框選經服務層） | B04、測試內樣本 | PASS | 待補 |
-| G6-07 | `tests/gui/test_cell_ui.py`（3 項：點格內文字改為儲存格編輯並套用；多行格行選擇、合併格顯示原因；手動選格拉框、套用，框到兩格顯示原因） | B04、B05、B06、測試內樣本 | PASS（offscreen） | 待補 |
+| G6-01 | `tests/integration/test_edit_cell.py::test_all_supported_cell_cases`（5 組）：目標格格線中線與 manifest 可改動區域 ≤0.5 pt；計畫 ready（B01 模式 A、其餘模式 B）；另存驗證含格線不變；兩引擎擷取目標格為新文字、不含原文；遮罩外差異 ≤0.01% | B01–B05 | PASS | PASS |
+| G6-02 | `::test_borders_and_other_cells_unchanged`（5 組）：格線位置、範圍、線寬完全相同；其他格與同格其他行兩引擎擷取相同、像素無超標差異；`::test_rules_check_detects_changed_borders`：拿掉一條線或改線寬時另存前驗證能偵測 | B01–B05 | PASS | PASS |
+| G6-03 | `::test_cell_overflow_rejected`（2 組）：60 字新文字回 `TEXT_OVERFLOW` | B01、B04 | PASS | PASS |
+| G6-04 | `::test_manual_cell_requires_assessment`：B06 合併格（1×2）偵測與框選都拒絕、框選跨兩格拒絕；無框線表格框選切到文字、有線穿過拒絕，框好可改、溢出仍拒絕；`::test_text_crossing_border_rejected`；`tests/unit/test_table_grid.py`（9 項：規則網格與線寬、細填色矩形、合併格與未封閉區域、斜線／Form／底色不算、上限、解譯器記錄、框選判定）；`test_analyzer.py::test_capability_matches_manifest`（B06 移出 `DEFERRED`，B 組改驗目標格判定與範圍） | B01–B06、測試內樣本 | PASS | PASS |
+| G6-05 | `::test_multiline_cell_line_layout`（B02、B05 第 2 行）：只改指定行、可改動區域不含另一行、另一行擷取不變、行號超出回 `INVALID_REQUEST`；`::test_empty_cell_rejected` | B02、B05、測試內樣本 | PASS | PASS |
+| G6-06 | `tests/integration/test_cell_service.py`（3 項：預覽不提交、undo／redo、worker 重啟重播、另存；復原草稿；人工框選經服務層） | B04、測試內樣本 | PASS | PASS |
+| G6-07 | `tests/gui/test_cell_ui.py`（3 項：點格內文字改為儲存格編輯並套用；多行格行選擇、合併格顯示原因；手動選格拉框、套用，框到兩格顯示原因） | B04、B05、B06、測試內樣本 | PASS（offscreen） | PASS |
 
 實機：G6 不在 ADR-0003 規定須實機的關卡（G4、G7、G8）；儲存格 UI 實機操作 NOT RUN（§7）。
 
@@ -78,7 +78,7 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 
 - 第一次在 `d6438e0` 跑全套時超過 600 秒，被 Claude Code 因系統記憶體不足終止（無輸出、不是測試失敗）；2026-11-04 重跑 163 秒、439 passed。
 - 本機 pytest 收集階段會印出一次 `Windows fatal exception: access violation`（`pypdfium2` 載入時 faulthandler 回報已處理的例外，P5 報告 §4 已查明，與本段無關）。
-- CI：待推送後補上。
+- CI：run [41757007669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41757007669)（commit `37b9767`）windows-latest 439 passed、macos-15 439 passed。
 
 ## 5. 真修改證據
 
@@ -117,7 +117,6 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 - **文字層 API**：`plan_text_edit` 仍可改 B06 格內文字（文字目標判定不變，ADR-0023）；UI 一律走儲存格編輯（§9 U2）。
 - **不擴大範圍**：不做列插刪、合併、跨頁重排、整格多行改寫、空白格補字、匯出 Excel。
 - **盲測 B07、B08**：NOT RUN，P8 執行。
-- **CI**：待推送後補上。
 
 ## 8. 安全審查
 
@@ -138,8 +137,8 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 
 ## 10. 關卡結果
 
-- **關卡結果：BLOCKED**。G6-01～G6-07 本機全部通過，反向驗證 13 項全部被抓到；尚缺 CI 雙平台證據、獨立核對（CLAUDE.md），以及工程師對 U1–U5 的決定。
-- **下一段可開始：否**（條件：CI 雙平台通過、獨立核對出入處理完、工程師決定 U1–U5 並更新本節）。
+- **關卡結果：BLOCKED**。G6-01～G6-07 本機全部通過，反向驗證 13 項全部被抓到；CI 雙平台 439 passed（run 41757007669）；尚缺獨立核對（CLAUDE.md），以及工程師對 U1–U5 的決定。
+- **下一段可開始：否**（條件：獨立核對出入處理完、工程師決定 U1–U5 並更新本節）。
 
 ## 11. 獨立核對紀錄
 
