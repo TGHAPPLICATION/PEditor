@@ -398,9 +398,8 @@ def assess_box(box, found: Rules, cells: list[Cell], text_targets, doc_reasons) 
     reasons = list(doc_reasons)
     if found.truncated:
         reasons.append("RESOURCE_LIMIT")
-    if crosses(box, found.obstacles) or hits_diagonal(
-        box, found.diagonals
-    ):  # 含 Form 內（Q2、R1、R2）
+    # 框內不能有障礙線或斜邊（含 Form 內；第一輪 Q2、第二輪 R1、R2）
+    if crosses(box, found.obstacles) or hits_diagonal(box, found.diagonals):
         reasons.append("UNSUPPORTED_LAYOUT")
     touched = [c for c in cells if _overlaps(c.inner, box, TOL)]
     if len(touched) > 1 or any(c.row_span > 1 or c.col_span > 1 for c in touched):
