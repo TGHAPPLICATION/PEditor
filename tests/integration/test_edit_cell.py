@@ -539,10 +539,16 @@ ROUND4 = {
     # 第四輪核對 T1：淡色的線（與底色相差 24–48）
     "faint_gray_image": dict(ops=[_image("2 0 0 100 199 150", "G", "D1")]),
     "light_red_image": dict(ops=[_image("2 0 0 100 199 150", "RGB", "FFD7D7")]),
-    "annot_transparent": dict(annots=[([195, 150, 205, 250], LINE_AP, {"CA": 0.15})]),
+    # 外觀串流內的 ExtGState CA 0.15（MuPDF 不採用註解字典上的 /CA；第五輪核對 F4）
+    "annot_transparent": dict(annots=[([195, 150, 205, 250], "/G0 gs " + LINE_AP,
+                                       {"alpha": 0.15})]),
     # T2：MuPDF 不畫、其他閱讀器或列印會畫的註解
     "annot_oc_off": dict(annots=[([195, 150, 205, 250], LINE_AP, {"oc_off": True})]),
     "annot_print_only": dict(annots=[([195, 150, 205, 250], LINE_AP, {"F": 36})]),
+    # 第五輪核對 F1、F2：Rect 為間接參照、註解字典直接寫在 /Annots 裡
+    "annot_indirect_rect": dict(annots=[([195, 150, 205, 250], LINE_AP,
+                                         {"F": 36, "indirect_rect": True})]),
+    "annot_direct_dict": dict(annots=[([195, 150, 205, 250], LINE_AP, {"F": 36, "direct": True})]),
     # T3：緊貼文字（文字外框外 1 pt 內）、從格頂到格底的直線；「AB」外框右緣 x=72
     "image_in_margin": dict(ops=[_image("0.3 0 0 100 72.4 150", "G", "00")], short="BA"),
     "annot_in_margin": dict(annots=[([72.2, 150, 72.8, 250], "0 G 0.6 w 72.5 150 m 72.5 250 l S",
@@ -590,6 +596,25 @@ def test_annotation_over_text_rejects_and_link_does_not_block(tmp_path):
                 assert plan["unsupported_reasons"] == ["UNSUPPORTED_LAYOUT"]
         finally:
             document.close()
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [[1, 2, 3], [1, 2, 3, 4, 5], ["a", 1, 2, 3], "x"],
+    ids=["three", "five", "string_item", "string"],
+)
+def test_unreadable_annotation_rect_rejects(bad, tmp_path):
+    """第五輪 F3：註解的 Rect 讀不出 4 個數字時無法判定位置，該行保守拒絕（不略過）。"""
+    path = tmp_path / "bad.pdf"
+    rich_pdf(path, ["0 G 1 w 50 150 300 100 re S", text(56, 230, "AB")],
+             annots=[([195, 150, 205, 250], LINE_AP, {"F": 36, "bad_rect": bad})])  # fmt: skip
+    document = analyzer.open_document(str(path))
+    try:
+        frame = analyzer.inspect_page(document, 0)["cell_targets"][0]
+        plan = cell.plan_cell_edit(document, {"cell_id": frame["cell_id"], "new_text": "ABC"})
+        assert plan["unsupported_reasons"] == ["UNSUPPORTED_LAYOUT"]
+    finally:
+        document.close()
 
 
 @pytest.mark.parametrize("extra", ["甲", "甲乙丙"])

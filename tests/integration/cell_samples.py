@@ -73,8 +73,10 @@ def rich_pdf(path, ops: list[str], shading: bool = False, annots=None, type3: bo
     """含非路徑畫法的樣本（第三輪核對 S2）：shading /Sh0（全黑）、Square 註解外觀、Type3 字型 /F3
     （字碼 124 的 CharProc 畫一條往上 8000 單位的直線，字形外框很小）。
 
-    annots 每項為 (Rect, 外觀運算子) 或 (Rect, 外觀運算子, 額外設定)；額外設定可給 Subtype、F、CA，
-    以及 oc_off（掛在預設關閉的圖層上；第四輪核對 T2）。"""
+    annots 每項為 (Rect, 外觀運算子) 或 (Rect, 外觀運算子, 額外設定)；額外設定可給 Subtype、F，
+    oc_off（掛在預設關閉的圖層上；第四輪核對 T2）、alpha（外觀串流內 ExtGState 的 CA）、
+    indirect_rect（Rect 為間接參照）、direct（註解字典直接寫在 /Annots 裡）、
+    bad_rect（以此值取代 Rect；第五輪核對 F1–F4）。"""
     pdf = pikepdf.new()
     pdf.add_blank_page(page_size=(400, 300))
     font = pdf.make_indirect(pikepdf.Dictionary(
@@ -106,9 +108,16 @@ def rich_pdf(path, ops: list[str], shading: bool = False, annots=None, type3: bo
             extra = dict(rest[0]) if rest else {}
             ap = pdf.make_stream(ap_ops.encode("ascii"))
             ap.Type, ap.Subtype, ap.BBox = pikepdf.Name.XObject, pikepdf.Name.Form, rect
+            if "alpha" in extra:
+                ap.Resources = pikepdf.Dictionary(ExtGState=pikepdf.Dictionary(
+                    G0=pikepdf.Dictionary(CA=extra.pop("alpha"))))  # fmt: skip
+            value = extra.pop("bad_rect", rect)
+            if extra.pop("indirect_rect", False):
+                value = pdf.make_indirect(pikepdf.Array(rect))
             annot = pikepdf.Dictionary(
                 Type=pikepdf.Name.Annot, Subtype=pikepdf.Name(extra.pop("Subtype", "/Square")),
-                Rect=rect, F=extra.pop("F", 4), AP=pikepdf.Dictionary(N=ap))  # fmt: skip
+                Rect=value, F=extra.pop("F", 4), AP=pikepdf.Dictionary(N=ap))  # fmt: skip
+            direct = extra.pop("direct", False)
             if extra.pop("oc_off", False):
                 ocg = pdf.make_indirect(pikepdf.Dictionary(Type=pikepdf.Name.OCG, Name="off"))
                 annot.OC = ocg
@@ -116,6 +125,6 @@ def rich_pdf(path, ops: list[str], shading: bool = False, annots=None, type3: bo
                     OCGs=[ocg], D=pikepdf.Dictionary(OFF=[ocg]))  # fmt: skip
             for key, value in extra.items():
                 annot[f"/{key}"] = value
-            items.append(pdf.make_indirect(annot))
+            items.append(annot if direct else pdf.make_indirect(annot))
         page.Annots = pdf.make_indirect(pikepdf.Array(items))
     pdf.save(path)

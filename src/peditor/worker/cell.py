@@ -15,9 +15,11 @@ import collections
 import math
 import secrets
 
+import pikepdf
 import pymupdf
 
 from peditor.core.editplan import EditPlan, SpanTarget, validate_cell_params
+from peditor.core.geometry import bbox_of
 from peditor.core.protocol import ProtocolError
 from peditor.worker import analyzer, edit, table
 
@@ -90,14 +92,16 @@ def _ink_clip(document, page_index: int, region: list[float], text_bbox) -> list
     """以渲染結果為準裁切可改動區域（ADR-0023 §2，第三輪核對）：先裁掉註解的範圍（_annot_clip），
     再以 MuPDF 渲染目前工作文件的這一頁（含 shading、Type3、影像），扣掉目標文字自己的範圍後，
     與區域底色不同的像素即為墨跡；從文字往左右延伸到第一個有墨跡的欄、再往上下延伸到第一個
-    有墨跡的列。渲染範圍最外圈的像素不看（第四輪核對 T4：那是邊界格線的反鋸齒，邊界已由向量裁過）。
+    有墨跡的列。渲染範圍最外圈的像素不看（第四輪核對 T4：那是邊界格線的反鋸齒，邊界已由向量裁過；
+    邊界內側 1 像素內的非向量墨跡因此看不到，第五輪核對 F5）。
     渲染空白的檔案（ADR-0015）沒有墨跡，只靠向量障礙線與註解範圍。"""
+    rects = _annot_rects(document, page_index)
+    region = None if rects is None else _annot_clip(region, text_bbox, rects)
+    if region is None:
+        return None
     with pymupdf.open(stream=document.current, filetype="pdf") as doc:
         page = doc[page_index]
         page.set_rotation(0)  # 與頁面空間（未套用 /Rotate）一致
-        region = _annot_clip(region, text_bbox, _annot_rects(doc, page))
-        if region is None:
-            return None
         pix = page.get_pixmap(matrix=pymupdf.Matrix(INK_ZOOM, INK_ZOOM), clip=pymupdf.Rect(*region),
                               alpha=False, colorspace=pymupdf.csRGB)  # fmt: skip
     width, height, stride, data = pix.width, pix.height, pix.stride, pix.samples
@@ -179,25 +183,33 @@ def _ink_clip(document, page_index: int, region: list[float], text_bbox) -> list
 _NO_APPEARANCE = {"/Link", "/Popup"}  # 沒有自己的外觀
 
 
-def _annot_rects(doc, page) -> list[tuple[float, float, float, float]]:
+def _annot_rects(document, page_index: int) -> list[tuple[float, float, float, float]] | None:
     """頁面上所有註解的範圍（頁面空間）。不看旗標（Hidden、NoView、Print）與圖層（/OC）：
-    MuPDF 不畫的註解，其他閱讀器或列印仍可能畫（第四輪核對 T2）。Rect 不合法的略過。"""
+    MuPDF 不畫的註解，其他閱讀器或列印仍可能畫（第四輪核對 T2）。以 pikepdf 讀 /Annots，
+    間接參照的 Rect、直接寫在陣列裡的註解字典都讀得到；有註解的 Rect 讀不出 4 個有限數字時
+    回 None，該行保守拒絕（第五輪核對 F1–F3）。/Annots 裡不是字典的項目不是註解，略過。"""
+    page = document.pike.pages[page_index]
+    annots = page.obj.get("/Annots")
+    if annots is None:
+        return []
+    if not isinstance(annots, pikepdf.Array):
+        return None
+    to_page = analyzer.page_geometry(page).pdf_to_page()
     rects = []
-    for xref, _, _ in page.annot_xrefs():
-        if doc.xref_get_key(xref, "Subtype")[1] in _NO_APPEARANCE:
+    for annot in annots:
+        if not isinstance(annot, pikepdf.Dictionary):
             continue
-        kind, value = doc.xref_get_key(xref, "Rect")
-        if kind != "array":
+        if str(annot.get("/Subtype", "")) in _NO_APPEARANCE:
             continue
+        rect = annot.get("/Rect")
         try:
-            nums = [float(v) for v in value.strip("[] ").split()]
-        except ValueError:
-            continue
+            nums = [float(v) for v in rect] if isinstance(rect, pikepdf.Array) else []
+        except (TypeError, ValueError):
+            return None
         if len(nums) != 4 or not all(math.isfinite(v) for v in nums):
-            continue
-        box = pymupdf.Rect(nums) * page.transformation_matrix
-        box.normalize()
-        rects.append((box.x0, box.y0, box.x1, box.y1))
+            return None
+        rects.append(bbox_of(to_page, (min(nums[0], nums[2]), min(nums[1], nums[3]),
+                                       max(nums[0], nums[2]), max(nums[1], nums[3]))))  # fmt: skip
     return rects
 
 
