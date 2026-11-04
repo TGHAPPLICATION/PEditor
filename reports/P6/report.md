@@ -34,7 +34,7 @@
 ## 3. 需求 → test ID → fixture／hash → 結果
 
 fixture hash（前 12 碼）：B01 `1a409bb195b5`、B02 `7861dc6039a9`、B03 `74bd86c71d2c`、B04 `db65ca0699c0`、B05 `e6cb11e5a755`、B06 `ef732af2d87c`。
-「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝CI 待補（第一輪核對處理後推送）。
+「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝run [41763225080](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41763225080)（commit `ee23f84`）windows-latest 445 passed、macos-15 445 passed。
 
 | 需求 ID | test ID | fixture | 本機 | CI |
 | --- | --- | --- | --- | --- |
@@ -89,7 +89,7 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 - 第一次在 `d6438e0` 跑全套時超過 600 秒，被 Claude Code 因系統記憶體不足終止（無輸出、不是測試失敗）；2026-11-04 重跑 163 秒、439 passed。
 - Q4 第一版檢查區域內所有障礙線，L03 的 8 項既有測試失敗（manifest 區域是字形外框，上下碰到紅框的水平線）；改為只檢查垂直線（直立文字只沿基線延伸）後通過（`c2bd36a`）。
 - 本機 pytest 收集階段會印出一次 `Windows fatal exception: access violation`（`pypdfium2` 載入時 faulthandler 回報已處理的例外，P5 報告 §4 已查明，與本段無關）。
-- CI：CI 待補（第一輪核對處理後推送）；先前 run [41758086017](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41758086017)（commit `75a804f`）windows-latest 440 passed、macos-15 440 passed（第一輪核對處理前）；run [41757007669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41757007669)（commit `37b9767`）windows-latest 439 passed、macos-15 439 passed（U2 前，只作歷史紀錄）。
+- CI：run [41763225080](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41763225080)（commit `ee23f84`）windows-latest 445 passed、macos-15 445 passed；先前 run [41758086017](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41758086017)（commit `75a804f`）windows-latest 440 passed、macos-15 440 passed（第一輪核對處理前）；run [41757007669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41757007669)（commit `37b9767`）windows-latest 439 passed、macos-15 439 passed（U2 前，只作歷史紀錄）。
 
 ## 5. 真修改證據
 
@@ -148,7 +148,7 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 
 ## 10. 關卡結果
 
-- **關卡結果：BLOCKED**。G6-01～G6-07 本機全部通過，反向驗證 20 項全部被抓到；CI 待補（第一輪核對處理後推送）；U1–U5 已由工程師決定並處理（§9）；已經第一輪獨立核對（§11），Q1–Q8 已處理；待工程師決定是否再做一輪核對與關卡結果。
+- **關卡結果：BLOCKED**。G6-01～G6-07 本機全部通過，反向驗證 20 項全部被抓到；run [41763225080](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41763225080)（commit `ee23f84`）windows-latest 445 passed、macos-15 445 passed；U1–U5 已由工程師決定並處理（§9）；已經第一輪獨立核對（§11），Q1–Q8 已處理；待工程師決定是否再做一輪核對與關卡結果。
 - **下一段可開始：否**（條件：工程師決定並更新本節）。
 
 ## 11. 獨立核對紀錄
