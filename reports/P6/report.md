@@ -7,7 +7,7 @@
 
 - 階段：P6　分支：`p6-table-cells`　commit：`4cc46d1`（核心：格線推估、cell_targets、plan_cell_edit、格線不變驗證）、
   `81048cc`（UI 與服務層測試）、`c23e1f3`（ADR-0023、證據包與產生腳本 `scripts/p6_evidence.py`）、`2030145`（格線變動偵測測試）、
-  `edfe9c8`（跨格文字測試）、`d6438e0`（格線交會判定上限）　日期：2026-11-03
+  `edfe9c8`（跨格文字測試）、`d6438e0`（格線交會判定上限）、`bcdb0e0`（U2：文字層 API 也遵守格判定）　日期：2026-11-03～11-04
 - 只改報告、traceability、THREAT_MODEL 或 CI 紀錄的 commit 依 P4 慣例不列。
 - 撰寫：Claude Code；審查：待工程師；獨立核對：待（CLAUDE.md：由未參與實作的子代理人核對）
 - 輸入：spec v1.1 P6／G6／§4／§7／§8、ADR-0001～0022（重點 ADR-0013 的 B06 延後項目）、manifest B01–B08、
@@ -17,6 +17,7 @@
   2. 空白格拒絕；
   3. 人工選格可用，但仍經能力判定（不能有線穿過、不能跨格或碰到合併格、文字須完整在框內），合併格一律拒絕；
   4. 含最小版 UI。
+- §9 U1–U5 工程師決定（2026-11-04「照建議」）：U1 接受；U2 收緊——`plan_text_edit` 改到不支援格內或跨格的文字也拒絕（`bcdb0e0`）；U3 接受（先復原再改）；U4 接受（不在 MVP 範圍）；U5 併入 P8 實機驗收。
 - S1 實測：P2 引擎在給定 manifest 可改動區域時已能改 B01–B05（模式 A／B，另存驗證通過），P6 的工作是表格結構。
 
 ## 2. 環境
@@ -33,14 +34,14 @@
 ## 3. 需求 → test ID → fixture／hash → 結果
 
 fixture hash（前 12 碼）：B01 `1a409bb195b5`、B02 `7861dc6039a9`、B03 `74bd86c71d2c`、B04 `db65ca0699c0`、B05 `e6cb11e5a755`、B06 `ef732af2d87c`。
-「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝run [41757007669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41757007669)（commit `37b9767`）windows-latest 439 passed、macos-15 439 passed。
+「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝CI 待補（U2 處理後推送）。
 
 | 需求 ID | test ID | fixture | 本機 | CI |
 | --- | --- | --- | --- | --- |
 | G6-01 | `tests/integration/test_edit_cell.py::test_all_supported_cell_cases`（5 組）：目標格格線中線與 manifest 可改動區域 ≤0.5 pt；計畫 ready（B01 模式 A、其餘模式 B）；另存驗證含格線不變；兩引擎擷取目標格為新文字、不含原文；遮罩外差異 ≤0.01% | B01–B05 | PASS | PASS |
 | G6-02 | `::test_borders_and_other_cells_unchanged`（5 組）：格線位置、範圍、線寬完全相同；其他格與同格其他行兩引擎擷取相同、像素無超標差異；`::test_rules_check_detects_changed_borders`：拿掉一條線或改線寬時另存前驗證能偵測 | B01–B05 | PASS | PASS |
 | G6-03 | `::test_cell_overflow_rejected`（2 組）：60 字新文字回 `TEXT_OVERFLOW` | B01、B04 | PASS | PASS |
-| G6-04 | `::test_manual_cell_requires_assessment`：B06 合併格（1×2）偵測與框選都拒絕、框選跨兩格拒絕；無框線表格框選切到文字、有線穿過拒絕，框好可改、溢出仍拒絕；`::test_text_crossing_border_rejected`；`tests/unit/test_table_grid.py`（9 項：規則網格與線寬、細填色矩形、合併格與未封閉區域、斜線／Form／底色不算、上限、解譯器記錄、框選判定）；`test_analyzer.py::test_capability_matches_manifest`（B06 移出 `DEFERRED`，B 組改驗目標格判定與範圍） | B01–B06、測試內樣本 | PASS | PASS |
+| G6-04 | `::test_manual_cell_requires_assessment`：B06 合併格（1×2）偵測與框選都拒絕、框選跨兩格拒絕；無框線表格框選切到文字、有線穿過拒絕，框好可改、溢出仍拒絕；`::test_text_crossing_border_rejected`；`::test_text_api_respects_cell_judgement`（U2：`plan_text_edit` 改 B06 合併格或跨格文字拒絕、支援格照常）；`tests/unit/test_table_grid.py`（9 項：規則網格與線寬、細填色矩形、合併格與未封閉區域、斜線／Form／底色不算、上限、解譯器記錄、框選判定）；`test_analyzer.py::test_capability_matches_manifest`（B06 移出 `DEFERRED`，B 組改驗目標格判定與範圍） | B01–B06、測試內樣本 | PASS | PASS |
 | G6-05 | `::test_multiline_cell_line_layout`（B02、B05 第 2 行）：只改指定行、可改動區域不含另一行、另一行擷取不變、行號超出回 `INVALID_REQUEST`；`::test_empty_cell_rejected` | B02、B05、測試內樣本 | PASS | PASS |
 | G6-06 | `tests/integration/test_cell_service.py`（3 項：預覽不提交、undo／redo、worker 重啟重播、另存；復原草稿；人工框選經服務層） | B04、測試內樣本 | PASS | PASS |
 | G6-07 | `tests/gui/test_cell_ui.py`（3 項：點格內文字改為儲存格編輯並套用；多行格行選擇、合併格顯示原因；手動選格拉框、套用，框到兩格顯示原因） | B04、B05、B06、測試內樣本 | PASS（offscreen） | PASS |
@@ -53,12 +54,13 @@ fixture hash（前 12 碼）：B01 `1a409bb195b5`、B02 `7861dc6039a9`、B03 `74
 uv run ruff check . && uv run ruff format --check .   → exit 0
 uv run pytest -q                                        → exit 0，437 passed（Windows 製作機，81048cc）
 uv run pytest -q                                        → exit 0，439 passed（Windows 製作機，d6438e0）
+uv run pytest -q                                        → exit 0，440 passed（Windows 製作機，bcdb0e0，U2 補 1 項）
 uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 ```
 
-- P6 新增 33 項測試：`test_edit_cell.py` 18 項（含參數化 14 組）、`test_table_grid.py` 9 項（參數化 3 組）、`test_cell_service.py` 3 項、`test_cell_ui.py` 3 項。
+- P6 新增 34 項測試：`test_edit_cell.py` 19 項（含參數化 14 組）、`test_table_grid.py` 9 項（參數化 3 組）、`test_cell_service.py` 3 項、`test_cell_ui.py` 3 項。
   既有測試只改 `test_analyzer.py`：B06 移出 `DEFERRED`，B 組加驗目標格（收緊，沒有放寬預期）；P5 既有 406 項全數通過。
-- **反向驗證**（repo 外的臨時腳本；工作區先提交乾淨，逐一改壞實作、跑對應測試、再以 `git checkout` 還原）：13 項全部被測試抓到——
+- **反向驗證**（repo 外的臨時腳本；工作區先提交乾淨，逐一改壞實作、跑對應測試、再以 `git checkout` 還原）：14 項全部被測試抓到（M14 為 U2 處理後補做）——
 
   | # | 改壞的內容 | 失敗的測試 |
   | --- | --- | --- |
@@ -75,10 +77,11 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
   | M11 | 草稿不接受 `op: cell` | `test_cell_draft_recovery` |
   | M12 | Form 內的線也當格線 | `test_diagonal_form_and_thick_rects_ignored` |
   | M13 | 不檢查格線交會判定上限 | `test_limits` |
+  | M14 | `plan_text_edit` 不檢查儲存格判定（U2 修正前的行為） | `test_text_api_respects_cell_judgement` |
 
 - 第一次在 `d6438e0` 跑全套時超過 600 秒，被 Claude Code 因系統記憶體不足終止（無輸出、不是測試失敗）；2026-11-04 重跑 163 秒、439 passed。
 - 本機 pytest 收集階段會印出一次 `Windows fatal exception: access violation`（`pypdfium2` 載入時 faulthandler 回報已處理的例外，P5 報告 §4 已查明，與本段無關）。
-- CI：run [41757007669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41757007669)（commit `37b9767`）windows-latest 439 passed、macos-15 439 passed。
+- CI：CI 待補（U2 處理後推送）；先前 run [41757007669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41757007669)（commit `37b9767`）windows-latest 439 passed、macos-15 439 passed（U2 前，只作歷史紀錄）。
 
 ## 5. 真修改證據
 
@@ -110,11 +113,11 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 
 ## 7. 限制、阻擋、未測項目
 
-- **實機**：儲存格 UI 實機操作（點選、行選擇、拉框）NOT RUN；macOS 實機 NOT RUN（ADR-0003）。建議併入 P8 實機驗收（§9 U5）。
+- **實機**：儲存格 UI 實機操作（點選、行選擇、拉框）NOT RUN；macOS 實機 NOT RUN（ADR-0003）。工程師決定併入 P8 實機驗收（U5）。
 - **格線偵測範圍**：只認水平、垂直線；旋轉的表格、格線在 Form 內的表格、只有底色沒有線的表格不偵測（後兩者可用人工選格）。
 - **被四邊線框住的文字**（例如 L03 的紅框）也視為 1×1 的格：UI 點選後以框內緣作為可改動區域（§9 U1）。
 - **同一行改第二次**：模式 B 改過的行混用原字型與 Noto Sans TC，再改同一行會因 P2 的跨段限制拒絕 `UNSUPPORTED_LAYOUT`（可先復原再改）。
-- **文字層 API**：`plan_text_edit` 仍可改 B06 格內文字（文字目標判定不變，ADR-0023）；UI 一律走儲存格編輯（§9 U2）。
+- **文字層 API**：`plan_text_edit` 改到不支援格內或跨格的文字時沿用該格的拒絕理由（U2，`bcdb0e0`）；`inspect_page` 的文字目標判定本身不變（B06 格內文字仍為 support，判定落在格與計畫）。
 - **不擴大範圍**：不做列插刪、合併、跨頁重排、整格多行改寫、空白格補字、匯出 Excel。
 - **盲測 B07、B08**：NOT RUN，P8 執行。
 
@@ -129,16 +132,16 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 
 | # | 內容 | 影響 | 需誰確認 |
 | --- | --- | --- | --- |
-| U1 | 任何被四邊線框住的文字都視為 1×1 的格（例如 L03 紅框）；UI 點選後改走儲存格編輯，可改動區域變成框內緣（原本 P4 是文字外框） | 框內較長的新文字變得可以放；框外仍擋 | 工程師（接受，或限制為至少 2×2 的網格才算表格） |
-| U2 | `plan_text_edit`（API）仍可改不支援格內的文字（例如 B06），只有 UI 會先判定格 | 經 API 或 CLI 的呼叫者可繞過格判定 | 工程師（維持 ADR-0013 的分工，或讓 `plan_text_edit` 對不支援格內的文字也拒絕） |
-| U3 | 同一行模式 B 改過後無法再改同一行（P2 限制） | 需先復原再改 | 工程師（接受或列後續） |
-| U4 | 格線偵測只認水平、垂直線；Form 內與旋轉表格不偵測 | 這類表格只能用人工選格（Form 內也不行，因文字在 Form 內本就拒絕） | 工程師（接受或列後續） |
-| U5 | 儲存格 UI 只有 offscreen 證據 | 實機行為未驗證 | 工程師（比照 P5 併入 P8 實機驗收） |
+| U1 | 任何被四邊線框住的文字都視為 1×1 的格（例如 L03 紅框）；UI 點選後改走儲存格編輯，可改動區域變成框內緣（原本 P4 是文字外框） | 框內較長的新文字變得可以放；框外仍擋 | **接受**（工程師 2026-11-04） |
+| U2 | `plan_text_edit`（API）仍可改不支援格內的文字（例如 B06），只有 UI 會先判定格 | 經 API 或 CLI 的呼叫者可繞過格判定 | **收緊**（工程師 2026-11-04）：`bcdb0e0` 起 `plan_text_edit` 改到不支援格內或跨格的文字也拒絕，測試 `test_text_api_respects_cell_judgement`（M14） |
+| U3 | 同一行模式 B 改過後無法再改同一行（P2 限制） | 需先復原再改 | **接受**（工程師 2026-11-04） |
+| U4 | 格線偵測只認水平、垂直線；Form 內與旋轉表格不偵測 | 這類表格只能用人工選格（Form 內也不行，因文字在 Form 內本就拒絕） | **接受**（工程師 2026-11-04；不在 MVP 範圍） |
+| U5 | 儲存格 UI 只有 offscreen 證據 | 實機行為未驗證 | **併入 P8 實機驗收**（工程師 2026-11-04） |
 
 ## 10. 關卡結果
 
-- **關卡結果：BLOCKED**。G6-01～G6-07 本機全部通過，反向驗證 13 項全部被抓到；CI 雙平台 439 passed（run 41757007669）；尚缺獨立核對（CLAUDE.md），以及工程師對 U1–U5 的決定。
-- **下一段可開始：否**（條件：獨立核對出入處理完、工程師決定 U1–U5 並更新本節）。
+- **關卡結果：BLOCKED**。G6-01～G6-07 本機全部通過，反向驗證 13 項全部被抓到；CI 待補（U2 處理後推送）；U1–U5 已由工程師決定並處理（§9）；尚缺獨立核對（CLAUDE.md）。
+- **下一段可開始：否**（條件：獨立核對出入處理完、工程師決定並更新本節）。
 
 ## 11. 獨立核對紀錄
 
