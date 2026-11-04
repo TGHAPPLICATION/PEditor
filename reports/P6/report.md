@@ -9,7 +9,7 @@
   `81048cc`（UI 與服務層測試）、`c23e1f3`（ADR-0023、證據包與產生腳本 `scripts/p6_evidence.py`）、`2030145`（格線變動偵測測試）、
   `edfe9c8`（跨格文字測試）、`d6438e0`（格線交會判定上限）、`bcdb0e0`（U2：文字層 API 也遵守格判定）、`5f01555`、`c2bd36a`（第一輪核對 Q1–Q4）、`34479a3`、`891c292`、`61ecba2`（第二輪核對 R1–R3）、`c438064`、`222d4ff`、`56dfe3b`（第三輪核對 S1–S5）、`aaec696`（第四輪核對 T1–T4）、`4a200a3`（第五輪核對 F1–F4）　日期：2026-11-03～11-04
 - 只改報告、traceability、THREAT_MODEL 或 CI 紀錄的 commit 依 P4 慣例不列。
-- 撰寫：Claude Code；審查：待工程師；獨立核對：待（CLAUDE.md：由未參與實作的子代理人核對）
+- 撰寫：Claude Code；審查：工程師（2026-11-04 決定關卡通過）；獨立核對：2026-11-04 五輪（§11，每輪皆為未參與實作的子代理人）
 - 輸入：spec v1.1 P6／G6／§4／§7／§8、ADR-0001～0022（重點 ADR-0013 的 B06 延後項目）、manifest B01–B08、
   `docs/traceability.md` 預登記的 G6-01～G6-04、P5 報告 §10（下一段可開始：是）
 - S1／S2 工程師決定（2026-11-03「照建議」，ADR-0023）：
@@ -179,8 +179,8 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 
 ## 10. 關卡結果
 
-- **關卡結果：BLOCKED**。G6-01～G6-07 本機全部通過，反向驗證 40 項中 39 項被抓到（M29 由墨跡檢查兜底，§4）；run [41809762756](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41809762756)（commit `bdb573a`）windows-latest 482 passed、macos-15 482 passed；U1–U7 已由工程師決定並處理（§9）；已經五輪獨立核對（§11），第一輪 Q1–Q8、第二輪 R1–R3、第三輪 S1–S6、第四輪 T1–T8、第五輪 F1–F7 已處理；依建議第五輪處理後不再做第六輪核對（F1–F3 為讀取方式修正，以反向驗證 M38–M40 確認）；待工程師決定關卡結果。
-- **下一段可開始：否**（條件：工程師決定並更新本節）。
+- **關卡結果：PASS**（工程師 2026-11-04 決定）。G6-01～G6-07 本機全部通過，反向驗證 40 項中 39 項被抓到（M29 由墨跡檢查兜底，§4）；run [41809762756](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41809762756)（commit `bdb573a`）windows-latest 482 passed、macos-15 482 passed；U1–U7 已由工程師決定並處理（§9）；已經五輪獨立核對（§11），第一輪 Q1–Q8、第二輪 R1–R3、第三輪 S1–S6、第四輪 T1–T8、第五輪 F1–F7 已處理；工程師決定第五輪處理後不再做第六輪核對（F1–F3 為讀取方式修正，以反向驗證 M38–M40 確認）。G6 不在 ADR-0003 規定須實機的關卡；儲存格 UI 實機操作併入 P8（U5）。
+- **下一段可開始：是**（工程師 2026-11-04 決定）。帶入後段：P7 重播耗時與 replay 筆數上限（§11 第四輪 T7，同 P3 f008）、vuln-scan 範圍含 `worker/table.py`、`worker/cell.py`；P8 實機驗收加儲存格 UI（U5）。
 
 ## 11. 獨立核對紀錄
 
