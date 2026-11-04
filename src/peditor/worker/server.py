@@ -11,6 +11,7 @@ import sys
 import time
 from typing import Any, BinaryIO
 
+from peditor.core.limits import LimitExceeded
 from peditor.core.protocol import ProtocolError, decode, encode, validate_request
 
 _TEST_HOOKS = os.environ.get("PEDITOR_WORKER_TEST_HOOKS") == "1"
@@ -123,6 +124,9 @@ def serve(stdin: BinaryIO, stdout: BinaryIO) -> int:
                 response = {"request_id": request_id, "ok": True, "result": worker.handle(message)}
         except ProtocolError as exc:
             response = {"request_id": request_id, "ok": False, "error": exc.to_dict()}
+        except LimitExceeded:  # 解析工作量或解壓後大小超過上限（core.limits）
+            error = ProtocolError("RESOURCE_LIMIT", "文件內容超過處理上限")
+            response = {"request_id": request_id, "ok": False, "error": error.to_dict()}
         except MemoryError:  # 超過 worker 記憶體上限（Windows Job Object；ADR-0024）
             error = ProtocolError("RESOURCE_LIMIT", "處理文件所需記憶體超過上限")
             response = {"request_id": request_id, "ok": False, "error": error.to_dict()}

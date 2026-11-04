@@ -18,10 +18,12 @@ from peditor.core.limits import (
     MAX_FORM_DEPTH,
     MAX_FORM_INVOCATIONS,
     MAX_GSTATE_DEPTH,
+    MAX_IMAGE_PIXELS,
     MAX_PAINTED_POINTS,
     MAX_RULE_PATHS,
     LimitExceeded,
 )
+from peditor.worker import streams
 from peditor.worker.fonts import FontInfo, load_font
 
 TEXT_SHOW = frozenset({"Tj", "TJ", "'", '"'})
@@ -163,11 +165,11 @@ class _Interpreter:
     # --- 進入點 -------------------------------------------------------
     def run(self) -> PageContent:
         contents = self.page.obj.get("/Contents")
-        streams = list(contents) if isinstance(contents, pikepdf.Array) else [contents]
+        parts = list(contents) if isinstance(contents, pikepdf.Array) else [contents]
         gs = _GState()
         resources = self.page.obj.get("/Resources") or pikepdf.Dictionary()
         try:
-            for stream in streams:
+            for stream in parts:
                 if not isinstance(stream, pikepdf.Stream):
                     continue
                 gs = self._execute(stream, resources, gs, ())
@@ -177,7 +179,7 @@ class _Interpreter:
 
     def _execute(self, stream, resources, gs: _GState, form_path) -> _GState:
         try:
-            instructions = pikepdf.parse_content_stream(stream)
+            instructions = streams.parse(stream)  # 解壓前先檢查大小（P7、P2 triage f024）
         except pikepdf.PdfError:
             self.result.errors.append("content_parse")
             return gs
@@ -277,6 +279,8 @@ class _Interpreter:
             return None
         cache_key = (str(name), font.objgen if font.is_indirect else id(font))
         if cache_key not in self.fonts:
+            for stream in _font_streams(font):  # MuPDF 擷取、渲染時也會解壓這些串流（P7）
+                streams.check(stream)
             self.fonts[cache_key] = load_font(str(name), font)
         return self.fonts[cache_key]
 
@@ -382,6 +386,8 @@ class _Interpreter:
             return
         subtype = str(xobj.get("/Subtype", ""))
         if subtype == "/Image":
+            if _num(xobj.get("/Width", 0)) * _num(xobj.get("/Height", 0)) > MAX_IMAGE_PIXELS:
+                raise LimitExceeded("image_pixels")  # spec P7 單張影像 50 MP；MuPDF 渲染時才配置
             self.result.images.append(
                 ImageUse(key, index, str(name), xobj, gs.ctm, list(gs.clips), form_path)
             )
@@ -436,6 +442,26 @@ def _make_clip(path) -> Clip:
         for x, y in pts
     )
     return Clip(bbox, on_edges and len(corners) == 4)
+
+
+def _font_streams(font: pikepdf.Dictionary):
+    """字型帶的串流：字型程式、ToUnicode、CIDToGIDMap、Type3 字形程序（MuPDF 會解壓）。"""
+    holders = [font]
+    descendants = font.get("/DescendantFonts")
+    if isinstance(descendants, pikepdf.Array):
+        holders += [d for d in descendants if isinstance(d, pikepdf.Dictionary)]
+    for holder in holders:
+        for key in ("/ToUnicode", "/CIDToGIDMap"):
+            if isinstance(holder.get(key), pikepdf.Stream):
+                yield holder.get(key)
+        descriptor = holder.get("/FontDescriptor")
+        if isinstance(descriptor, pikepdf.Dictionary):
+            for key in ("/FontFile", "/FontFile2", "/FontFile3"):
+                if isinstance(descriptor.get(key), pikepdf.Stream):
+                    yield descriptor.get(key)
+        procs = holder.get("/CharProcs")
+        if isinstance(procs, pikepdf.Dictionary):
+            yield from (v for v in procs.values() if isinstance(v, pikepdf.Stream))
 
 
 def interpret(page: pikepdf.Page) -> PageContent:
