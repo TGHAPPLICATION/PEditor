@@ -34,7 +34,7 @@
 ## 3. 需求 → test ID → fixture／hash → 結果
 
 fixture hash（前 12 碼）：B01 `1a409bb195b5`、B02 `7861dc6039a9`、B03 `74bd86c71d2c`、B04 `db65ca0699c0`、B05 `e6cb11e5a755`、B06 `ef732af2d87c`。
-「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝CI 待補（第三輪核對處理後推送）。
+「本機」＝Windows 製作機（GUI 為 offscreen）；「CI」＝run [41773028292](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41773028292)（commit `2ae6716`）windows-latest 466 passed、macos-15 466 passed。
 
 | 需求 ID | test ID | fixture | 本機 | CI |
 | --- | --- | --- | --- | --- |
@@ -106,7 +106,7 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 - 第二輪核對者的樣本（c00–c18、d01–d08）以處理後的程式重跑：R1、R2 的樣本長字溢出或拒絕；R3 的 d01–d03、c16、c18 可改，與 `8e1b844` 結果相同（c15 在 `8e1b844` 也拒絕：框內只畫了一半的線使整個框成為合併格，屬結構判定）。
 - 第三輪核對處理：`test_lines_drawn_any_way_block_region[curve]` 的預期由 `TEXT_OVERFLOW` 改為 `UNSUPPORTED_LAYOUT`：曲線改為細分折線後，往上凸的曲線穿過該行區域成為斜邊，依 ADR-0023 §2 整行拒絕（行為改變，不是放寬）。第三輪核對者的探針樣本（`probe.py` 13 組、`probe_r3.py` 8 組）以處理後的程式重跑：S1–S3 的長字全部被擋；7 pt 粗刪除線、延伸到右邊的底線、填空線可改；底色塊、比文字長的粗刪除線、文字右側基線高度的 0 寬線、文字內的小直線仍擋（§9 U6）。修改測試時一度以正規表示式誤刪一大段測試（未提交），以 `git checkout` 還原後改用精準替換。
 - 本機 pytest 收集階段會印出一次 `Windows fatal exception: access violation`（`pypdfium2` 載入時 faulthandler 回報已處理的例外，P5 報告 §4 已查明，與本段無關）。
-- CI：CI 待補（第三輪核對處理後推送）；先前 run [41767780036](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41767780036)（commit `85c7273`）windows-latest 455 passed、macos-15 455 passed（第三輪核對處理前）；run [41763225080](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41763225080)（commit `ee23f84`）windows-latest 445 passed、macos-15 445 passed（第二輪核對處理前）；run [41758086017](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41758086017)（commit `75a804f`）windows-latest 440 passed、macos-15 440 passed（第一輪核對處理前）；run [41757007669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41757007669)（commit `37b9767`）windows-latest 439 passed、macos-15 439 passed（U2 前，只作歷史紀錄）。
+- CI：run [41773028292](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41773028292)（commit `2ae6716`）windows-latest 466 passed、macos-15 466 passed；先前 run [41767780036](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41767780036)（commit `85c7273`）windows-latest 455 passed、macos-15 455 passed（第三輪核對處理前）；run [41763225080](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41763225080)（commit `ee23f84`）windows-latest 445 passed、macos-15 445 passed（第二輪核對處理前）；run [41758086017](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41758086017)（commit `75a804f`）windows-latest 440 passed、macos-15 440 passed（第一輪核對處理前）；run [41757007669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41757007669)（commit `37b9767`）windows-latest 439 passed、macos-15 439 passed（U2 前，只作歷史紀錄）。
 
 ## 5. 真修改證據
 
@@ -166,7 +166,7 @@ uv run python scripts/p6_evidence.py reports/P6/evidence → exit 0
 
 ## 10. 關卡結果
 
-- **關卡結果：BLOCKED**。G6-01～G6-07 本機全部通過，反向驗證 32 項中 31 項被抓到（M29 由墨跡檢查兜底，§4）；CI 待補（第三輪核對處理後推送）；U1–U5 已由工程師決定並處理、U6 待工程師決定（§9）；已經三輪獨立核對（§11），第一輪 Q1–Q8、第二輪 R1–R3、第三輪 S1–S6 已處理；待工程師決定 U6、是否再做一輪核對與關卡結果。
+- **關卡結果：BLOCKED**。G6-01～G6-07 本機全部通過，反向驗證 32 項中 31 項被抓到（M29 由墨跡檢查兜底，§4）；run [41773028292](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41773028292)（commit `2ae6716`）windows-latest 466 passed、macos-15 466 passed；U1–U5 已由工程師決定並處理、U6 待工程師決定（§9）；已經三輪獨立核對（§11），第一輪 Q1–Q8、第二輪 R1–R3、第三輪 S1–S6 已處理；待工程師決定 U6、是否再做一輪核對與關卡結果。
 - **下一段可開始：否**（條件：工程師決定並更新本節）。
 
 ## 11. 獨立核對紀錄
