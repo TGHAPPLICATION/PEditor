@@ -30,7 +30,7 @@
 ## 3. 需求 → test ID → fixture／hash → 結果
 
 fixture hash（前 12 碼）：S03 `8f5cbf6df7a7`、S04 `2dd116833d7e`、S05 `1ea4c88f4f75`、S06 `c9eadedcf5e3`；其餘同 P6。
-「本機」＝Windows 製作機；「CI」＝run [42005863669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42005863669)（commit `0533432`）windows-latest 543 passed＋1 skipped（POSIX 權限位元測試）、macos-15 541 passed＋3 skipped（Windows-only 的 Job Object 測試）。
+「本機」＝Windows 製作機；「CI」＝run [42011872284](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42011872284)（commit `ad427c0`）windows-latest 550 passed＋1 skipped（POSIX 權限位元測試）、macos-15 547 passed＋4 skipped（Windows-only 的 Job Object 與唯讀屬性測試）。
 
 | 需求 ID | test ID | fixture | 環境 | 結果 |
 | --- | --- | --- | --- | --- |
@@ -56,7 +56,7 @@ uv run pytest -q                                        → exit 0，550 passed�
 - 第一次在重播分批後跑全套時，被 Claude Code 因系統記憶體不足終止（無輸出、不是測試失敗）；工程師同意後重跑：528 passed、1 failed。
   失敗的 `test_drafts.py::test_recover_failure_closes_document` 以替換 `_doc_call` 注入重播失敗，重播改走 `_replay_batches` 後注入不到；
   改為替換 `_replay_batches`，預期（任何例外都關閉文件、草稿保留）不變（`968b027`）。
-- CI：run [42005863669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42005863669)（commit `0533432`）windows-latest 543 passed＋1 skipped（POSIX 權限位元測試）、macos-15 541 passed＋3 skipped（Windows-only 的 Job Object 測試）。先前 run [42004855861](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42004855861)（commit `78bce58`）
+- CI：run [42011872284](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42011872284)（commit `ad427c0`）windows-latest 550 passed＋1 skipped（POSIX 權限位元測試）、macos-15 547 passed＋4 skipped（Windows-only 的 Job Object 與唯讀屬性測試）；run [42005863669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42005863669)（commit `0533432`）windows-latest 543 passed＋1 skipped（POSIX 權限位元測試）、macos-15 541 passed＋3 skipped（Windows-only 的 Job Object 測試）。先前 run [42004855861](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42004855861)（commit `78bce58`）
   macos-15 在 `tests/gui/test_p7_ui.py::test_shutdown_wait_is_bounded` 發生 segmentation fault（windows-latest 543 passed）：關閉等待逾時返回後，
   背景工作結束時對已回收的 JobRunner 發 signal。產品端改為逾時返回前先標記放棄、之後結束的工作不再發 signal，測試改為結束前等背景工作完成（`0533432`）；
   run [41982237300](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41982237300)（commit `c594efd`）windows-latest 535 passed、macos-15 532 passed＋3 skipped。
@@ -140,16 +140,16 @@ uv run pytest -q                                        → exit 0，550 passed�
 
 | # | 內容 | 影響 | 處理 |
 | --- | --- | --- | --- |
-| U1 | 解壓前限制使單一串流超過 64 MB、含不認得過濾器的內容串流、原始大小超過 16 KB 的 LZW 串流所在頁面不能編輯 | 偏保守；45 份既有 fixture 無影響（全套通過） | 待工程師決定 |
-| U2 | worker 回應結構不符一律重啟 worker | 比原本嚴格 | 待工程師決定 |
-| U3 | Windows 實機驗證須工程師執行腳本；macOS 實機 NOT RUN | G7 要求兩平台實機 | 待工程師決定 |
-| U4 | 安全掃描後新增的保守行為：毀損的 Flate 後接其他過濾器即視為超限；未塗繪路徑點數超過 100,000 即頁面 RESOURCE_LIMIT；格區域渲染超過 12 MP 的儲存格編輯回 RESOURCE_LIMIT | 這類頁面或格不能編輯 | 待工程師決定 |
-| U5 | 殘餘（ADR-0024 後果）：MuPDF 自行解壓的物件（inline image、SMask、pattern、soft mask、Type3 資源、內嵌 CMap、註解外觀）只受記憶體上限保護；pikepdf 與 MuPDF 對同檔的解析差異（triage f009，needs manual test） | macOS 無記憶體上限 | 待工程師決定 |
+| U1 | 解壓前限制使單一串流超過 64 MB、含不認得過濾器的內容串流、原始大小超過 16 KB 的 LZW 串流所在頁面不能編輯 | 偏保守；45 份既有 fixture 無影響（全套通過） | **接受**（工程師 2026-11-05 回覆「你建議」） |
+| U2 | worker 回應結構不符一律重啟 worker | 比原本嚴格 | **接受**（工程師 2026-11-05 回覆「你建議」） |
+| U3 | Windows 實機驗證須工程師執行腳本；macOS 實機 NOT RUN | G7 要求兩平台實機 | **附條件**（工程師 2026-11-05 回覆「你建議」）：Windows 實機由工程師斷網後執行 `scripts\p7_offline_check.ps1`，結果寫回 §6（目前 NOT RUN）；macOS 實機依 ADR-0021／ADR-0003 附條件，取得實機後補驗 |
+| U4 | 安全掃描後新增的保守行為：毀損的 Flate 後接其他過濾器即視為超限；未塗繪路徑點數超過 100,000 即頁面 RESOURCE_LIMIT；格區域渲染超過 12 MP 的儲存格編輯回 RESOURCE_LIMIT | 這類頁面或格不能編輯 | **接受**（工程師 2026-11-05 回覆「你建議」） |
+| U5 | 殘餘（ADR-0024 後果）：MuPDF 自行解壓的物件（inline image、SMask、pattern、soft mask、Type3 資源、內嵌 CMap、註解外觀）只受記憶體上限保護；pikepdf 與 MuPDF 對同檔的解析差異（triage f009，needs manual test） | macOS 無記憶體上限 | **列殘餘**（工程師 2026-11-05 回覆「你建議」；ADR-0024 後果、THREAT_MODEL T1、T5） |
 
 ## 10. 關卡結果
 
 - **關卡結果：BLOCKED**。自動測試全部通過（本機 550 passed）、反向驗證 25 項全部被抓到、vuln-scan／triage 完成且確認項目已處理；
-  Windows 實機 G7-01、G7-02 待工程師執行；macOS 實機 NOT RUN；§9 U1–U5 待工程師決定；獨立核對與最新 commit 的 CI 待補。
+  run [42011872284](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42011872284)（commit `ad427c0`）windows-latest 550 passed＋1 skipped（POSIX 權限位元測試）、macos-15 547 passed＋4 skipped（Windows-only 的 Job Object 與唯讀屬性測試）；§9 U1–U5 已由工程師決定（U3 附條件）；Windows 實機 G7-01、G7-02 待工程師執行；macOS 實機 NOT RUN；獨立核對待執行。
 - **下一段可開始：否**（條件：上述項目完成並由工程師決定）。
 
 ## 11. 獨立核對紀錄
