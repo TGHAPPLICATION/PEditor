@@ -62,7 +62,8 @@ def test_no_sentinel_in_logs(tmp_path):
         messages += [f"{r}" for r in (plan or {}).get("unsupported_reasons", [])]
         messages += [f"{w}" for w in (plan or {}).get("warnings", [])]
         attempt(svc.plan_text_edit, doc, target, "x", "prefer_a", 0, [0, 0, 1e9, 1e9])
-        attempt(svc.register_image, doc, folder / f"{SENTINEL}-T01.pdf")
+        attempt(svc.register_image, doc, folder / f"{SENTINEL}-T01.pdf")  # 不是圖片
+        attempt(svc.register_image, doc, folder / f"{SENTINEL}-missing.png")  # 讀不到
         attempt(svc.destination_token, folder / f"{SENTINEL}-T01.pdf")
         attempt(svc.destination_token, folder / "no-such-dir" / f"{SENTINEL}.pdf")
         attempt(svc.export_document, doc, f"{SENTINEL}-token", opened["revision"])
