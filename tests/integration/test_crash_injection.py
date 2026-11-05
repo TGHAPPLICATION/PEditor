@@ -262,8 +262,10 @@ def test_cleanup_recorded_removes_only_own_temps(tmp_path, monkeypatch):
     monkeypatch.setattr(transaction, "registry", str(registry))
     left = tmp_path / ".~peditor-00000000000000aa.tmp.pdf"
     other = tmp_path / "important.pdf"
+    old = time.time() - transaction.STALE_TEMP_S - 60  # 上次中斷留下的（P7 起只清除過期的）
     for path in (left, other):
         path.write_bytes(b"content")
+        os.utime(path, (old, old))
     gone = tmp_path / ".~peditor-00000000000000bb.tmp.pdf"
     registry.write_text(json.dumps([str(left), str(other), str(gone), 5]), encoding="utf-8")
     assert transaction.cleanup_recorded() == 1
@@ -275,6 +277,42 @@ def test_cleanup_recorded_removes_only_own_temps(tmp_path, monkeypatch):
     assert transaction.cleanup_recorded() == 0 and left.exists()
     monkeypatch.setattr(transaction, "registry", None)  # 未設定紀錄檔（CLI）：不做任何事
     assert transaction.cleanup_recorded() == 0 and left.exists()
+
+
+def test_cleanup_recorded_keeps_recent_temps(tmp_path, monkeypatch):
+    """P4 U10：另一個執行中的 PEditor 正在寫入的暫存檔（未過期）不刪，留在紀錄中。"""
+    registry = tmp_path / "pending-temps.json"
+    monkeypatch.setattr(transaction, "registry", str(registry))
+    fresh = tmp_path / ".~peditor-00000000000000cc.tmp.pdf"
+    fresh.write_bytes(b"content")
+    registry.write_text(json.dumps([str(fresh)]), encoding="utf-8")
+    assert transaction.cleanup_recorded() == 0
+    assert fresh.exists() and transaction._recorded() == [str(fresh)]
+
+
+def test_no_overwrite_refuses_destination_created_late(tmp_path):
+    """P3 triage f009：不覆寫時，目的檔在最後檢查後才出現也不取代。"""
+    dest = transaction.destination(tmp_path / "out.pdf", overwrite=False)
+    temp = tmp_path / ".~peditor-00000000000000dd.tmp.pdf"
+    temp.write_bytes(b"new")
+    (tmp_path / "out.pdf").write_bytes(b"someone else")
+    with pytest.raises(FileExistsError):
+        transaction._place(str(temp), dest)
+    assert (tmp_path / "out.pdf").read_bytes() == b"someone else"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows 只有唯讀屬性，沒有 POSIX 權限位元")
+def test_overwrite_keeps_destination_mode(tmp_path):
+    """P3 triage f012：覆寫時保留目的檔的權限位元。"""
+    target = tmp_path / "out.pdf"
+    target.write_bytes(b"old")
+    target.chmod(0o640)
+    dest = transaction.destination(target, overwrite=True)
+    temp = tmp_path / ".~peditor-00000000000000ee.tmp.pdf"
+    temp.write_bytes(b"new")
+    temp.chmod(0o600)
+    transaction._place(str(temp), dest)
+    assert target.read_bytes() == b"new" and (target.stat().st_mode & 0o777) == 0o640
 
 
 def test_cleanup_recorded_malformed_registry(tmp_path, monkeypatch):

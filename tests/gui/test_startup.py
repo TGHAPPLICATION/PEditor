@@ -3,6 +3,8 @@
 建立草稿區、設定暫存檔紀錄位置、清除上次中斷留下的暫存檔。"""
 
 import json
+import os
+import time
 
 from peditor.core import drafts
 from peditor.core.protocol import ProtocolError
@@ -17,6 +19,8 @@ def _leftover(tmp_path, monkeypatch):
     data_dir.mkdir()
     temp = tmp_path / ".~peditor-00000000000000aa.tmp.pdf"
     temp.write_bytes(b"content")
+    old = time.time() - transaction.STALE_TEMP_S - 60  # 上次中斷留下的（P7 起只清除過期的）
+    os.utime(temp, (old, old))
     (data_dir / "pending-temps.json").write_text(json.dumps([str(temp)]), encoding="utf-8")
     return data_dir, temp
 

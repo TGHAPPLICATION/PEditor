@@ -11,8 +11,10 @@ import json
 import os
 import re
 import secrets
+import shutil
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 from peditor.core.protocol import ProtocolError
@@ -107,7 +109,9 @@ def commit(dest: Destination, source_path: str, source_sha256: str,
         _check(dest, source_path, source_sha256)
         _stage("rename")
         try:
-            os.replace(temp, dest.path)
+            _place(temp, dest)
+        except FileExistsError as exc:  # 取得 token 後才出現的目的檔：不覆寫（P3 triage f009）
+            raise ProtocolError("REVISION_CONFLICT", "目的檔已被外部建立") from exc
         except OSError as exc:
             raise ProtocolError("SAVE_FAILED", "無法取代目的檔") from exc
     except BaseException:
@@ -125,6 +129,37 @@ def commit(dest: Destination, source_path: str, source_sha256: str,
             "warnings": [*result.get("warnings", []), "目錄同步失敗，斷電時可能遺失本次儲存"],
         }
     return result
+
+
+def _place(temp: str, dest: Destination) -> None:
+    """把暫存檔放到目的地。
+
+    - 覆寫（取得 token 時目的檔已存在）：先把目的檔的權限位元複製到暫存檔再原子取代
+      （P3 triage f012；Windows 的 ACL 不複製，暫存檔沿用資料夾繼承的 ACL，殘餘）。
+    - 不覆寫：目的檔在最後檢查後才出現時不得取代（P3 triage f009）。Windows 的 os.rename 遇到
+      已存在的目的檔即失敗；POSIX 以 os.link（目的檔存在即失敗）再刪暫存檔；檔案系統不支援
+      硬連結時退回「檢查後 rename」（非原子，殘餘）。
+    """
+    if dest.state is not None:
+        try:
+            shutil.copymode(dest.path, temp)
+        except OSError:
+            pass  # 權限複製失敗不阻擋另存（暫存檔沿用預設權限）
+        os.replace(temp, dest.path)
+        return
+    if os.name == "nt":
+        os.rename(temp, dest.path)
+        return
+    try:
+        os.link(temp, dest.path)
+    except FileExistsError:
+        raise
+    except OSError:
+        if os.path.lexists(dest.path):
+            raise FileExistsError(dest.path) from None
+        os.rename(temp, dest.path)
+        return
+    _remove(temp)  # 已放好；刪不掉的暫存硬連結由紀錄檔或下次寫入同資料夾時清除
 
 
 def _check(dest: Destination, source_path: str, source_sha256: str) -> None:
@@ -177,36 +212,74 @@ def _recorded() -> list[str]:
     return [p for p in data if isinstance(p, str)] if isinstance(data, list) else []
 
 
+@contextmanager
+def _registry_lock() -> Iterator[None]:
+    """紀錄檔讀改寫的跨行程鎖（P4 U10：同時執行兩個 PEditor）；取不到鎖即 OSError。"""
+    fd = os.open(f"{registry}.lock", os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            for _ in range(100):
+                try:
+                    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    time.sleep(0.05)
+            else:
+                raise OSError("registry lock")
+            try:
+                yield
+            finally:
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield  # 關閉 fd 即釋放
+    finally:
+        os.close(fd)
+
+
 def _record(temp: str, add: bool) -> None:
     """盡力而為：紀錄失敗不影響另存（暫存檔仍會由下次寫入同資料夾時清除）。"""
     if registry is None:
         return
-    paths = [p for p in _recorded() if p != temp] + ([temp] if add else [])
     try:
-        with open(registry, "w", encoding="utf-8") as fh:
-            json.dump(paths, fh)
+        with _registry_lock():
+            paths = [p for p in _recorded() if p != temp] + ([temp] if add else [])
+            with open(registry, "w", encoding="utf-8") as fh:
+                json.dump(paths, fh)
     except OSError:
         pass
 
 
 def cleanup_recorded() -> int:
-    """啟動時刪除上次中斷留下的暫存檔（只刪符合本程式命名的檔案），回傳刪除數。"""
+    """啟動時刪除上次中斷留下的暫存檔（只刪符合本程式命名、超過 STALE_TEMP_S 的檔案），回傳刪除數。
+    較新的暫存檔可能是另一個執行中的 PEditor 正在寫入，保留在紀錄中（P4 U10）。"""
     if registry is None:
         return 0
-    removed, kept = 0, []
-    for path in _recorded():
-        if not TEMP_PATTERN.match(os.path.basename(path)):
-            continue
-        try:
-            os.remove(path)
-            removed += 1
-        except FileNotFoundError:
-            pass
-        except OSError:
-            kept.append(path)
+    removed = 0
     try:
-        with open(registry, "w", encoding="utf-8") as fh:
-            json.dump(kept, fh)
+        with _registry_lock():
+            kept = []
+            now = time.time()
+            for path in _recorded():
+                if not TEMP_PATTERN.match(os.path.basename(path)):
+                    continue
+                try:
+                    if now - os.stat(path).st_mtime <= STALE_TEMP_S:
+                        kept.append(path)
+                        continue
+                    os.remove(path)
+                    removed += 1
+                except FileNotFoundError:
+                    pass
+                except OSError:
+                    kept.append(path)
+            with open(registry, "w", encoding="utf-8") as fh:
+                json.dump(kept, fh)
     except OSError:
         pass
     return removed
