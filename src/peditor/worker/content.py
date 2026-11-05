@@ -189,6 +189,7 @@ class _Interpreter:
         line_m: Matrix = IDENTITY
         path: list[tuple[list[tuple[float, float]], bool, bool]] = []  # (點, 是否 re, 是否含曲線)
         pending_clip = False
+        path_points = 0
         marked: list[bool] = []
 
         for index, inst in enumerate(instructions):
@@ -211,6 +212,11 @@ class _Interpreter:
                 elif op == "cm":
                     gs.ctm = multiply(tuple(_num(v) for v in ops[:6]), gs.ctm)
                 elif op in ("m", "l", "c", "v", "y", "re", "h"):
+                    path_points += CURVE_STEPS if op in ("c", "v", "y") else 4 if op == "re" else 1
+                    if (
+                        path_points > MAX_PAINTED_POINTS
+                    ):  # 未塗繪的路徑也不得無限累積（P7 掃描候選 5）
+                        raise LimitExceeded("path_points")
                     self._path_op(op, ops, gs.ctm, path)
                 elif op in ("W", "W*"):
                     pending_clip = True
@@ -223,7 +229,7 @@ class _Interpreter:
                         if len(gs.clips) >= MAX_CLIPS:
                             raise LimitExceeded("clips")
                         gs.clips.append(_make_clip(path))
-                    path, pending_clip = [], False
+                    path, pending_clip, path_points = [], False, 0
                 elif op == "BT":
                     self.bt_count += 1
                     text_m = line_m = IDENTITY

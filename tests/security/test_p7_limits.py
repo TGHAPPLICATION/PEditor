@@ -86,3 +86,73 @@ def test_huge_image_page_rejected(tmp_path):
         assert "RESOURCE_LIMIT" in analyzer.inspect_page(document, 0)["capabilities"]["reasons"]
     finally:
         document.close()
+
+
+# --- P7 安全掃描候選的回歸測試 -------------------------------------------
+
+
+def test_corrupt_flate_before_other_filter_rejected():
+    """候選 1：毀損的 Flate 後面還有過濾器時，大小不得被算成 0 而通過；0 × 無上限（NaN）也拒絕。"""
+    filters = pikepdf.Array([pikepdf.Name.FlateDecode, pikepdf.Name.RunLengthDecode])
+    with pytest.raises(LimitExceeded):
+        streams.check(_stream(b"\x78\x9c" + b"\xff" * 64, filters))
+    with pytest.raises(LimitExceeded):
+        streams.check(_stream(b"", pikepdf.Name.DCTDecode))
+
+
+def test_cmap_unterminated_array_linear():
+    """候選 4：bfrange 區塊內缺 ] 的陣列不使比對變成平方級。"""
+    text = "beginbfrange\n" + "<01> <02> [" * 100_000 + "\nendbfrange"
+    started = time.monotonic()
+    fonts.parse_cmap(text)
+    assert time.monotonic() - started < 2
+
+
+def test_unpainted_path_points_bounded(tmp_path):
+    """候選 5：從未塗繪的路徑累積的點數也有上限，超過即頁面 RESOURCE_LIMIT。"""
+    from peditor.core.limits import MAX_PAINTED_POINTS
+
+    curves = "1 1 2 2 3 3 c " * (MAX_PAINTED_POINTS // 16 + 10)
+    pdf = pikepdf.new()
+    pdf.add_blank_page(page_size=(200, 200))
+    pdf.pages[0].Contents = pdf.make_stream(f"0 0 m {curves} n".encode("ascii"))
+    path = tmp_path / "curves.pdf"
+    pdf.save(path)
+    document = analyzer.open_document(str(path))
+    try:
+        assert "RESOURCE_LIMIT" in analyzer.inspect_page(document, 0)["capabilities"]["reasons"]
+    finally:
+        document.close()
+
+
+def test_document_level_limit_still_renders():
+    """掃描觀察：文件層級的 RESOURCE_LIMIT（例如書籤過多）不讓頁面無法檢視；
+    只有頁面本身超限才不渲染。"""
+    from pathlib import Path
+
+    files = Path(__file__).resolve().parents[1] / "fixtures" / "files"
+    document = analyzer.open_document(str(files / "T01.pdf"))
+    try:
+        document.flags["reasons"].append("RESOURCE_LIMIT")
+        assert "RESOURCE_LIMIT" in analyzer.inspect_page(document, 0)["capabilities"]["reasons"]
+        assert analyzer.render_page(document, 0, 72)["width"] > 0
+    finally:
+        document.close()
+
+
+def test_ink_check_pixel_bound(monkeypatch):
+    """候選 3：儲存格墨跡檢查的渲染像素超過上限即 RESOURCE_LIMIT，不逐點走訪。"""
+    from pathlib import Path
+
+    from peditor.worker import cell
+
+    files = Path(__file__).resolve().parents[1] / "fixtures" / "files"
+    monkeypatch.setattr(cell, "INK_MAX_PIXELS", 100)
+    document = analyzer.open_document(str(files / "B01.pdf"))
+    try:
+        target = analyzer.inspect_page(document, 0)["cell_targets"][4]
+        line = target["lines"][0]["text"]
+        plan = cell.plan_cell_edit(document, {"cell_id": target["cell_id"], "new_text": line + "1"})
+        assert plan["unsupported_reasons"] == ["RESOURCE_LIMIT"]
+    finally:
+        document.close()

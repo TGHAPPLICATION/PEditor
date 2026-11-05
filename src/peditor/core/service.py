@@ -16,6 +16,7 @@ import queue
 import subprocess
 import sys
 import threading
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -577,9 +578,10 @@ class DocumentService:
         except OSError:
             self._restart()
             raise self._failure(request_id) from None
+        deadline = time.monotonic() + self.timeout  # 整個請求的總時間（P7 掃描候選 7）
         while True:
             try:
-                line = worker.lines.get(timeout=self.timeout)
+                line = worker.lines.get(timeout=max(0.0, deadline - time.monotonic()))
             except queue.Empty:
                 self._restart()
                 raise ServiceError("RESOURCE_LIMIT", "操作逾時，已終止處理程序") from None

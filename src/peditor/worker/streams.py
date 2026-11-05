@@ -52,8 +52,8 @@ def _ascii(name: str, data: bytes) -> bytes | None:
 
 
 def _inflated_size(data: bytes, limit: int) -> int:
-    """分段解壓，回傳解壓後大小；超過 limit 即停止並 LimitExceeded。資料毀損時回傳已解出的大小
-    （qpdf 對毀損資料同樣只解出前段）。"""
+    """分段解壓，回傳解壓後大小；超過 limit 即停止並 LimitExceeded。資料毀損時 zlib 會丟掉該次
+    呼叫的輸出，實際可解出的大小無法得知，改以 limit 計（上限估計；P7 掃描候選 1）。"""
     inflater = zlib.decompressobj()
     total = 0
     try:
@@ -66,7 +66,7 @@ def _inflated_size(data: bytes, limit: int) -> int:
             if inflater.eof or not out:
                 break
     except zlib.error:
-        pass
+        return limit
     return total
 
 
@@ -89,7 +89,7 @@ def check(stream: pikepdf.Stream, limit: int = MAX_STREAM_BYTES) -> None:
     bound: float = size
     for name in filters[i:]:
         bound *= _RATIO.get(name, math.inf)
-    if bound > limit:
+    if not bound <= limit:  # 含 NaN（0 × 無上限）：無法估計即拒絕
         raise LimitExceeded("stream_size")
 
 

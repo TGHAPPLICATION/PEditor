@@ -134,17 +134,21 @@ def commit(dest: Destination, source_path: str, source_sha256: str,
 def _place(temp: str, dest: Destination) -> None:
     """把暫存檔放到目的地。
 
-    - 覆寫（取得 token 時目的檔已存在）：先把目的檔的權限位元複製到暫存檔再原子取代
-      （P3 triage f012；Windows 的 ACL 不複製，暫存檔沿用資料夾繼承的 ACL，殘餘）。
+    - 覆寫（取得 token 時目的檔已存在）：POSIX 先把目的檔的權限位元複製到暫存檔再原子取代
+      （P3 triage f012）；Windows 不複製（唯讀屬性與 ACL 都不複製，暫存檔沿用資料夾繼承的 ACL，
+      殘餘；唯讀的目的檔本來就無法取代，回 SAVE_FAILED）。
     - 不覆寫：目的檔在最後檢查後才出現時不得取代（P3 triage f009）。Windows 的 os.rename 遇到
       已存在的目的檔即失敗；POSIX 以 os.link（目的檔存在即失敗）再刪暫存檔；檔案系統不支援
       硬連結時退回「檢查後 rename」（非原子，殘餘）。
     """
     if dest.state is not None:
-        try:
-            shutil.copymode(dest.path, temp)
-        except OSError:
-            pass  # 權限複製失敗不阻擋另存（暫存檔沿用預設權限）
+        if (
+            os.name != "nt"
+        ):  # Windows 只有唯讀屬性：複製後暫存檔變唯讀、取代失敗且刪不掉（P7 掃描候選 2）
+            try:
+                shutil.copymode(dest.path, temp)
+            except OSError:
+                pass  # 權限複製失敗不阻擋另存（暫存檔沿用預設權限）
         os.replace(temp, dest.path)
         return
     if os.name == "nt":

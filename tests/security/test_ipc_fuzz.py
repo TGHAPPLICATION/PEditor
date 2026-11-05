@@ -9,6 +9,7 @@
 import io
 import json
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -109,3 +110,23 @@ def test_service_rejects_malformed_responses(kind, tmp_path):
             svc.open_document(FILES / "T01.pdf")
         assert exc.value.code == "WORKER_FAILED", kind
         assert svc._worker is None  # 已終止，下次請求時重啟
+
+
+def test_request_timeout_is_total(tmp_path):
+    """掃描候選 7：worker 不斷送出不相符 request_id 的回應時，請求仍在總時間內逾時。"""
+    fake = tmp_path / "chatty_worker.py"
+    fake.write_text(
+        "import sys, time\n"
+        "sys.stdin.readline()\n"
+        "while True:\n"
+        '    sys.stdout.write(\'{"request_id": "other", "ok": true, "result": {}}\\n\')\n'
+        "    sys.stdout.flush()\n"
+        "    time.sleep(0.1)\n",
+        encoding="utf-8",
+    )
+    started = time.monotonic()
+    with DocumentService(timeout=1.0, command=[sys.executable, str(fake)]) as svc:
+        with pytest.raises(ServiceError) as exc:
+            svc.open_document(FILES / "T01.pdf")
+    assert exc.value.code == "RESOURCE_LIMIT"
+    assert time.monotonic() - started < 10

@@ -405,7 +405,9 @@ def parse_cmap(text: str) -> dict[int, str]:
                 mapping[int(src, 16)] = _utf16(dst)
     for block in _blocks(text, "beginbfrange", "endbfrange"):
         for lo, hi, rest in re.findall(
-            _HEX + r"\s*" + _HEX + r"\s*(\[[^\]]*\]|<[0-9A-Fa-f]*>)", block
+            # 陣列遇到下一個 [ 即停：缺 ] 的陣列不使比對變成平方級（P7 掃描候選 4）
+            _HEX + r"\s*" + _HEX + r"\s*(\[[^\]\[]*\]|<[0-9A-Fa-f]*>)",
+            block,
         ):
             if not (0 < len(lo) <= 4 and 0 < len(hi) <= 4):
                 continue

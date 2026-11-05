@@ -339,3 +339,23 @@ def test_cleanup_recorded_malformed_registry(tmp_path, monkeypatch):
     monkeypatch.setattr(transaction.os, "remove", locked)
     assert transaction.cleanup_recorded() == 0 and left.exists()
     assert transaction._recorded() == [str(left)]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows 的唯讀屬性")
+def test_overwrite_readonly_leaves_no_readonly_temp(tmp_path):
+    """P7 掃描候選 2：覆寫唯讀檔失敗時，暫存檔不能被設成唯讀而刪不掉。"""
+    import stat
+
+    target = tmp_path / "out.pdf"
+    target.write_bytes(b"old")
+    dest = transaction.destination(target, overwrite=True)
+    target.chmod(stat.S_IREAD)
+    temp = tmp_path / ".~peditor-00000000000000ff.tmp.pdf"
+    temp.write_bytes(b"new")
+    try:
+        with pytest.raises(OSError):
+            transaction._place(str(temp), dest)
+        assert os.access(temp, os.W_OK)
+        temp.unlink()
+    finally:
+        target.chmod(stat.S_IWRITE | stat.S_IREAD)
