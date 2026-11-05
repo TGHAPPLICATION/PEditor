@@ -127,13 +127,13 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 
 | 需求 ID | spec | 需求 | 預定 test ID | fixture | 狀態 |
 | --- | --- | --- | --- | --- | --- |
-| G7-01 | G7 | 斷網完整開／編／存 | 實機人工 + `tests/security/test_offline_flow.py` | T01 | PLANNED |
-| G7-02 | G7 | app 與全部子程序零非 loopback 出站；無 HTTP listener | 實機出站監測 + `tests/security/test_no_listener.py::test_no_listening_sockets` | 全部 | PLANNED |
-| G7-03 | G7 | 惡意樣本不啟動外部程式／連線 | `tests/security/test_malicious.py::test_no_external_launch` | S01–S06 | PLANNED |
-| G7-04 | G7 | worker 逾時可停止、崩潰可重啟 | `tests/security/test_worker_limits.py::test_timeout_kills_worker` | S03、S04 | PLANNED |
-| G7-05 | G7 | 日誌不洩漏 sentinel、原文、密碼、完整路徑 | `tests/security/test_logging.py::test_no_sentinel_in_logs` | S02、U02 | PLANNED |
-| G7-06 | P7 | 限制初值：200 MB、500 頁、50 MP、30 秒、2 GB；載入前／解析中限制 | `tests/security/test_worker_limits.py::test_limits_enforced_before_full_parse` | S03 | PLANNED |
-| G7-07 | P7 | OS 沙箱／權限評估與缺口報告 | reports/P7 文件審查 | — | PLANNED |
+| G7-01 | G7 | 斷網完整開／編／存 | 實機 `scripts/p7_offline_check.ps1`（網路介面全部中斷）+ `tests/security/test_offline_flow.py::test_offline_flow`（主行程與 worker 以 audit hook 禁止任何 socket，完整開、分析、渲染、規劃、預覽、套用、復原、重做、另存）、`::test_deny_hook_blocks_sockets`（對照） | T01 | 自動測試 PASS（本機 Windows）、CI 待補（P7）；Windows 實機 NOT RUN（待工程師執行）；macOS 實機 NOT RUN（ADR-0003） |
+| G7-02 | G7 | app 與全部子程序零非 loopback 出站；無 HTTP listener | 實機 `scripts/p7_offline_check.ps1`（輪詢流程行程樹的 TCP／UDP）+ `tests/security/test_no_listener.py::test_no_listening_sockets`（完整流程中與結束後，測試行程與 worker 沒有任何 socket，含 loopback）、`::test_connection_check_detects_sockets`（對照） | T01、S02–S06 | 自動測試 PASS（本機 Windows）、CI 待補（P7）；Windows 實機 NOT RUN（待工程師執行）；macOS 實機 NOT RUN |
+| G7-03 | G7 | 惡意樣本不啟動外部程式／連線 | `tests/security/test_malicious.py::test_no_external_launch`（5 組：S02–S06；S06 Launch 若執行會建立 sentinel 檔）、`tests/security/test_sandbox.py::test_worker_cannot_spawn_processes`、`::test_spawn_hook_works_without_job`（對照） | S02–S06 | PASS（本機 Windows）、CI 待補（P7）；macOS 子行程限制 NOT RUN（ADR-0024 缺口） |
+| G7-04 | G7 | worker 逾時可停止、崩潰可重啟 | `tests/security/test_worker_limits.py::test_basic_timeout_and_cancel`、`::test_worker_crash_recovers`（P1）、`tests/security/test_sandbox.py::test_worker_dies_with_main_process`、`tests/unit/test_replay_batches.py`（2 項）、`tests/gui/test_p7_ui.py::test_shutdown_wait_is_bounded` | T01 | PASS（本機 Windows）、CI 待補（P7）；隨主行程終止 macOS NOT RUN |
+| G7-05 | G7 | 日誌不洩漏 sentinel、原文、密碼、完整路徑 | `tests/security/test_logging.py::test_no_sentinel_in_logs`、`::test_cli_stderr_has_no_sentinel`（2 組） | T01、S01–S03、U02 | PASS（本機 Windows）、CI 待補（P7） |
+| G7-06 | P7 | 限制初值：200 MB、500 頁、50 MP、30 秒、2 GB；載入前／解析中限制 | `tests/security/test_p7_limits.py`（6 項：Flate 炸彈、ASCII85＋Flate、LZW 估上限、一般串流、CMap 線性、50 MP 影像）、`tests/security/test_sandbox.py::test_memory_limit_controlled`、`tests/security/test_worker_limits.py::test_file_size_and_page_limits`（P1）、`tests/security/test_ipc_fuzz.py`（31 項）、`tests/security/test_malicious.py[S03]` | S03、S04 | PASS（本機 Windows）、CI 待補（P7）；記憶體上限 macOS NOT RUN（ADR-0024 缺口） |
+| G7-07 | P7 | OS 沙箱／權限評估與缺口報告 | ADR-0024 §2、reports/P7 §8 文件審查 | — | 文件完成，待獨立核對 |
 
 ## G8：打包、實機與發布候選（P8，兩平台實機）
 
