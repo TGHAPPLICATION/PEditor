@@ -8,6 +8,7 @@ import pikepdf
 import pytest
 
 from peditor.core.limits import MAX_STREAM_BYTES, LimitExceeded
+from peditor.core.protocol import ProtocolError
 from peditor.worker import analyzer, fonts, streams
 
 PDF = pikepdf.new()  # 串流的擁有者須存活到測試結束
@@ -136,6 +137,15 @@ def test_document_level_limit_still_renders():
         document.flags["reasons"].append("RESOURCE_LIMIT")
         assert "RESOURCE_LIMIT" in analyzer.inspect_page(document, 0)["capabilities"]["reasons"]
         assert analyzer.render_page(document, 0, 72)["width"] > 0
+    finally:
+        document.close()
+    # 文件層級也超限時，本身超限的頁面（S03 壓縮炸彈）仍不渲染（P7 triage）
+    document = analyzer.open_document(str(files / "S03.pdf"))
+    try:
+        document.flags["reasons"].append("RESOURCE_LIMIT")
+        with pytest.raises(ProtocolError) as exc:
+            analyzer.render_page(document, 0, 72)
+        assert exc.value.code == "RESOURCE_LIMIT"
     finally:
         document.close()
 

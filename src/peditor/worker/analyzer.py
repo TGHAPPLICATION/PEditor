@@ -55,6 +55,8 @@ class Document:
     images: dict[int, dict[str, ImageUse]] = field(default_factory=dict)
     # 每頁格線、偵測到的格與 cell_id → 格目標（表格儲存格，ADR-0023）
     tables: dict[int, tuple] = field(default_factory=dict)
+    # 內容本身超過工作量或解壓上限的頁（不含文件層級的 RESOURCE_LIMIT），不交給 MuPDF 渲染
+    limited_pages: set[int] = field(default_factory=set)
     # 已登記的新圖（asset_id → 圖片；ADR-0022）；重新開啟不清除，undo／redo 重播需要
     assets: dict[str, object] = field(default_factory=dict)
     plans: dict[str, object] = field(default_factory=dict)  # plan_id → 待套用的計畫（worker 內部）
@@ -96,6 +98,7 @@ class Document:
         self.runs.clear()
         self.images.clear()
         self.tables.clear()
+        self.limited_pages.clear()
         self.plans.clear()
 
 
@@ -402,9 +405,10 @@ def render_page(document: Document, page_index, dpi) -> dict:
     if rect.width * rect.height * (dpi / 72) ** 2 > MAX_RENDER_PIXELS:  # P1 安全掃描 f016
         raise ProtocolError("RESOURCE_LIMIT", "頁面渲染尺寸超過上限")
     # 內容超過工作量或解壓上限的頁面（壓縮炸彈等）不交給 MuPDF 渲染（P7，ADR-0024）
-    # 只看頁面本身超限；文件層級的 RESOURCE_LIMIT（書籤、表單欄位過多）不影響檢視（P7 掃描觀察）
-    page_limited = "RESOURCE_LIMIT" in inspect_page(document, page_index)["capabilities"]["reasons"]
-    if page_limited and "RESOURCE_LIMIT" not in document.doc_reasons:
+    # 只看頁面本身超限：文件層級的 RESOURCE_LIMIT（書籤、表單欄位過多）不影響檢視（P7 掃描觀察），
+    # 也不會讓本身超限的頁面被放行（P7 triage）
+    inspect_page(document, page_index)
+    if page_index in document.limited_pages:
         raise ProtocolError("RESOURCE_LIMIT", "頁面內容超過處理上限")
     pix = document.mu[page_index].get_pixmap(dpi=dpi)
     return {"width": pix.width, "height": pix.height,
@@ -480,6 +484,7 @@ def _analyze_page(document: Document, page_index: int) -> dict:
     if any(e.startswith("limit:") for e in content.errors):
         # 超過工作量上限：不再交給 MuPDF 擷取（同一份內容會讓 MuPDF 做相同的放大工作）
         document.runs[page_index] = ([], {})
+        document.limited_pages.add(page_index)
         result = _page_result(page_index, geom, [], [], 0, [*doc_reasons, "RESOURCE_LIMIT"])
         return {**result, "notices": []}
     grid = _chars(mu_page)
