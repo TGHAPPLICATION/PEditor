@@ -1,0 +1,2 @@
+# PDF 一律視為二進位：全為 ASCII 的 fixture（S04）不得做換行轉換，否則 xref 位移與 hash 改變
+*.pdf binary
