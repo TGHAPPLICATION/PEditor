@@ -54,14 +54,19 @@ def test_spawn_hook_works_without_job(monkeypatch):
 
 
 @WINDOWS_ONLY
-def test_worker_dies_with_main_process(tmp_path):
-    """主行程異常結束（未呼叫 close）時，worker 隨 Job handle 關閉一併終止，不留孤兒行程。"""
+def test_worker_dies_with_main_process(tmp_path, monkeypatch):
+    """主行程異常結束（未呼叫 close）時，worker 隨 Job handle 關閉一併終止，不留孤兒行程。
+    worker 正在執行長操作（不會因管線關閉讀到 EOF 而自行結束）。"""
+    monkeypatch.setenv("PEDITOR_WORKER_TEST_HOOKS", "1")
     script = tmp_path / "main.py"
     script.write_text(
-        "import os, sys\n"
+        "import os, sys, threading, time\n"
         "from peditor.core.service import DocumentService\n"
-        "svc = DocumentService()\n"
+        "svc = DocumentService(timeout=120)\n"
         f"svc.open_document({str(FILES / 'T01.pdf')!r})\n"
+        "args = ('_sleep', {'seconds': 60})\n"
+        "threading.Thread(target=svc._send_raw, args=args, daemon=True).start()\n"
+        "time.sleep(1)\n"
         "print(svc._worker.proc.pid, flush=True)\n"
         "os._exit(0)\n",
         encoding="utf-8",
