@@ -8,11 +8,11 @@
 - 階段：P7　分支：`p7-security-hardening`　commit：`c2891d7`（worker Job Object／rlimit）、`16e860a`（解壓前大小限制、CMap 線性解析、影像像素上限）、
   `699e80d`（S03、S05、S06；惡意樣本與 socket 測試；超限頁面不渲染）、`420c686`（回應結構驗證、畸形輸入測試）、`dce8aec`（G7-05、G7-01 自動測試）、
   `968b027`（重播分批、關閉等待上限、U13）、`294e352`（S04）、`c594efd`（`.gitattributes`）、`132eb14`（f009、f012、U10）、`e2e899c`（實機腳本）、
-  `c5960e0`、`3412e05`、`860927c`（測試補強）、`0533432`（關閉逾時後不發 signal）　日期：2026-11-04～11-05
+  `c5960e0`、`3412e05`、`860927c`（測試補強）、`0533432`（關閉逾時後不發 signal）、`87ec3b2`、`57fdb4d`（安全掃描候選與 triage 處理）　日期：2026-11-04～11-05
 - 只改報告、traceability、THREAT_MODEL 或 CI 紀錄的 commit 依 P4 慣例不列。
 - S1／S2 決定（工程師 2026-11-04「照建議」）：OS 限制採 Windows Job Object＋POSIX rlimit、不做完整沙箱並列缺口；Windows 實機以一鍵腳本由工程師執行，
   macOS NOT RUN；帶入項目做安全與穩定性類，U13 一併處理，P4 U12、U14、P5 U3 移 P8；不新增產品日誌，G7-05 改檢查所有對外輸出。
-  2026-11-05：S04 預期改為 `MALFORMED_DOCUMENT`（工程師「你的建議」）。
+  2026-11-05：S04 預期改為 `MALFORMED_DOCUMENT`（工程師「你的建議」）；安全掃描候選 1–9 與觀察的處理（工程師「照建議」，§8）。
 - 撰寫：Claude Code；審查：待工程師；獨立核對：待（CLAUDE.md：由未參與實作的子代理人核對）
 
 ## 2. 環境
@@ -50,7 +50,7 @@ worker 2 GB（Windows Job Object 強制；macOS 只宣告）；另加單一串�
 ```
 uv run ruff check . && uv run ruff format --check .  → exit 0
 uv run pytest -q                                        → 528 passed、1 failed（Windows 製作機，968b027 前的工作區；失敗為 test_drafts 的注入點，見下）
-uv run pytest -q                                        → 本機全套待重跑（記憶體不足時曾被 Claude Code 終止，見下）
+uv run pytest -q                                        → exit 0，550 passed、1 skipped（Windows 製作機，18d3c3e；POSIX 權限位元測試略過）
 ```
 
 - 第一次在重播分批後跑全套時，被 Claude Code 因系統記憶體不足終止（無輸出、不是測試失敗）；工程師同意後重跑：528 passed、1 failed。
@@ -60,10 +60,10 @@ uv run pytest -q                                        → 本機全套待重�
   macos-15 在 `tests/gui/test_p7_ui.py::test_shutdown_wait_is_bounded` 發生 segmentation fault（windows-latest 543 passed）：關閉等待逾時返回後，
   背景工作結束時對已回收的 JobRunner 發 signal。產品端改為逾時返回前先標記放棄、之後結束的工作不再發 signal，測試改為結束前等背景工作完成（`0533432`）；
   run [41982237300](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41982237300)（commit `c594efd`）windows-latest 535 passed、macos-15 532 passed＋3 skipped。
-- P7 新增測試：`tests/security/` 的 `test_sandbox.py` 4 項、`test_p7_limits.py` 6 項、`test_malicious.py` 5 項、`test_no_listener.py` 2 項、`test_ipc_fuzz.py` 31 項、
-  `test_logging.py` 3 項、`test_offline_flow.py` 2 項；`tests/unit/test_replay_batches.py` 3 項；`tests/gui/test_p7_ui.py` 2 項；`test_crash_injection.py` 3 項；
+- P7 新增測試：`tests/security/` 的 `test_sandbox.py` 4 項、`test_p7_limits.py` 11 項、`test_malicious.py` 5 項、`test_no_listener.py` 2 項、`test_ipc_fuzz.py` 32 項、
+  `test_logging.py` 3 項、`test_offline_flow.py` 2 項；`tests/unit/test_replay_batches.py` 3 項；`tests/gui/test_p7_ui.py` 2 項；`test_crash_injection.py` 4 項；
   另 `test_analyzer.py`、`test_fixtures.py`、`test_manifest.py` 納入 S03–S06。
-- **反向驗證**（repo 外的臨時腳本；工作區先提交乾淨，逐一改壞實作、跑對應測試、再還原）：16 項全部被抓到（M3、M16 第一次沒抓到，補強測試後重做抓到）——
+- **反向驗證**（repo 外的臨時腳本；工作區先提交乾淨，逐一改壞實作、跑對應測試、再還原）：25 項全部被抓到（M3、M16 第一次沒抓到，補強測試後重做抓到；M17–M25 為安全掃描候選與 triage 處理後補做）——
 
   | # | 改壞的地方 | 抓到的測試 |
   | --- | --- | --- |
@@ -83,6 +83,15 @@ uv run pytest -q                                        → 本機全套待重�
   | M14 | 不覆寫時仍取代 | `test_crash_injection.py::test_no_overwrite_refuses_destination_created_late` |
   | M15 | 啟動清除不看年齡 | `::test_cleanup_recorded_keeps_recent_temps` |
   | M16 | 錯誤訊息帶路徑 | `test_logging.py::test_no_sentinel_in_logs`（第一次沒抓到：測試給的圖片檔讀得到，沒走到錯誤路徑；`860927c` 加入讀不到的檔案後重做抓到） |
+  | M17 | 毀損 Flate 回傳已解出大小（候選 1） | `test_p7_limits.py::test_corrupt_flate_before_other_filter_rejected` |
+  | M18 | NaN 視為通過（候選 1） | 同上 |
+  | M19 | Windows 也複製權限（候選 2） | `test_crash_injection.py::test_overwrite_readonly_leaves_no_readonly_temp` |
+  | M20 | bfrange 陣列改回原寫法（候選 4） | `test_p7_limits.py::test_cmap_unterminated_array_linear`（90 秒未結束，視為抓到） |
+  | M21 | 文件層級超限也不渲染（觀察） | `::test_document_level_limit_still_renders` |
+  | M22 | 未塗繪路徑不限點數（候選 5） | `::test_unpainted_path_points_bounded` |
+  | M23 | 墨跡檢查不限像素（候選 3） | `::test_ink_check_pixel_bound` |
+  | M24 | 逾時每行重新計時（候選 7） | `test_ipc_fuzz.py::test_request_timeout_is_total`（90 秒未結束，視為抓到） |
+  | M25 | 渲染判定改回 `87ec3b2` 的條件（triage 指出的繞過） | `test_p7_limits.py::test_document_level_limit_still_renders`（S03 部分） |
 
 - 反向驗證過程：M6 卡住時第一版腳本的逾時只終止 `uv`，pytest 孫行程仍握著管線而一直等待；以 Stop-Process 終止後，腳本的外層 shell 結束但 Python 腳本繼續跑完，
   其間我以 `git checkout` 還原了當時突變中的 analyzer.py（M8），因此 M8 重做。之後的腳本改為每項寫入結果、逾時以 `taskkill /T` 終止整棵行程樹。
@@ -113,7 +122,17 @@ uv run pytest -q                                        → 本機全套待重�
 
 ## 8. 安全審查
 
-- vuln-scan／triage：執行中（`reports/P7/security/`），結果待補。
+- 依 ADR-0005，以 `.claude/skills/vuln-scan`、`triage`（defending-code-reference-harness@d3bea6b）手動執行，由未參與實作的子代理人進行。
+- **vuln-scan**：第一次執行的子代理人讀完範圍內程式（`0533432`）、列出候選 9 項與觀察 1 項後，因一段回應被安全分類器擋下而中途停止，沒有寫出檔案；
+  工程師決定照建議處理全部候選（`87ec3b2` 程式與回歸測試、`8ca60b2` ADR-0024 增補）。之後另一個子代理人依該候選清單補寫 `reports/P7/security/VULN-FINDINGS.{json,md}`
+  並逐項重新讀程式驗證（候選的信心值與確切掃描時間未保留，JSON 中 `confidence` 為 null）。
+- **triage**（`reports/P7/security/TRIAGE.{json,md}`）：沿用 P1／P3 訪談的信任邊界；9 項中確認 6 項（MEDIUM 1：f001 毀損 Flate 使解壓前上限被繞過；LOW 5：f003 墨跡檢查無像素上限、
+  f004 bfrange 陣列平方級、f005 未塗繪路徑點數、f006 MuPDF 自行解壓的物件不受檢查〔documented〕、f009 pikepdf 與 MuPDF 解析差異〔needs manual test，documented〕），
+  誤報 3 項（f002 Windows 唯讀暫存檔：沒有越過信任邊界，但屬 P7 帶入的正確性回歸，已修；f007 逾時重新計時：只有被攻陷的 worker 做得到，已修；f008 ADR 措辭過強，已修文件）。
+  兩票由 triage 子代理人以兩個角度自行判讀（未另派子代理人），f009 分票依 recall 保留。
+- triage 另指出：觀察項的第一版修正（`87ec3b2`，文件層級已超限就不拒絕渲染）使文件層級超限的文件中、頁面本身超限的頁面也被交給 MuPDF 渲染；
+  `57fdb4d` 改為記錄頁面本身是否超限（`Document.limited_pages`），並補測試（M25）。THREAT_MODEL T1 的「不得建立子行程」同步修正為「worker 不得直接建立子行程」。
+- triage 未在修正前的 commit 上執行回歸測試；MuPDF／qpdf 對毀損 Flate 與修復差異的行為未以原始碼確認（TRIAGE.md 已註明）。
 - OS 沙箱評估：ADR-0024 §2（Windows AppContainer、Job Object；macOS App Sandbox、sandbox-exec；網路封鎖）與缺口。
 - `THREAT_MODEL.md` 已更新：T1、T2、T5、T7、T10、§6 OS 沙箱待決問題（已決定）、控制清單。
 
@@ -124,11 +143,13 @@ uv run pytest -q                                        → 本機全套待重�
 | U1 | 解壓前限制使單一串流超過 64 MB、含不認得過濾器的內容串流、原始大小超過 16 KB 的 LZW 串流所在頁面不能編輯 | 偏保守；45 份既有 fixture 無影響（全套通過） | 待工程師決定 |
 | U2 | worker 回應結構不符一律重啟 worker | 比原本嚴格 | 待工程師決定 |
 | U3 | Windows 實機驗證須工程師執行腳本；macOS 實機 NOT RUN | G7 要求兩平台實機 | 待工程師決定 |
+| U4 | 安全掃描後新增的保守行為：毀損的 Flate 後接其他過濾器即視為超限；未塗繪路徑點數超過 100,000 即頁面 RESOURCE_LIMIT；格區域渲染超過 12 MP 的儲存格編輯回 RESOURCE_LIMIT | 這類頁面或格不能編輯 | 待工程師決定 |
+| U5 | 殘餘（ADR-0024 後果）：MuPDF 自行解壓的物件（inline image、SMask、pattern、soft mask、Type3 資源、內嵌 CMap、註解外觀）只受記憶體上限保護；pikepdf 與 MuPDF 對同檔的解析差異（triage f009，needs manual test） | macOS 無記憶體上限 | 待工程師決定 |
 
 ## 10. 關卡結果
 
-- **關卡結果：BLOCKED**。自動測試全部通過、反向驗證 16 項全部被抓到；Windows 實機 G7-01、G7-02 待執行；macOS 實機 NOT RUN；vuln-scan／triage、
-  獨立核對、本機全套與最新 commit 的 CI 待補。
+- **關卡結果：BLOCKED**。自動測試全部通過（本機 550 passed）、反向驗證 25 項全部被抓到、vuln-scan／triage 完成且確認項目已處理；
+  Windows 實機 G7-01、G7-02 待工程師執行；macOS 實機 NOT RUN；§9 U1–U5 待工程師決定；獨立核對與最新 commit 的 CI 待補。
 - **下一段可開始：否**（條件：上述項目完成並由工程師決定）。
 
 ## 11. 獨立核對紀錄
