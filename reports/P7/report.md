@@ -1,0 +1,136 @@
+# P7 關卡報告：離線與安全強化
+
+> 依 spec §11 範本（`reports/TEMPLATE.md`）。未執行項目標 `NOT RUN`；CI 證據與實機證據分開記錄。
+> 本段自動測試在本機 Windows 製作機與 CI 執行，**不是實機證據**；G7 實機項目見 §3、§6。
+
+## 1. 階段／commit／日期
+
+- 階段：P7　分支：`p7-security-hardening`　commit：`c2891d7`（worker Job Object／rlimit）、`16e860a`（解壓前大小限制、CMap 線性解析、影像像素上限）、
+  `699e80d`（S03、S05、S06；惡意樣本與 socket 測試；超限頁面不渲染）、`420c686`（回應結構驗證、畸形輸入測試）、`dce8aec`（G7-05、G7-01 自動測試）、
+  `968b027`（重播分批、關閉等待上限、U13）、`294e352`（S04）、`c594efd`（`.gitattributes`）、`132eb14`（f009、f012、U10）、`e2e899c`（實機腳本）、
+  `c5960e0`、`3412e05`、`860927c`（測試補強）、`0533432`（關閉逾時後不發 signal）　日期：2026-11-04～11-05
+- 只改報告、traceability、THREAT_MODEL 或 CI 紀錄的 commit 依 P4 慣例不列。
+- S1／S2 決定（工程師 2026-11-04「照建議」）：OS 限制採 Windows Job Object＋POSIX rlimit、不做完整沙箱並列缺口；Windows 實機以一鍵腳本由工程師執行，
+  macOS NOT RUN；帶入項目做安全與穩定性類，U13 一併處理，P4 U12、U14、P5 U3 移 P8；不新增產品日誌，G7-05 改檢查所有對外輸出。
+  2026-11-05：S04 預期改為 `MALFORMED_DOCUMENT`（工程師「你的建議」）。
+- 撰寫：Claude Code；審查：待工程師；獨立核對：待（CLAUDE.md：由未參與實作的子代理人核對）
+
+## 2. 環境
+
+| 環境 | OS／架構 | 硬體 | Python／套件／字型版本 |
+| --- | --- | --- | --- |
+| Windows 實機（製作機） | Windows 11 Pro 10.0.26300 x64 | 同 P0 | Python 3.13.16；PyMuPDF 1.28.2；pikepdf 10.14.0；PySide6 6.11.2；fontTools 4.66.0；pypdfium2 5.13.0、Pillow 13.0.0（只在測試）；Noto Sans TC（ADR-0008） |
+| macOS 實機 | NOT RUN（無實機，ADR-0003） | — | — |
+| CI windows | windows-latest x64 | GitHub 標準 runner | 套件同上（`uv.lock`）；offscreen |
+| CI macos | macos-15 arm64 | GitHub 標準 runner | 套件同上（`uv.lock`）；offscreen |
+
+相依沒有變更（`uv.lock`、`pyproject.toml` 未改）。新增 fixture S03–S06（§3），其餘 fixture 未重產；新增 `.gitattributes`（`*.pdf binary`，S04 全為 ASCII，
+避免 checkout 時換行轉換改變 xref 位移與 hash）。
+
+## 3. 需求 → test ID → fixture／hash → 結果
+
+fixture hash（前 12 碼）：S03 `8f5cbf6df7a7`、S04 `2dd116833d7e`、S05 `1ea4c88f4f75`、S06 `c9eadedcf5e3`；其餘同 P6。
+「本機」＝Windows 製作機；「CI」＝run [42005863669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42005863669)（commit `0533432`）windows-latest 543 passed＋1 skipped（POSIX 權限位元測試）、macos-15 541 passed＋3 skipped（Windows-only 的 Job Object 測試）。
+
+| 需求 ID | test ID | fixture | 環境 | 結果 |
+| --- | --- | --- | --- | --- |
+| G7-01 斷網完整開／編／存 | `tests/security/test_offline_flow.py::test_offline_flow`（主行程與 worker 以 audit hook 禁止所有 socket，完整開、分析、渲染、規劃、預覽、套用、復原、重做、另存）、`::test_deny_hook_blocks_sockets`（對照） | T01 | 本機、CI | PASS（自動測試）；**Windows 實機 NOT RUN**（`scripts/p7_offline_check.ps1` 須於網路介面全部中斷時由工程師執行；本機以連網狀態試跑腳本：10 輪、25.5 秒、FLOW-OK，見 §6）；macOS 實機 NOT RUN |
+| G7-02 零出站、無 listener | `tests/security/test_no_listener.py::test_no_listening_sockets`（完整流程中與結束後，測試行程＝主行程與 worker 沒有任何 socket，含 loopback）、`::test_connection_check_detects_sockets`（對照：自己開 listener 時列得出來） | T01 | 本機、CI | PASS（自動測試）；**Windows 實機 NOT RUN**（同上腳本）；macOS 實機 NOT RUN |
+| G7-03 惡意樣本不啟動外部程式／連線 | `tests/security/test_malicious.py::test_no_external_launch`（S02–S06 開檔、判定、分析、渲染、另存；S06 Launch 若執行會在目前資料夾建立 sentinel 檔；worker 無 socket）、`tests/security/test_sandbox.py::test_worker_cannot_spawn_processes`、`::test_spawn_hook_works_without_job`（對照） | S02–S06 | 本機、CI | PASS；子行程限制 macOS 無 OS 強制（ADR-0024 缺口，Windows-only 測試在 macOS 略過，記 NOT RUN） |
+| G7-04 逾時停止、崩潰重啟 | `tests/security/test_worker_limits.py`（P1：逾時、取消、崩潰重啟）、`tests/security/test_sandbox.py::test_worker_dies_with_main_process`（worker 執行長操作時主行程異常結束，worker 一併終止）、`tests/unit/test_replay_batches.py`（3 項）、`tests/gui/test_p7_ui.py::test_shutdown_wait_is_bounded` | T01 | 本機、CI | PASS；隨主行程終止 macOS NOT RUN |
+| G7-05 日誌不洩漏 | `tests/security/test_logging.py::test_no_sentinel_in_logs`（sentinel 資料夾、檔名、文件內容、新文字；錯誤訊息與 worker stderr）、`::test_cli_stderr_has_no_sentinel`（2 組） | T01、S01–S03、U02 | 本機、CI | PASS |
+| G7-06 限制初值、載入前／解析中限制 | `tests/security/test_p7_limits.py`（6 項）、`tests/security/test_sandbox.py::test_memory_limit_controlled`、`tests/security/test_ipc_fuzz.py`（31 項）、`test_malicious.py[S03]`、`[S04]`、P1 的檔案大小與頁數測試 | S03、S04 | 本機、CI | PASS；記憶體上限 macOS NOT RUN（ADR-0024 缺口） |
+| G7-07 OS 沙箱評估與缺口 | ADR-0024 §2、本報告 §8 | — | 文件 | 待獨立核對 |
+
+限制初值對照（spec P7）：檔案 200 MB、500 頁（P1，讀檔前與解析頁面前）；單張影像 50 MP（渲染、新圖、PDF 內影像宣告）；單操作 30 秒（P1；重播分批後每批各自計時）；
+worker 2 GB（Windows Job Object 強制；macOS 只宣告）；另加單一串流解壓後 64 MB（解壓前檢查）。
+
+## 4. 執行命令、exit code、測試數
+
+```
+uv run ruff check . && uv run ruff format --check .  → exit 0
+uv run pytest -q                                        → 528 passed、1 failed（Windows 製作機，968b027 前的工作區；失敗為 test_drafts 的注入點，見下）
+uv run pytest -q                                        → 本機全套待重跑（記憶體不足時曾被 Claude Code 終止，見下）
+```
+
+- 第一次在重播分批後跑全套時，被 Claude Code 因系統記憶體不足終止（無輸出、不是測試失敗）；工程師同意後重跑：528 passed、1 failed。
+  失敗的 `test_drafts.py::test_recover_failure_closes_document` 以替換 `_doc_call` 注入重播失敗，重播改走 `_replay_batches` 後注入不到；
+  改為替換 `_replay_batches`，預期（任何例外都關閉文件、草稿保留）不變（`968b027`）。
+- CI：run [42005863669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42005863669)（commit `0533432`）windows-latest 543 passed＋1 skipped（POSIX 權限位元測試）、macos-15 541 passed＋3 skipped（Windows-only 的 Job Object 測試）。先前 run [42004855861](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42004855861)（commit `78bce58`）
+  macos-15 在 `tests/gui/test_p7_ui.py::test_shutdown_wait_is_bounded` 發生 segmentation fault（windows-latest 543 passed）：關閉等待逾時返回後，
+  背景工作結束時對已回收的 JobRunner 發 signal。產品端改為逾時返回前先標記放棄、之後結束的工作不再發 signal，測試改為結束前等背景工作完成（`0533432`）；
+  run [41982237300](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41982237300)（commit `c594efd`）windows-latest 535 passed、macos-15 532 passed＋3 skipped。
+- P7 新增測試：`tests/security/` 的 `test_sandbox.py` 4 項、`test_p7_limits.py` 6 項、`test_malicious.py` 5 項、`test_no_listener.py` 2 項、`test_ipc_fuzz.py` 31 項、
+  `test_logging.py` 3 項、`test_offline_flow.py` 2 項；`tests/unit/test_replay_batches.py` 3 項；`tests/gui/test_p7_ui.py` 2 項；`test_crash_injection.py` 3 項；
+  另 `test_analyzer.py`、`test_fixtures.py`、`test_manifest.py` 納入 S03–S06。
+- **反向驗證**（repo 外的臨時腳本；工作區先提交乾淨，逐一改壞實作、跑對應測試、再還原）：16 項全部被抓到（M3、M16 第一次沒抓到，補強測試後重做抓到）——
+
+  | # | 改壞的地方 | 抓到的測試 |
+  | --- | --- | --- |
+  | M1 | 不套用 Job Object | `test_sandbox.py::test_memory_limit_controlled` |
+  | M2 | 不限子行程數 | `::test_worker_cannot_spawn_processes` |
+  | M3 | 不設 KILL_ON_JOB_CLOSE | `::test_worker_dies_with_main_process`（第一次沒抓到：閒置的 worker 在管線關閉時自己結束；改為 worker 執行長操作時主行程結束，`3412e05` 後重做抓到） |
+  | M4 | MemoryError 不轉 RESOURCE_LIMIT | `::test_memory_limit_controlled` |
+  | M5 | 不檢查解壓後大小 | `test_p7_limits.py::test_flate_bomb_rejected_before_full_decode` |
+  | M6 | CMap 改回正規表示式 | `::test_cmap_unterminated_blocks_linear`（300 秒未結束，視為抓到） |
+  | M7 | 不限影像像素 | `::test_huge_image_page_rejected` |
+  | M8 | 超限頁面照常渲染 | `test_malicious.py[S03]`（第一次執行途中工作區被還原，結果不可信，重做） |
+  | M9 | 不驗證回應結構 | `test_ipc_fuzz.py::test_service_rejects_malformed_responses` |
+  | M10 | 回傳非字串 request_id | `::test_worker_rejects_malformed_lines` |
+  | M11 | 重播不分批 | `test_replay_batches.py::test_replay_split_into_batches` |
+  | M12 | 關閉等待無上限 | `test_p7_ui.py::test_shutdown_wait_is_bounded` |
+  | M13 | 0 頁文件不清畫面 | `::test_zero_page_document_clears_previous_page` |
+  | M14 | 不覆寫時仍取代 | `test_crash_injection.py::test_no_overwrite_refuses_destination_created_late` |
+  | M15 | 啟動清除不看年齡 | `::test_cleanup_recorded_keeps_recent_temps` |
+  | M16 | 錯誤訊息帶路徑 | `test_logging.py::test_no_sentinel_in_logs`（第一次沒抓到：測試給的圖片檔讀得到，沒走到錯誤路徑；`860927c` 加入讀不到的檔案後重做抓到） |
+
+- 反向驗證過程：M6 卡住時第一版腳本的逾時只終止 `uv`，pytest 孫行程仍握著管線而一直等待；以 Stop-Process 終止後，腳本的外層 shell 結束但 Python 腳本繼續跑完，
+  其間我以 `git checkout` 還原了當時突變中的 analyzer.py（M8），因此 M8 重做。之後的腳本改為每項寫入結果、逾時以 `taskkill /T` 終止整棵行程樹。
+
+## 5. 真修改證據
+
+不適用（P7 沒有新增編輯功能）。既有的編輯證據不受影響：G2–G6 測試全部通過（§4）。
+
+## 6. 資料完整性與資源／出站紀錄
+
+- **出站**：產品碼不匯入網路模組（`test_offline_guard`）；自動測試以 audit hook 禁止 socket 完成完整流程（G7-01）、流程中無任何 socket（G7-02）。
+- **實機腳本試跑**（2026-11-05，製作機，**網路連線中**，因此不是 G7-01 證據）：`powershell -ExecutionPolicy Bypass -File scripts\p7_offline_check.ps1` → exit 0；
+  10 輪、25.5 秒、輪詢 29 次（平均間隔 0.88 秒，`Get-NetTCPConnection` 本身約 0.8 秒）、行程樹最多 6 個行程、看到的 socket 0 個；S06 未建立 sentinel 檔。
+  輪詢可能漏掉短於間隔的連線嘗試（§7）。
+- **資源**：Windows 上 worker 記憶體 2 GB、子行程、隨主行程終止由 Job Object 強制；S03 壓縮炸彈不解壓即拒絕；S04 深層巢狀物件 0.7 秒內受控拒絕。
+- **另存**：不覆寫時晚出現的目的檔不被取代（f009）、覆寫保留權限位元（f012）；暫存檔紀錄加鎖、啟動只清除過期暫存檔（U10）。
+  P3 triage f011（暫存檔刪不掉）已由 P3 U9 的紀錄檔＋啟動清除處理：刪不掉的路徑留在紀錄，下次啟動再刪。
+
+## 7. 限制、阻擋、未測項目
+
+- **Windows 實機 G7-01、G7-02：NOT RUN**——須由工程師在網路介面全部中斷時執行 `scripts\p7_offline_check.ps1`，把 `build\p7-check\summary.md` 交回。
+- **macOS 實機：NOT RUN**（ADR-0003：P7 斷網與零出站不能以 CI 代替）；macOS 上記憶體與子行程限制沒有 OS 強制，相關 4 項測試在 macOS 略過。
+- 實機出站監測以輪詢進行，短於約 1 秒的連線嘗試可能漏掉；自動測試的 audit hook（任何 socket 操作即失敗）與 Job Object 補足。
+- 非完整 OS 沙箱：worker 仍有使用者的檔案與網路權限（ADR-0024 §2）。
+- MuPDF 自行解壓、不經 content 解譯器的串流（註解外觀等）只受記憶體上限保護。
+- 回應驗證只檢查結構，不檢查巢狀內容語義。
+- P4 U12、U14、P5 U3 移至 P8（S2 決定）。
+
+## 8. 安全審查
+
+- vuln-scan／triage：執行中（`reports/P7/security/`），結果待補。
+- OS 沙箱評估：ADR-0024 §2（Windows AppContainer、Job Object；macOS App Sandbox、sandbox-exec；網路封鎖）與缺口。
+- `THREAT_MODEL.md` 已更新：T1、T2、T5、T7、T10、§6 OS 沙箱待決問題（已決定）、控制清單。
+
+## 9. 不確定性與人工確認項目
+
+| # | 內容 | 影響 | 處理 |
+| --- | --- | --- | --- |
+| U1 | 解壓前限制使單一串流超過 64 MB、含不認得過濾器的內容串流、原始大小超過 16 KB 的 LZW 串流所在頁面不能編輯 | 偏保守；45 份既有 fixture 無影響（全套通過） | 待工程師決定 |
+| U2 | worker 回應結構不符一律重啟 worker | 比原本嚴格 | 待工程師決定 |
+| U3 | Windows 實機驗證須工程師執行腳本；macOS 實機 NOT RUN | G7 要求兩平台實機 | 待工程師決定 |
+
+## 10. 關卡結果
+
+- **關卡結果：BLOCKED**。自動測試全部通過、反向驗證 16 項全部被抓到；Windows 實機 G7-01、G7-02 待執行；macOS 實機 NOT RUN；vuln-scan／triage、
+  獨立核對、本機全套與最新 commit 的 CI 待補。
+- **下一段可開始：否**（條件：上述項目完成並由工程師決定）。
+
+## 11. 獨立核對紀錄
+
+（待執行）
