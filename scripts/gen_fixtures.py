@@ -412,6 +412,32 @@ def s03(path: Path) -> None:
     _pike_save(pdf, path)
 
 
+def s04(path: Path) -> None:
+    """深層巢狀物件：頁面 /Annots 指向巢狀 100,000 層的陣列。以手寫 xref 產生（pikepdf／PyMuPDF
+    都不寫出這麼深的物件）。qpdf 解析超過 500 層即視為損毀（P7 報告：預期 MALFORMED_DOCUMENT）。"""
+    depth = 100_000
+    content = b"BT /F1 12 Tf 72 742 Td (Deep nesting fixture) Tj ET"
+    objects = [
+        b"<</Type/Catalog/Pages 2 0 R>>",
+        b"<</Type/Pages/Kids[3 0 R]/Count 1>>",
+        b"<</Type/Page/Parent 2 0 R/MediaBox[0 0 %d %d]/Contents 4 0 R"
+        b"/Resources<</Font<</F1 5 0 R>>>>/Annots 6 0 R>>" % (round(A4_W), round(A4_H)),
+        b"<</Length %d>>stream\n" % len(content) + content + b"\nendstream",
+        b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>",
+        b"[" * depth + b"]" * depth,
+    ]
+    data, offsets = b"%PDF-1.7\n", []
+    for number, body in enumerate(objects, 1):
+        offsets.append(len(data))
+        data += b"%d 0 obj\n" % number + body + b"\nendobj\n"
+    xref = len(data)
+    data += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1)
+    data += b"".join(b"%010d 00000 n \n" % offset for offset in offsets)
+    trailer = b"trailer\n<</Root 1 0 R/Size %d>>\nstartxref\n%d\n%%%%EOF\n"
+    data += trailer % (len(objects) + 1, xref)
+    path.write_bytes(data)
+
+
 def s05(path: Path) -> None:
     """嵌入附件：文件層 /Names /EmbeddedFiles（內容含 sentinel）。"""
     pdf = _pike_page("Embedded file fixture")
@@ -513,6 +539,9 @@ SYNTHETIC: list[Fixture] = [
             notes="OpenAction JavaScript（含 sentinel）；不得執行（ADR-0007）"),
     Fixture("S03", s03, "script-p7", "Helvetica", "reject", "RESOURCE_LIMIT",
             notes="解壓膨脹（壓縮炸彈）：內容串流解壓後 128 MB，超過 64 MB 上限（ADR-0024）"),
+    Fixture("S04", s04, "script-p7", "Helvetica", "reject", "MALFORMED_DOCUMENT",
+            notes="深層巢狀物件（/Annots 巢狀 100,000 層）；qpdf 超過 500 層即視為損毀，"
+                  "預期由 RESOURCE_LIMIT 改為 MALFORMED_DOCUMENT（工程師 2026-11-05 決定）"),
     Fixture("S05", s05, "script-p7", "Helvetica", "reject", "ACTIVE_CONTENT",
             notes="嵌入附件（含 sentinel；ADR-0007）"),
     Fixture("S06", s06, "script-p7", "Helvetica", "reject", "ACTIVE_CONTENT",

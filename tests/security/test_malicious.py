@@ -1,7 +1,7 @@
 """G7-03：惡意樣本不啟動外部程式、不連線；受控拒絕（spec P7、ADR-0007、ADR-0024）。
 
 S02（OpenAction JavaScript）、S05（嵌入附件）、S06（Launch，執行時會在目前資料夾建立 sentinel 檔）、
-S03（壓縮炸彈）經 worker 開啟、判定、逐頁分析、渲染與另存，之後：
+S03（壓縮炸彈）、S04（深層巢狀物件）經 worker 開啟、判定、逐頁分析、渲染與另存，之後：
 - 目前資料夾沒有 sentinel 檔（Launch 沒有被執行）；
 - 回應全部是理由碼，worker 仍可用（不是崩潰）；
 - 沒有任何連線（同 test_no_listener 的檢查方式）。
@@ -20,6 +20,7 @@ EXPECTED = {
     "S05": ("document", "ACTIVE_CONTENT"),
     "S06": ("document", "ACTIVE_CONTENT"),
     "S03": ("page", "RESOURCE_LIMIT"),
+    "S04": ("document", "MALFORMED_DOCUMENT"),
 }
 
 
