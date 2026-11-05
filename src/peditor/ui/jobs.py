@@ -7,12 +7,15 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, wait
 
 from PySide6.QtCore import QCoreApplication, QObject, Signal
 
 from peditor.core.service import ServiceError
+
+SHUTDOWN_WAIT_S = 10.0  # 關閉時等待執行中工作的上限（每階段；P7）
 
 
 class JobRunner(QObject):
@@ -65,14 +68,23 @@ class JobRunner(QObject):
             if self._pending == 0:
                 self.busy_changed.emit(False)
 
-    def shutdown(self, cancel: Callable[[], object] | None = None) -> None:
+    def shutdown(self, cancel: Callable[[], object] | None = None,
+                 kill: Callable[[], object] | None = None) -> None:  # fmt: skip
         """關閉（P4 U11）：不再接受工作、取消排隊中的工作；執行中的工作每 50 ms 呼叫一次 cancel
         直到結束（多段呼叫的工作在兩段之間取消不到，須重試），再把已完成工作的結果送回主執行緒。
-        主執行緒會等目前這段 Python 端運算跑完（無上限）；
-        工作不得攔下 CANCELLED 後重試，否則不會結束。"""
+        總等待有上限（P7，ADR-0021 增補）：超過 SHUTDOWN_WAIT_S 仍未結束即呼叫 kill（終止 worker），
+        再等 SHUTDOWN_WAIT_S 後不論結果都返回；仍在主行程端運算的工作留在背景執行緒，
+        行程結束時才等它完成。工作不得攔下 CANCELLED 後重試，否則不會結束。"""
         self._closed = True
         self._pool.shutdown(wait=False, cancel_futures=True)
+        deadline = time.monotonic() + SHUTDOWN_WAIT_S
+        killed = False
         while running := [f for f in list(self._futures) if not f.done()]:
+            if time.monotonic() > deadline:
+                if killed or kill is None:
+                    break
+                kill()
+                killed, deadline = True, time.monotonic() + SHUTDOWN_WAIT_S
             if cancel is not None:
                 cancel()
             wait(running, timeout=0.05)

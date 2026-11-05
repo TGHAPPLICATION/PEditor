@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from peditor.core.drafts import DraftStore
-from peditor.core.limits import MAX_IMAGE_BYTES, REQUEST_TIMEOUT_S
+from peditor.core.limits import MAX_IMAGE_BYTES, REPLAY_BATCH, REQUEST_TIMEOUT_S
 from peditor.core.protocol import (
     MAX_MESSAGE_BYTES,
     PROTOCOL_VERSION,
@@ -286,9 +286,8 @@ class DocumentService:
         doc = self._require(document_id, expected_revision)
         if doc.position == 0:
             raise ServiceError("INVALID_REQUEST", "沒有可撤銷的操作")
-        params = {"commands": doc.log[: doc.position - 1], "revision": doc.revision + 1,
-                  "reset": True}  # fmt: skip
-        result = self._doc_call(document_id, "replay", params, expected_revision)
+        result = self._replay(doc, doc.log[: doc.position - 1], doc.revision + 1, True,
+                              expected_revision)  # fmt: skip
         doc.position -= 1
         return self._advance(doc, result)
 
@@ -369,9 +368,8 @@ class DocumentService:
         if position:
             # revision 須大於 log 中任何規劃時版本，之後的 target_id 才不會與舊版本混淆
             revision = max(e["base_revision"] for e in log) + 1
-            params = {"commands": log[:position], "revision": revision, "reset": False}
             try:
-                result = self._doc_call(document_id, "replay", params, 0)
+                result = self._replay(doc, log[:position], revision, False, 0)
             except BaseException:  # 任何失敗都不留下開啟一半的文件（P3 triage f001）
                 self.close_document(document_id)
                 raise
@@ -479,29 +477,57 @@ class DocumentService:
         doc = self._docs.get(document_id)
         if doc is None:
             raise ServiceError("INVALID_REQUEST", "文件未開啟")
+        return self._call(operation, document_id=self._attach(doc), params=params,
+                          expected_revision=expected_revision)  # fmt: skip
+
+    def _replay(self, doc: _Doc, commands: list, revision: int, reset: bool, expected_revision):
+        return self._replay_batches(self._attach(doc), commands, revision, reset, expected_revision)
+
+    def _replay_batches(self, worker_id: str, commands: list, revision: int, reset: bool,
+                        expected_revision=None) -> dict:  # fmt: skip
+        """分批重播（P7；P3 triage f008、P6 T7）：每 REPLAY_BATCH 筆一個請求，各自受逾時限制，
+        總筆數不受單一請求逾時所限。worker 端每批失敗即回到該批之前；第二批起失敗時 worker 已停在
+        中間狀態，故終止重啟，下次請求依 command log 重開重播。"""
+        batches = [commands[i : i + REPLAY_BATCH] for i in range(0, len(commands), REPLAY_BATCH)]
+        result: dict = {}
+        for i, batch in enumerate(batches or [[]]):
+            params = {"commands": batch, "revision": revision, "reset": reset and i == 0}
+            try:
+                expected = expected_revision if i == 0 else None
+                result = self._call("replay", document_id=worker_id, params=params,
+                                    expected_revision=expected)  # fmt: skip
+            except ServiceError:
+                if i:
+                    self._restart()
+                raise
+        return result
+
+    def _close_quietly(self, worker_id: str) -> None:
+        """失敗路徑上關閉 worker 端文件；關閉本身的錯誤不蓋過原本的錯誤（P3 triage f008）。"""
+        try:
+            self._call("close_document", document_id=worker_id)
+        except ServiceError:
+            pass
+
+    def _attach(self, doc: _Doc) -> str:
+        """文件在目前 worker 的 document_id；worker 重啟過時先重開並還原到目前版本。"""
         self._ensure_worker()  # worker 已結束時先重啟，才能判斷文件是否需重開
         if doc.worker_id is None:  # worker 重啟過：依原路徑重開、確認未被外部修改、重播 log
             reopened = self._call("open_document", params={"path": doc.path})
+            worker_id = reopened["document_id"]
             if reopened["sha256"] != doc.sha256:
-                self._call("close_document", document_id=reopened["document_id"])
+                self._close_quietly(worker_id)
                 raise ServiceError("REVISION_CONFLICT", "檔案已被外部修改")
             try:  # 新圖隨 worker 重啟消失：先重新登記，重播與之後的規劃才找得到
-                self._register_assets(reopened["document_id"], doc.assets)
+                self._register_assets(worker_id, doc.assets)
+                if doc.revision != reopened["revision"]:
+                    self._replay_batches(worker_id, doc.log[: doc.position], doc.revision, False)
             except ServiceError:
-                self._call("close_document", document_id=reopened["document_id"])
+                self._close_quietly(worker_id)
                 raise
-            if doc.revision != reopened["revision"]:
-                restore = {"commands": doc.log[: doc.position], "revision": doc.revision,
-                           "reset": False}  # fmt: skip
-                try:
-                    self._call("replay", document_id=reopened["document_id"], params=restore)
-                except ServiceError:
-                    self._call("close_document", document_id=reopened["document_id"])
-                    raise
-            doc.worker_id = reopened["document_id"]
+            doc.worker_id = worker_id
             doc.plans.clear()  # worker 端計畫已隨重啟消失
-        return self._call(operation, document_id=doc.worker_id, params=params,
-                          expected_revision=expected_revision)  # fmt: skip
+        return doc.worker_id
 
     def _ensure_worker(self) -> _WorkerProcess:
         with self._state:

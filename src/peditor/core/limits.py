@@ -11,6 +11,7 @@ REQUEST_TIMEOUT_S = 30.0
 MAX_FORM_DEPTH = 8
 MAX_RENDER_DPI = 300
 WORKER_MEMORY_BYTES = 2 * 1024 * 1024 * 1024  # spec P7「worker 2 GB」；Windows 由 Job Object 強制
+REPLAY_BATCH = 10  # 重播每個請求的筆數：每批各自受逾時限制（P3 triage f008、P6 T7）
 MAX_STREAM_BYTES = 64 * 1024 * 1024  # 單一內容／字型串流解壓後大小；解壓前先檢查（P2 triage f024）
 
 # P1 安全掃描（f001、f004、f005、f009、f012、f016）後加入
