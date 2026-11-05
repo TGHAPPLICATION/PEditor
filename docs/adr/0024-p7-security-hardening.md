@@ -1,6 +1,7 @@
 # ADR-0024：P7 離線與安全強化（worker OS 限制、解壓前限制、回應驗證、沙箱缺口）
 
-- 狀態：已接受（2026-11-04，工程師於 P7 S1／S2 決定「照建議」；2026-11-05 S04 預期由工程師決定）
+- 狀態：已接受（2026-11-04，工程師於 P7 S1／S2 決定「照建議」；2026-11-05 S04 預期由工程師決定；
+  同日安全掃描候選 1–9 的處理工程師決定「照建議」，§1、§3、§5、後果增補）
 - 日期：2026-11-05
 - 決策者：工程師
 - 需人工確認：否（已確認）；P7 報告 §9 待決項目另列
@@ -25,7 +26,8 @@ THREAT_MODEL §6 的待決問題：worker 是否需要 OS 層級沙箱。
   `ResumeThread`），沒有未受限的時間窗。Job 限制：
   - 行程記憶體上限 2 GB（`WORKER_MEMORY_BYTES`）；超過時配置失敗，worker 回 `RESOURCE_LIMIT`（MemoryError），
     不是崩潰。
-  - `ActiveProcessLimit`：不得再建立子行程（Launch、被攻陷後執行外部程式都會失敗）。開發環境的 venv
+  - `ActiveProcessLimit`：worker 自己不得再建立子行程（Launch 與被攻陷後直接建立行程都會失敗）。不涵蓋經由
+    已存在的其他行程或系統服務間接啟動程式（例如 COM、排程工作、殼層代為開啟），列入 §2 缺口。開發環境的 venv
     `python.exe` 是轉介程式、會再啟動真正的直譯器，該情況允許 2 個行程（仍不能再多）；打包後為 1。
   - `KILL_ON_JOB_CLOSE`：主行程的 job handle 關閉（含主行程異常結束）時 worker 一併終止，不留孤兒行程。
   - UI 限制（桌面、剪貼簿、全域 atom、USER handle 等）。
@@ -44,8 +46,9 @@ THREAT_MODEL §6 的待決問題：worker 是否需要 OS 層級沙箱。
 | macOS `sandbox-exec` | Apple 已標為 deprecated，規則語法無正式文件 | 不採用 |
 | 網路封鎖 | 產品碼不匯入網路模組（測試）、測試以 audit hook 驗證無 socket、實機以腳本監測 | 不加 OS 防火牆規則（需系統管理權限） |
 
-缺口：worker 仍以使用者權限執行，可讀寫使用者可存取的所有檔案、可開 socket（被攻陷時）；主行程與 worker 之間只靠
-stdin／stdout 管線。macOS 上記憶體與子行程都沒有 OS 強制。
+缺口：worker 仍以使用者權限執行，可讀寫使用者可存取的所有檔案、可開 socket（被攻陷時），也可能經由其他行程或
+系統服務間接啟動程式（Job Object 只擋 worker 直接建立子行程）；主行程與 worker 之間只靠 stdin／stdout 管線。
+macOS 上記憶體與子行程都沒有 OS 強制。
 
 ### 3. 解壓前的大小限制（worker/streams.py；P2 triage f024）
 
@@ -55,7 +58,12 @@ stdin／stdout 管線。macOS 上記憶體與子行程都沒有 OS 強制。
 - 上限：每個串流 64 MB（`MAX_STREAM_BYTES`）、CMap 4 MB（既有）。超過即該頁 `RESOURCE_LIMIT`，且不交給 MuPDF
   擷取或渲染（`render_page` 也拒絕）。
 - 影像 XObject 宣告的寬×高超過 50 MP 即該頁 `RESOURCE_LIMIT`（MuPDF 渲染時才配置）。
-- CMap 的 bfchar／bfrange 區塊改為線性掃描（P2 triage f022：未結尾的區塊使正規表示式變成平方級）。
+- CMap 的 bfchar／bfrange 區塊改為線性掃描（P2 triage f022：未結尾的區塊使正規表示式變成平方級）；bfrange 內缺 `]`
+  的陣列遇到下一個 `[` 即停（P7 安全掃描候選 4）。
+- Flate 資料毀損時 zlib 會丟掉該次呼叫的輸出，大小改以上限計；估計結果為 NaN（0 × 無上限）也拒絕（候選 1）。
+- 未塗繪的路徑累積的點數同樣受 `MAX_PAINTED_POINTS` 限制，超過即頁面 `RESOURCE_LIMIT`（候選 5）。
+- 儲存格墨跡檢查（ADR-0023 §2）渲染像素上限 12 MP（同另存視覺驗證），超過即該行 `RESOURCE_LIMIT`（候選 3）。
+- `render_page` 只在頁面本身超限時拒絕；文件層級的 `RESOURCE_LIMIT`（書籤、表單欄位過多）仍可檢視（掃描觀察）。
 
 ### 4. 不寫日誌檔
 
@@ -71,6 +79,7 @@ stdin／stdout 管線。macOS 上記憶體與子行程都沒有 OS 強制。
   不符即視為 worker 異常：終止重啟、回 `WORKER_FAILED`。只檢查結構，不檢查巢狀內容的語義（被攻陷的 worker
   仍可回傳結構正確但內容錯誤的結果，影響限於 UI 顯示與該次操作）。
 - worker 只回傳字串 request_id。
+- 逾時以整個請求計，不因 worker 送出其他 request_id 的回應而重新計時（候選 7）。
 
 ### 6. 重播分批（P3 triage f008、P6 第四輪 T7）
 
@@ -100,6 +109,11 @@ stdin／stdout 管線。macOS 上記憶體與子行程都沒有 OS 強制。
 - 解壓前限制使含 64 MB 以上單一串流或不認得過濾器的內容串流的頁面不能編輯（偏保守）；LZW 串流原始大小超過
   16 KB 即視為超限。
 - 回應結構不符一律重啟 worker，比原本嚴格。
-- 殘餘：MuPDF 渲染註解外觀、影像等不經 content 解譯器的串流時，炸彈只受 Job Object 記憶體上限保護（macOS 無）；
+- 殘餘：解壓前檢查與 50 MP 檢查只涵蓋 content 解譯器實際走到的物件；inline image、影像的 SMask、tiling pattern、
+  soft-mask group、Type3 字型的 /Resources、Type0 內嵌 CMap、註解外觀等由 MuPDF 自行解壓的串流，炸彈只受 Job Object
+  記憶體上限保護（macOS 無；候選 6）；「超限、不渲染」以 pikepdf 的解析結果判定，MuPDF 對同一份檔案的解析（例如需要
+  修復的檔案）可能不同（候選 9）；
   非完整 OS 沙箱（§2）；實機出站監測以輪詢進行，短於輪詢間隔的連線嘗試可能漏掉（自動測試以 audit hook 與
   Job Object 補足）。
+- 覆寫時權限位元只在 POSIX 保留；Windows 不複製唯讀屬性與 ACL（唯讀的目的檔無法取代，回 SAVE_FAILED；候選 2：
+  複製唯讀屬性會使暫存檔取代失敗後刪不掉）。
