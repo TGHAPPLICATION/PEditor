@@ -154,4 +154,19 @@ uv run pytest -q                                        → exit 0，550 passed�
 
 ## 11. 獨立核對紀錄
 
-（待執行）
+第一輪（2026-11-05，HEAD `3897d18`）：未參與實作、也未做 P7 安全掃描與 triage 的 Claude 子代理人核對（暫時腳本與複本放在 repo 外，結束時工作區乾淨）。
+自行驗證屬實：§1 commit 都在分支上；ruff、format 通過，pytest 550 passed、1 skipped；反向驗證抽查 M2、M3、M9、M14、M17、M25 都被抓到；
+49 份 fixture 在 main 與 HEAD 之間只有 S03 不同（預期）；主行程結束時 worker 整棵行程樹（轉介程式、直譯器、conhost）都終止；
+連線檢查涵蓋轉介程式底下的直譯器；worker 的 deny hook 會安裝；Job Object 生效順序與 fail closed 成立；限制初值逐項符合 spec；
+P7 對既有測試的修改都有正當理由。結論「有出入」，**有 must-fix**：
+
+| # | 內容 | 處理 |
+| --- | --- | --- |
+| V1（must-fix） | spec P7「最低必須有獨立程序、限制 IPC、路徑白名單與作業系統出站封鎖驗證」沒有逐項說明達成與否：路徑白名單只有主行程層級（開檔路徑、destination_token），worker 無 OS 強制；OS 出站封鎖沒有防火牆封鎖、只有監測腳本且實機 NOT RUN | 待工程師決定 |
+| V2（should-fix） | 測試數不一致：§3 G7-06 列寫 test_p7_limits 6 項、test_ipc_fuzz 31 項（實際 11、32）；traceability G7-04 寫 test_replay_batches 2 項（2 個函式、3 個收集項） | 待工程師決定 |
+| V3（should-fix） | G7-01：worker 的 deny hook 只擋不記錄，被 worker 內部吞掉的 socket 嘗試不會被發現（拿掉 worker hook 測試仍通過）；audit hook 只涵蓋 Python 層，原生函式庫的 socket 不在內；報告「禁止所有 socket」過強 | 待工程師決定 |
+| V4（should-fix） | G7-02：自動測試只在兩個時間點快照（不是「流程中」）；`network.py::_children` 不檢查 PowerShell／pgrep 結束碼，枚舉失敗會假通過；對照組只涵蓋測試行程自己 | 待工程師決定 |
+| V5（should-fix） | G7-04：`test_worker_dies_with_main_process` 只檢查轉介程式的 PID，沒檢查真正的直譯器 | 待工程師決定 |
+| V6（should-fix） | ADR-0024 殘餘未列 shading（含 mesh 串流）、Function、ICCBased 串流，以及影像資料本身的壓縮比（只檢查宣告的寬×高） | 待工程師決定 |
+| V7（備查） | 措辭：ADR §1「超限回 RESOURCE_LIMIT 不是崩潰」只驗證 Python 層配置；ADR §5 不相符的字串 request_id 實際是略過而非視為異常；THREAT_MODEL T2「每種訊息都有畸形輸入測試」主行程端只測 open_document；POSIX limit_self 失敗不中止，ADR §1 未寫 | 待工程師決定 |
+| V8（備查） | 拿掉 CREATE_SUSPENDED 沒有測試抓得到（時間窗本質上難測，靠讀程式確認）；打包後 ActiveProcessLimit 1 未驗證（建議 P8）；S06 sentinel 只在 Windows 有意義；TRIAGE.md f008 列「T1 未同步」已過時；實機腳本以「Up 網卡數＝0」判斷斷網，虛擬網卡可能使其不為 0；G7-05 未檢查 CLI stdout、未 assert worker stderr 檔非空 | 待工程師決定 |
