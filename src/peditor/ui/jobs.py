@@ -28,6 +28,7 @@ class JobRunner(QObject):
         self._pending = 0
         self._futures: set[Future] = set()
         self._closed = False
+        self._abandoned = False  # shutdown 逾時返回：之後才結束的工作不再送回結果
         self._finished.connect(self._deliver)
 
     @property
@@ -50,11 +51,13 @@ class JobRunner(QObject):
             try:
                 result = func()
             except ServiceError as exc:
-                self._finished.emit(on_error, None, exc)
+                outcome = (on_error, None, exc)
             except Exception:  # noqa: BLE001 — 不讓背景例外消失；訊息不帶細節（CLAUDE.md）
-                self._finished.emit(on_error, None, ServiceError("WORKER_FAILED", "未預期錯誤"))
+                outcome = (on_error, None, ServiceError("WORKER_FAILED", "未預期錯誤"))
             else:
-                self._finished.emit(on_done, result, None)
+                outcome = (on_done, result, None)
+            if not self._abandoned:  # 視窗可能已銷毀：不對它發 signal（P7）
+                self._finished.emit(*outcome)
 
         future = self._pool.submit(run)
         self._futures.add(future)
@@ -74,7 +77,8 @@ class JobRunner(QObject):
         直到結束（多段呼叫的工作在兩段之間取消不到，須重試），再把已完成工作的結果送回主執行緒。
         總等待有上限（P7，ADR-0021 增補）：超過 SHUTDOWN_WAIT_S 仍未結束即呼叫 kill（終止 worker），
         再等 SHUTDOWN_WAIT_S 後不論結果都返回；仍在主行程端運算的工作留在背景執行緒，
-        行程結束時才等它完成。工作不得攔下 CANCELLED 後重試，否則不會結束。"""
+        行程結束時才等它完成，結果不再送回（視窗可能已銷毀）。
+        工作不得攔下 CANCELLED 後重試，否則不會結束。"""
         self._closed = True
         self._pool.shutdown(wait=False, cancel_futures=True)
         deadline = time.monotonic() + SHUTDOWN_WAIT_S
@@ -82,6 +86,7 @@ class JobRunner(QObject):
         while running := [f for f in list(self._futures) if not f.done()]:
             if time.monotonic() > deadline:
                 if killed or kill is None:
+                    self._abandoned = True  # 先設旗標：之後才結束的工作不再發 signal
                     break
                 kill()
                 killed, deadline = True, time.monotonic() + SHUTDOWN_WAIT_S

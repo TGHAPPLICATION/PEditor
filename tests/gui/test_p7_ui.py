@@ -17,7 +17,13 @@ def test_shutdown_wait_is_bounded(qtbot, monkeypatch):
     monkeypatch.setattr(jobs, "SHUTDOWN_WAIT_S", 0.2)
     runner = jobs.JobRunner()
     release = threading.Event()
-    runner.submit(lambda: release.wait(10), lambda _: None, lambda _: None)
+    done = threading.Event()
+
+    def job():
+        release.wait(10)
+        done.set()
+
+    runner.submit(job, lambda _: None, lambda _: None)
     time.sleep(0.05)
     killed = []
     started = time.monotonic()
@@ -25,6 +31,8 @@ def test_shutdown_wait_is_bounded(qtbot, monkeypatch):
     assert time.monotonic() - started < 2
     assert killed == [True]
     release.set()
+    assert done.wait(10)  # 背景工作結束；已放棄的結果不再送回（不對可能已銷毀的物件發 signal）
+    time.sleep(0.1)
 
 
 def test_zero_page_document_clears_previous_page(qtbot, make_window):
