@@ -493,8 +493,10 @@ class MainWindow(QMainWindow):
             self.panel.selected.setText(f"圖片（{x1 - x0:.0f} × {y1 - y0:.0f} pt）")
             self.panel.new_text.clear()
         else:
-            self.panel.selected.setText(text)
-            self.panel.new_text.setText(text)
+            self.panel.selected.setText(_shown(text))
+            # 不能改的目標不預填（對應不到 Unicode 的字不能當新文字的起點；P8 實機發現）
+            supported = target["capability"]["status"] == "support"
+            self.panel.new_text.setText(text if supported else "")
         if target["capability"]["status"] == "support":
             self.panel.info.setText("")
         else:
@@ -507,26 +509,30 @@ class MainWindow(QMainWindow):
         """儲存格選取（ADR-0023）：顯示格位置與行；能力判定不支援時顯示原因、不能預覽。"""
         lines = cell["lines"]
         text = lines[line_index]["text"] if lines else ""
+        # 格本身支援時，以所選這一行的判定為準（行內文字無法對應 Unicode 等；P8 實機發現）
+        capability = cell["capability"]
+        if capability["status"] == "support" and lines:
+            capability = lines[line_index]["capability"]
         self.selection = {"target_id": cell.get("cell_id"), "text": text, "kind": kind,
-                          "capability": cell["capability"], "cell": cell,
+                          "capability": capability, "cell": cell,
                           "line_index": line_index}  # fmt: skip
         self.plan = None
         self.view.highlight(highlight)
         where = ("手動選格" if kind == "manual_cell"
                  else f"表格第 {cell['row'] + 1} 列第 {cell['col'] + 1} 欄")  # fmt: skip
-        self.panel.selected.setText(f"{where}：{text}" if text else where)
+        self.panel.selected.setText(f"{where}：{_shown(text)}" if text else where)
         choice = self.panel.line_choice
         choice.blockSignals(True)
         choice.clear()
-        choice.addItems([f"第 {i + 1} 行：{line['text']}" for i, line in enumerate(lines)])
+        choice.addItems([f"第 {i + 1} 行：{_shown(line['text'])}" for i, line in enumerate(lines)])
         choice.setCurrentIndex(line_index if lines else -1)
         choice.blockSignals(False)
         choice.setVisible(len(lines) > 1)
-        self.panel.new_text.setText(text)
-        if cell["capability"]["status"] == "support":
+        self.panel.new_text.setText(text if capability["status"] == "support" else "")
+        if capability["status"] == "support":
             self.panel.info.setText("")
         else:
-            self.panel.info.setText("無法編輯：" + reasons_text(cell["capability"]["reasons"]))
+            self.panel.info.setText("無法編輯：" + reasons_text(capability["reasons"]))
         self.panel.before.clear()
         self.panel.after.clear()
         self._refresh_actions()
@@ -737,6 +743,11 @@ class MainWindow(QMainWindow):
             self.service.close_document(self.document_id)
             self.document_id = None
         super().closeEvent(event)
+
+
+def _shown(text: str) -> str:
+    """顯示用：對應不到 Unicode 的字（worker 以 U+FFFD 表示）改為「□」，不顯示成亂碼。"""
+    return text.replace("\ufffd", "□")
 
 
 def prepare_storage():

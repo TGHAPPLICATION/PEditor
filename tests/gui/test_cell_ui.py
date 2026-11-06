@@ -102,3 +102,24 @@ def test_flow_manual_cell(qtbot, make_window, tmp_path):
     wait(qtbot, window)
     assert window.panel.info.text().startswith("無法編輯：")
     assert not window.panel.preview_button.isEnabled()
+
+
+def test_unsupported_line_not_previewable(qtbot, make_window):
+    """P8 實機發現：格本身支援、但所選這一行不支援（例如字型沒有 ToUnicode）時，以行的判定為準——
+    預覽與新文字停用、直接顯示原因、不預填；對應不到的字顯示為「□」而不是亂碼。"""
+    window = make_window()
+    bad = {"status": "reject", "reasons": ["UNSUPPORTED_ENCODING"]}
+    cell = {"cell_id": "c1", "row": 1, "col": 3, "capability": {"status": "support", "reasons": []},
+            "lines": [{"text": "�O�", "capability": bad, "target_ids": ["t1"]},
+                      {"text": "N99796", "capability": {"status": "support", "reasons": []},
+                       "target_ids": ["t2"]}]}  # fmt: skip
+    window._select_cell(cell, 0, "cell", None)
+    assert not window.panel.preview_button.isEnabled()
+    assert not window.panel.new_text.isEnabled() and window.panel.new_text.text() == ""
+    assert "無法編輯" in window.panel.info.text()
+    assert "�" not in window.panel.selected.text() and "□O□" in window.panel.selected.text()
+    assert all("�" not in window.panel.line_choice.itemText(i) for i in range(2))
+    window._select_cell(cell, 1, "cell", None)  # 同一格的另一行可以改
+    assert window.panel.new_text.text() == "N99796" and window.panel.info.text() == ""
+    window.select_target({"target_id": "t9", "text": "��", "capability": bad})
+    assert window.panel.new_text.text() == "" and window.panel.selected.text() == "□□"
