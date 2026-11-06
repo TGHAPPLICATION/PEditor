@@ -1,0 +1,94 @@
+# P8 關卡報告：打包、實機與發布候選
+
+> 依 spec §11 範本（`reports/TEMPLATE.md`）。未執行項目標 `NOT RUN`；CI 證據與實機證據分開記錄。
+> 本段的安裝包是**未簽署的測試包**，不是正式部署（spec P8、ADR-0025）。
+
+## 1. 階段／commit／日期
+
+- 階段：P8　分支：`p8-release`　commit：`aa98cf6`（發布建置腳本、CI release job）、`8be8f1d`（P4 U12）、`ca3968a`（支援矩陣測試、Inno Setup 6.7.1）、
+  `e8ca31d`（Windows bootloader 由原始碼編譯）、`d224591`（盲測工具）、`6abe8b7`（ADR-0025、發布文件、SBOM、Sandbox 腳本）、`ffc51a3`（實機驗收清單）
+  日期：2026-11-06
+- 只改報告、traceability、THREAT_MODEL 或 CI 紀錄的 commit 依 P4 慣例不列。
+- S1／S2 決定（工程師 2026-11-06「照建議」）：Windows 用 Inno Setup、macOS 用 CI 建 app／DMG 不簽署、乾淨環境用 Windows Sandbox、
+  閱讀器用 Acrobat Reader 與 Edge、盲測由保管人以離線腳本執行、U12 修正、U14 照實記錄、P5 U3 列已知缺陷、瘦身有實測才做、發布文件與 SBOM 重產。
+  同日防毒移除本機建置的 `PEditor.exe` 後，處理方向「照建議」（ADR-0025 §4：A 原始碼編譯 bootloader、B 簽章列為正式散布前提、C 回報誤判與白名單）。
+- 撰寫：Claude Code；審查：待工程師；獨立核對：待（CLAUDE.md：由未參與實作的子代理人核對）
+
+## 2. 環境
+
+| 環境 | OS／架構 | 硬體 | Python／套件／字型版本 |
+| --- | --- | --- | --- |
+| Windows 實機（製作機） | Windows 11 Pro 10.0.26300 x64 | 同 P0 | Python 3.13.16；PyMuPDF 1.28.2；pikepdf 10.14.0；PySide6 6.11.2；fontTools 4.66.0；PyInstaller 6.22.3；Noto Sans TC（ADR-0008） |
+| macOS 實機 | NOT RUN（無實機，ADR-0003） | — | — |
+| CI windows | windows-latest x64 | GitHub 標準 runner | 套件同上（`uv.lock`）；Inno Setup 6.7.1（Chocolatey）；release 以原始碼重建 PyInstaller 6.22.3 |
+| CI macos | macos-15 arm64 | GitHub 標準 runner | 套件同上；DMG 以 `hdiutil` |
+
+相依沒有變更（`uv.lock`、`pyproject.toml` 未改）；fixture 未重產。建置期新增 Inno Setup（不進產品執行期，ADR-0025 §2）。
+
+## 3. 需求 → test ID → fixture／hash → 結果
+
+| 需求 ID | test ID／證據 | 環境 | 結果 |
+| --- | --- | --- | --- |
+| G8-01 乾淨環境、無 Python、無網路可安裝並完成核心流程 | 實機驗收清單 S01–S15（Windows Sandbox，`scripts/p8_sandbox.ps1`）；打包結果自我檢查（`packaging/build_release.py`：`--smoke`、T01 模式 A、F02 模式 B 經打包後 worker） | CI 自我檢查；實機 | 自我檢查 CI 雙平台 PASS；**Windows 實機 NOT RUN（待工程師）**；macOS 實機 NOT RUN |
+| G8-02 兩種 PDF 閱讀器正常開啟 | 實機驗收清單 R01–R03（Acrobat Reader、Edge） | 實機 | **NOT RUN（待工程師）** |
+| G8-03 支援矩陣 100%；fixture 與盲測 | `tests/integration/test_release_matrix.py`（49 份 available 經 worker 完整判定＋1 項涵蓋檢查）；盲測 `peditor blind-run`（`tests/integration/test_cli_blind.py`：輸出不含文件內容） | 本機 | 矩陣 PASS（49／49）；**盲測 11 份 NOT RUN（待保管人）**；U06 無法製作（ADR-0012） |
+| G8-04 已知缺陷、SBOM、LICENSE、相依、卸載／草稿清理 | `docs/release/known-issues.md`、`packaging/sbom/sbom-runtime.cdx.json`、`LICENSE`、`THIRD_PARTY_NOTICES.md`、`docs/release/dependencies.md`、`docs/release/install.md` | 文件 | 文件完成；**授權核對待負責人**（ADR-0002） |
+| G8-05 macOS 最低支援版本 | ADR-0025 §3：15.0、Apple Silicon（pikepdf 10.14.0 只有 `macosx_15_0_arm64` wheel） | 文件 | 完成 |
+| P4 U12 | `tests/gui/test_shortcuts.py::test_all_standard_bindings_tooltips_and_focus` | 本機 | PASS；實機 S08、S09 待執行 |
+
+## 4. 執行命令、exit code、測試數
+
+```
+uv run python packaging/build_release.py --no-installer  → exit 0（Windows 製作機；self_check smoke ok、T01 mode A、F02 mode B；onedir 166.8 MiB）
+uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
+```
+
+- CI：run [42155653810](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42155653810)（commit `e8ca31d`）test 雙平台、release 雙平台 success：
+  Windows `PEditor-0.0.1-windows-x64-setup.exe`（SHA-256 `913e443d…`，onedir 176.6 MiB）、macOS `PEditor-0.0.1-macos-arm64.dmg`
+  （先前 run 42153657549 為 `60686e01…`，onedir 158.6 MiB），兩平台打包後自我檢查都通過。先前 run 42153657549（`aa98cf6`）
+  Windows release 失敗：Chocolatey 沒有 Inno Setup 6.4.3，改鎖 6.7.1（`ca3968a`）。
+- 本機全套：待執行。
+- 反向驗證：P8-M1（重做只綁第一組標準鍵）、P8-M2（套用後不移焦點）都被 `test_shortcuts.py` 抓到。其餘待補。
+
+## 5. 真修改證據
+
+不適用（P8 沒有新增編輯功能）。打包後的真修改以自我檢查的 T01、F02 另存驗證通過為證據。
+
+## 6. 資料完整性與資源／出站紀錄
+
+- 打包後 worker：自我檢查的 `edit-text` 經打包後的 `--worker` 子命令執行；Windows 上在 Job Object 內以 1 個行程執行（打包後沒有 venv 轉介程式）——
+  P1、P7 帶入的「打包後 worker」驗證以此完成（Windows 與 macOS 皆在 CI）。
+- 模式 B 字型：F02 的自我檢查清除 `PEDITOR_MODE_B_FONT`，只能用打包進去的字型（SHA-256 由 `fontb.py` 驗證）。
+
+## 7. 限制、阻擋、未測項目
+
+- **防毒**：2026-11-06 製作機的防毒移除了本機建置的 `PEditor.exe`（PyInstaller 預編譯 bootloader、未簽署）；偵測名稱與防毒產品待工程師提供。
+  CI 的 Windows release 已改以原始碼重建同版 PyInstaller（log：`Building pyinstaller==6.22.3`、`PYINSTALLER_COMPILE_BOOTLOADER=1`；
+  log 中沒有直接看到 bootloader 編譯輸出，是否確實重新編譯與能否避開誤判，待實機下載驗證，清單 A01）。
+- **Windows 實機**（G8-01、G8-02、U12、P5 U2／U5、P6 U5、P4 U14、P7 附條件）：NOT RUN，待工程師依清單執行。
+- **盲測 11 份**：NOT RUN，待保管人。
+- **macOS 實機**：NOT RUN（ADR-0003）；DMG 只在 CI 建置與自我檢查。
+- **授權核對**（ADR-0002）：待負責人。
+- 安裝包未簽署；SmartScreen／Gatekeeper 會警告（ADR-0025）。
+
+## 8. 安全審查
+
+- CLAUDE.md 規定的 vuln-scan／triage 時點是 P1、P2、P3、P7，P8 沒有規定：**NOT RUN**。
+- `THREAT_MODEL.md`：T8（竄改的安裝包）待更新——安裝包附 SHA-256，未簽署；§6「端點防護會阻擋未簽章執行檔」已有實例。
+
+## 9. 不確定性與人工確認項目
+
+| # | 內容 | 影響 | 處理 |
+| --- | --- | --- | --- |
+| U1 | 防毒誤判未簽署的執行檔；原始碼編譯 bootloader 的效果未知 | 機關電腦可能無法安裝 | 待工程師（偵測名稱、A01 結果） |
+| U2 | Windows 實機驗收、盲測、授權核對都需人工 | G8 要求實機與盲測 | 待工程師／保管人／負責人 |
+| U3 | macOS 實機 NOT RUN | G8 的 macOS 部分 | 待工程師決定（附條件） |
+
+## 10. 關卡結果
+
+- **關卡結果：BLOCKED**。自動化部分完成（建置、自我檢查、支援矩陣、發布文件）；實機驗收、盲測、授權核對、獨立核對待執行。
+- **下一段可開始：—**（P8 為最後一段；發布候選待工程師決定）。
+
+## 11. 獨立核對紀錄
+
+（待執行）
