@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from peditor.core.limits import WORKER_MEMORY_BYTES
-from peditor.core.service import DocumentService, ServiceError
+from peditor.core.service import DocumentService, ServiceError, _processes
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 WINDOWS_ONLY = pytest.mark.skipif(
@@ -67,21 +67,24 @@ def test_worker_dies_with_main_process(tmp_path, monkeypatch):
         "args = ('_sleep', {'seconds': 60})\n"
         "threading.Thread(target=svc._send_raw, args=args, daemon=True).start()\n"
         "time.sleep(1)\n"
-        "print(svc._worker.proc.pid, flush=True)\n"
+        f"sys.path.insert(0, {str(Path(__file__).parent)!r})\n"
+        "from network import process_tree\n"
+        "tree = sorted(process_tree([svc._worker.proc.pid]))\n"
+        "print(' '.join(map(str, tree)), flush=True)\n"
         "os._exit(0)\n",
         encoding="utf-8",
     )
     out = subprocess.run([sys.executable, str(script)], capture_output=True, text=True,
-                         timeout=60, check=True).stdout  # fmt: skip
-    pid = int(out.strip())
+                         timeout=120, check=True).stdout  # fmt: skip
+    tree = [int(v) for v in out.split()]
+    assert len(tree) >= _processes([sys.executable])  # 開發環境：轉介程式與真正的直譯器
+    alive = tree
     for _ in range(50):
-        alive = (
-            str(pid)
-            in subprocess.run(
-                ["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True
-            ).stdout
-        )
+        listing = subprocess.run(["tasklist", "/NH"], capture_output=True, text=True).stdout
+        running = {int(c[1]) for c in (line.split() for line in listing.splitlines())
+                   if len(c) > 1 and c[1].isdigit()}  # fmt: skip
+        alive = [pid for pid in tree if pid in running]
         if not alive:
             break
         time.sleep(0.1)
-    assert not alive
+    assert not alive  # 整棵行程樹（P7 獨立核對 V5）

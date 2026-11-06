@@ -152,6 +152,14 @@ def _test_hook(operation: str, params: dict) -> dict:
     if operation == "_alloc":
         block = bytearray(int(params["bytes"]))
         return {"allocated": len(block)}
+    if operation == "_socket":  # G7-01 對照：worker 內部嘗試建立 socket 並吞掉錯誤
+        try:
+            import socket
+
+            socket.socket().close()
+        except Exception:  # noqa: BLE001
+            return {"created": False}
+        return {"created": True}
     if operation == "_spawn":
         import subprocess
 
@@ -164,7 +172,13 @@ def _test_hook(operation: str, params: dict) -> dict:
 
 
 def _deny_network(event: str, args) -> None:
+    """G7-01 測試：Python 層的 socket 事件一律失敗，並記到 PEDITOR_TEST_NETWORK_LOG（被 worker 內部
+    吞掉的嘗試也留下紀錄，P7 獨立核對 V3）。"""
     if event.startswith("socket."):
+        log = os.environ.get("PEDITOR_TEST_NETWORK_LOG")
+        if log:
+            with open(log, "a", encoding="utf-8") as fh:
+                fh.write(event + "\n")
         raise RuntimeError(f"network: {event}")
 
 

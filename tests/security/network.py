@@ -13,15 +13,20 @@ import sys
 
 
 def _children(pid: int) -> list[int]:
+    """直接子行程；列舉失敗即 RuntimeError（不讓行程樹變小而假通過，P7 獨立核對 V4）。"""
     if sys.platform == "win32":
-        out = subprocess.run(
+        result = subprocess.run(
             ["powershell", "-NoProfile", "-Command",
              f"(Get-CimInstance Win32_Process -Filter 'ParentProcessId={pid}').ProcessId"],
             capture_output=True, text=True, timeout=60,
-        ).stdout  # fmt: skip
+        )  # fmt: skip
+        ok = result.returncode == 0
     else:
-        out = subprocess.run(["pgrep", "-P", str(pid)], capture_output=True, text=True).stdout
-    return [int(v) for v in out.split() if v.isdigit()]
+        result = subprocess.run(["pgrep", "-P", str(pid)], capture_output=True, text=True)
+        ok = result.returncode in (0, 1)  # 1：沒有子行程
+    if not ok:
+        raise RuntimeError("process enumeration failed")
+    return [int(v) for v in result.stdout.split() if v.isdigit()]
 
 
 def process_tree(pids: list[int]) -> set[int]:

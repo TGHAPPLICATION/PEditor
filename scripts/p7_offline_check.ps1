@@ -51,7 +51,10 @@ function Get-Tree([int]$rootPid) {
 }
 
 # 1. Network state (adapter count only)
-$up = @(Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "Up" }).Count
+$adapters = @(Get-NetAdapter -ErrorAction SilentlyContinue | Sort-Object Name)
+$up = @($adapters | Where-Object { $_.Status -eq "Up" }).Count
+# Virtual adapters (Hyper-V, VPN, WSL) may stay "Up" while offline; list them so the engineer can judge
+$adapterLines = @($adapters | ForEach-Object { "  - $($_.Name): $($_.Status) ($($_.InterfaceDescription))" })
 $windows = (Get-CimInstance Win32_OperatingSystem).Caption + " " + (Get-CimInstance Win32_OperatingSystem).Version
 Write-Host "Network adapters up: $up"
 
@@ -104,7 +107,8 @@ $lines = @(
     "- Date: $(Get-Date -Format s)",
     "- Commit: $commit",
     "- OS: $windows",
-    "- Network adapters up during the run: $up (0 = offline, G7-01)",
+    "- Network adapters up during the run: $up (0 = offline, G7-01; virtual adapters may stay up, see list)"
+) + $adapterLines + @(
     "- Flow exit code: $flowExit; last line: $flowLast",
     "- Flow rounds: $Rounds; duration: $([math]::Round($elapsed, 1)) s; socket polls: $polls (average interval $([math]::Round($elapsed / [math]::Max($polls, 1), 2)) s); max processes in tree: $maxPids",
     "- Sockets seen (any address, including loopback and listeners): $($sockets.Count)"
