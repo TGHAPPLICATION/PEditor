@@ -93,7 +93,7 @@ jobs:
         run: uv run python scripts/fetch_fonts.py
       - name: Inno Setup (pinned, ADR-0025)
         if: runner.os == 'Windows'
-        run: choco install innosetup --version=6.4.3 -y --no-progress --allow-downgrade
+        run: choco install innosetup --version=6.7.1 -y --no-progress --allow-downgrade
       - name: Build release and self-check
         run: uv run python packaging/build_release.py
       - name: Upload release artifacts
