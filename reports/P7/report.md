@@ -30,7 +30,7 @@
 ## 3. 需求 → test ID → fixture／hash → 結果
 
 fixture hash（前 12 碼）：S03 `8f5cbf6df7a7`、S04 `2dd116833d7e`、S05 `1ea4c88f4f75`、S06 `c9eadedcf5e3`；其餘同 P6。
-「本機」＝Windows 製作機；「CI」＝run [42011872284](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42011872284)（commit `ad427c0`）windows-latest 550 passed＋1 skipped（POSIX 權限位元測試）、macos-15 547 passed＋4 skipped（Windows-only 的 Job Object 與唯讀屬性測試）。
+「本機」＝Windows 製作機；「CI」＝run [42145861858](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42145861858)（commit `ca11a15`）windows-latest 552 passed＋1 skipped（POSIX 權限位元測試）、macos-15 549 passed＋4 skipped（Windows-only 的 Job Object 與唯讀屬性測試）。
 
 | 需求 ID | test ID | fixture | 環境 | 結果 |
 | --- | --- | --- | --- | --- |
@@ -51,13 +51,14 @@ worker 2 GB（Windows Job Object 強制；macOS 只宣告）；另加單一串�
 uv run ruff check . && uv run ruff format --check .  → exit 0
 uv run pytest -q                                        → 528 passed、1 failed（Windows 製作機，968b027 前的工作區；失敗為 test_drafts 的注入點，見下）
 uv run pytest -q                                        → exit 0，550 passed、1 skipped（Windows 製作機，18d3c3e；POSIX 權限位元測試略過）
+uv run pytest -q                                        → exit 0，552 passed、1 skipped（Windows 製作機，ca11a15，第一輪核對處理後）
 ```
 
 - 第一次在重播分批後跑全套時，被 Claude Code 因系統記憶體不足終止（無輸出、不是測試失敗）；工程師同意後重跑：528 passed、1 failed。
   失敗的 `test_drafts.py::test_recover_failure_closes_document` 以替換 `_doc_call` 注入重播失敗，重播改走 `_replay_batches` 後注入不到；
   改為替換 `_replay_batches`，預期（任何例外都關閉文件、草稿保留）不變（`968b027`）。
 - 第一輪核對處理後（`3e99755`）本機全套 551 passed、1 failed：`test_offline_guard.py::test_no_network_imports_in_product_code`——V3 的對照 hook（`_socket`）在 worker 的測試 hook 裡匯入了 socket，違反「產品碼不得匯入網路模組」；改為在測試端子行程安裝同一個 `_deny_network` 並嘗試建立 socket（`14b6f79`），M26 重做仍抓到。
-- CI：run [42011872284](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42011872284)（commit `ad427c0`）windows-latest 550 passed＋1 skipped（POSIX 權限位元測試）、macos-15 547 passed＋4 skipped（Windows-only 的 Job Object 與唯讀屬性測試）；run [42005863669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42005863669)（commit `0533432`）windows-latest 543 passed＋1 skipped（POSIX 權限位元測試）、macos-15 541 passed＋3 skipped（Windows-only 的 Job Object 測試）。先前 run [42004855861](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42004855861)（commit `78bce58`）
+- CI：run [42145861858](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42145861858)（commit `ca11a15`）windows-latest 552 passed＋1 skipped（POSIX 權限位元測試）、macos-15 549 passed＋4 skipped（Windows-only 的 Job Object 與唯讀屬性測試）；run [42011872284](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42011872284)（commit `ad427c0`）windows-latest 550 passed＋1 skipped（POSIX 權限位元測試）、macos-15 547 passed＋4 skipped（Windows-only 的 Job Object 與唯讀屬性測試）；run [42005863669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42005863669)（commit `0533432`）windows-latest 543 passed＋1 skipped（POSIX 權限位元測試）、macos-15 541 passed＋3 skipped（Windows-only 的 Job Object 測試）。先前 run [42004855861](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42004855861)（commit `78bce58`）
   macos-15 在 `tests/gui/test_p7_ui.py::test_shutdown_wait_is_bounded` 發生 segmentation fault（windows-latest 543 passed）：關閉等待逾時返回後，
   背景工作結束時對已回收的 JobRunner 發 signal。產品端改為逾時返回前先標記放棄、之後結束的工作不再發 signal，測試改為結束前等背景工作完成（`0533432`）；
   run [41982237300](https://github.com/TGHAPPLICATION/PEditor/actions/runs/41982237300)（commit `c594efd`）windows-latest 535 passed、macos-15 532 passed＋3 skipped。
@@ -155,7 +156,7 @@ uv run pytest -q                                        → exit 0，550 passed�
 ## 10. 關卡結果
 
 - **關卡結果：BLOCKED**。自動測試全部通過（本機 550 passed）、反向驗證 26 項全部被抓到、vuln-scan／triage 完成且確認項目已處理；
-  run [42011872284](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42011872284)（commit `ad427c0`）windows-latest 550 passed＋1 skipped（POSIX 權限位元測試）、macos-15 547 passed＋4 skipped（Windows-only 的 Job Object 與唯讀屬性測試）；§9 U1–U5 已由工程師決定（U3 附條件）；Windows 實機 G7-01、G7-02 待工程師執行；macOS 實機 NOT RUN；獨立核對待執行。
+  run [42145861858](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42145861858)（commit `ca11a15`）windows-latest 552 passed＋1 skipped（POSIX 權限位元測試）、macos-15 549 passed＋4 skipped（Windows-only 的 Job Object 與唯讀屬性測試）；§9 U1–U5 已由工程師決定（U3 附條件）；Windows 實機 G7-01、G7-02 待工程師執行；macOS 實機 NOT RUN；獨立核對待執行。
 - **下一段可開始：否**（條件：上述項目完成並由工程師決定）。
 
 ## 11. 獨立核對紀錄
