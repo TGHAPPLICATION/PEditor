@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
+    QDockWidget,
     QFileDialog,
     QGraphicsPixmapItem,
     QGraphicsRectItem,
@@ -238,11 +239,6 @@ class EditPanel(QWidget):
         self.before.setObjectName("before")
         self.after = QLabel()
         self.after.setObjectName("after")
-        self.find_text = QLineEdit()
-        self.find_text.setObjectName("find_text")
-        self.find_text.setPlaceholderText("尋找文字（可跨段落選取）")
-        self.find_button = QPushButton("尋找")
-        self.find_button.setObjectName("find")
         self.image_button = QPushButton("選擇新圖片…")
         self.image_button.setObjectName("replace_image")
         self.line_choice = QComboBox()  # 儲存格的第幾行（ADR-0023：一次改一行）
@@ -251,10 +247,27 @@ class EditPanel(QWidget):
         for widget in (QLabel("選取的內容"), self.selected, self.line_choice, QLabel("新文字"),
                        self.new_text,
                        self.preview_button, self.image_button, self.info, QLabel("修改前"),
-                       self.before, QLabel("修改後"), self.after, self.apply_button,
-                       self.find_text, self.find_button):  # fmt: skip
+                       self.before, QLabel("修改後"), self.after, self.apply_button):  # fmt: skip
             layout.addWidget(widget)
         layout.addStretch(1)
+
+
+class FindBar(QDialog):
+    """尋找（Ctrl+F，選單「編輯 → 尋找…」）：小型浮動視窗，不擋住頁面；Enter 或「尋找」送出。"""
+
+    def __init__(self, parent: QWidget) -> None:
+        super().__init__(parent, Qt.WindowType.Tool)
+        self.setWindowTitle("尋找")
+        layout = QHBoxLayout(self)
+        self.find_text = QLineEdit()
+        self.find_text.setObjectName("find_text")
+        self.find_text.setPlaceholderText("尋找文字（可跨段落選取）")
+        self.find_text.setMinimumWidth(260)
+        self.find_button = QPushButton("尋找")
+        self.find_button.setObjectName("find")
+        self.find_button.setDefault(True)
+        layout.addWidget(self.find_text)
+        layout.addWidget(self.find_button)
 
 
 class DraftDialog(QDialog):
@@ -341,7 +354,17 @@ class MainWindow(QMainWindow):
         self.panel.preview_button.clicked.connect(self.request_preview)
         self.panel.new_text.returnPressed.connect(self.request_preview)
         self.panel.apply_button.clicked.connect(self.apply_plan)
-        self.panel.find_button.clicked.connect(self.find)
+        self.find_bar = FindBar(self)
+        self.find_bar.find_button.clicked.connect(self.find)
+        self.find_bar.find_text.returnPressed.connect(self.find)
+        # 編輯面板浮動（P8 工程師要求）：可拖動、貼回邊緣或關閉；「檢視 → 編輯面板」叫回
+        self.panel_dock = QDockWidget("編輯", self)
+        self.panel_dock.setObjectName("edit_dock")
+        self.panel_dock.setWidget(self.panel)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.panel_dock)
+        self.panel_dock.setFloating(True)
+        self.panel_dock.resize(360, 720)
+        self._dock_placed = False
         self.panel.image_button.clicked.connect(self.replace_image_dialog)
         self.panel.line_choice.currentIndexChanged.connect(self._line_chosen)
         self.view.box_selected.connect(self.select_box)
@@ -359,7 +382,7 @@ class MainWindow(QMainWindow):
         center_layout.addWidget(self.notice)
         center_layout.addWidget(self.view)
         splitter = QSplitter()
-        for widget in (self.thumbs, center, self.panel):
+        for widget in (self.thumbs, center):
             splitter.addWidget(widget)
         self.setCentralWidget(splitter)
 
@@ -391,6 +414,7 @@ class MainWindow(QMainWindow):
             ),
             ("zoom_reset", "實際大小", QKeySequence("Ctrl+0"), lambda: self.view.set_zoom(1.0)),
             ("fit_width", "符合寬度", QKeySequence(), self.view.fit_width),
+            ("find", "尋找…", QKeySequence.StandardKey.Find, self.show_find),
             ("cancel", "取消", QKeySequence(Qt.Key.Key_Escape), self.cancel),
         ):
             action = QAction(text, self)
@@ -404,8 +428,24 @@ class MainWindow(QMainWindow):
                             for s in action.shortcuts() if not s.isEmpty())  # fmt: skip
             action.setToolTip(f"{text}（{keys}）" if keys else text)  # 工具列提示顯示快捷鍵（U12）
             action.triggered.connect(slot)
-            toolbar.addAction(action)
+            if name != "find":  # 尋找只放在選單（Ctrl+F；P8 工程師要求）
+                toolbar.addAction(action)
             self.actions[name] = action
+        panel_action = self.panel_dock.toggleViewAction()
+        panel_action.setText("編輯面板")
+        self.actions["panel"] = panel_action
+        menus = (
+            ("檔案", ["open", "save"]),
+            ("編輯", ["undo", "redo", None, "find", "manual_cell", "cancel"]),
+            ("檢視", ["zoom_in", "zoom_out", "zoom_reset", "fit_width", None, "panel"]),
+        )
+        for title, names in menus:
+            menu = self.menuBar().addMenu(title)
+            for name in names:
+                if name is None:
+                    menu.addSeparator()
+                else:
+                    menu.addAction(self.actions[name])
         self._refresh_actions()
 
     # --- 狀態 ----------------------------------------------------------
@@ -436,7 +476,8 @@ class MainWindow(QMainWindow):
         self.panel.image_button.setEnabled(editable and is_image)
         self.panel.apply_button.setEnabled(editable and self.plan is not None
                                            and self.plan.get("ready", False))  # fmt: skip
-        self.panel.find_button.setEnabled(opened and not busy)
+        self.find_bar.find_button.setEnabled(opened and not busy)
+        self.actions["find"].setEnabled(opened)
 
     def _status(self, text: str) -> None:
         self.statusBar().showMessage(text)
@@ -539,6 +580,7 @@ class MainWindow(QMainWindow):
     def select_target(self, target: dict) -> None:
         if self.busy:
             return
+        self.panel_dock.show()  # 面板被關閉時，選取內容後叫回
         kind = target.get("kind", "text")
         if kind == "text" and target["target_id"] in self.cells_by_target:
             cell, line_index = self.cells_by_target[target["target_id"]]
@@ -569,6 +611,7 @@ class MainWindow(QMainWindow):
 
     def _select_cell(self, cell: dict, line_index: int, kind: str, highlight: str | None) -> None:
         """儲存格選取（ADR-0023）：顯示格位置與行；能力判定不支援時顯示原因、不能預覽。"""
+        self.panel_dock.show()
         lines = cell["lines"]
         text = lines[line_index]["text"] if lines else ""
         # 格本身支援時，以所選這一行的判定為準（行內文字無法對應 Unicode 等；P8 實機發現）
@@ -640,8 +683,23 @@ class MainWindow(QMainWindow):
 
         self._run(lambda: self.service.assess_cell_box(doc, index, box, revision), done)
 
+    def show_find(self) -> None:
+        self.find_bar.show()
+        self.find_bar.raise_()
+        self.find_bar.activateWindow()
+        self.find_bar.find_text.setFocus()
+        self.find_bar.find_text.selectAll()
+
+    def showEvent(self, event) -> None:  # noqa: N802 — Qt 介面
+        """第一次顯示時把浮動的編輯面板放在視窗右側內緣。"""
+        super().showEvent(event)
+        if not self._dock_placed and self.panel_dock.isFloating():
+            geo = self.geometry()
+            self.panel_dock.move(geo.right() - self.panel_dock.width() - 24, geo.top() + 96)
+            self._dock_placed = True
+
     def find(self) -> None:
-        text = self.panel.find_text.text()
+        text = self.find_bar.find_text.text()
         if not text or self.document_id is None:
             return
         doc, index = self.document_id, self.page_index
