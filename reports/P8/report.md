@@ -6,7 +6,7 @@
 ## 1. 階段／commit／日期
 
 - 階段：P8　分支：`p8-release`　commit：`aa98cf6`（發布建置腳本、CI release job）、`8be8f1d`（P4 U12）、`ca3968a`（支援矩陣測試、Inno Setup 6.7.1）、
-  `e8ca31d`（Windows bootloader 由原始碼編譯）、`d224591`（盲測工具）、`6abe8b7`（ADR-0025、發布文件、SBOM、Sandbox 腳本）、`ffc51a3`（實機驗收清單）
+  `e8ca31d`（Windows bootloader 由原始碼編譯）、`d224591`（盲測工具）、`6abe8b7`（ADR-0025、發布文件、SBOM、Sandbox 腳本）、`ffc51a3`（實機驗收清單）、`4a56661`（實機發現：不支援行的介面處理）
   日期：2026-11-06
 - 只改報告、traceability、THREAT_MODEL 或 CI 紀錄的 commit 依 P4 慣例不列。
 - S1／S2 決定（工程師 2026-11-06「照建議」）：Windows 用 Inno Setup、macOS 用 CI 建 app／DMG 不簽署、乾淨環境用 Windows Sandbox、
@@ -48,7 +48,8 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
   （先前 run 42153657549 為 `60686e01…`，onedir 158.6 MiB），兩平台打包後自我檢查都通過。先前 run 42153657549（`aa98cf6`）
   Windows release 失敗：Chocolatey 沒有 Inno Setup 6.4.3，改鎖 6.7.1（`ca3968a`）。
 - 本機全套：`uv run ruff check . && uv run ruff format --check . && uv run pytest -q` → exit 0，604 passed、1 skipped（Windows 製作機，e1969cc；POSIX 權限位元測試略過）。
-- 反向驗證：P8-M1（重做只綁第一組標準鍵）、P8-M2（套用後不移焦點）都被 `test_shortcuts.py` 抓到。其餘待補。
+- 反向驗證：P8-M1（重做只綁第一組標準鍵）、P8-M2（套用後不移焦點）都被 `test_shortcuts.py` 抓到；P8-M3（格支援時不看行的判定）、P8-M4（不能改的行仍預填）、P8-M5（不顯示□）都被 `test_cell_ui.py::test_unsupported_line_not_previewable` 抓到。
+- **工程師實機發現（2026-11-06）**：以 CI 安裝包開啟一份外部下載的公開 PDF（非盲測、不入 repo），表格儲存格的選取內容、行選單與新文字欄顯示 U+FFFD 亂碼，且「預覽」可按。查證：該字型（標楷體，Type0）沒有 ToUnicode，文字目標與儲存格的每一行都正確判為 `UNSUPPORTED_ENCODING`，實際規劃 `ready: false`，**沒有誤標成可編輯**；問題在介面：選取儲存格時只看格的結構判定（support），沒看所選行的判定，並把對應不到的字（U+FFFD）原樣顯示與預填。`4a56661` 修正：以所選行的判定為準（不能預覽、直接顯示原因）、不能改的目標不預填新文字、對應不到的字顯示為「□」。我最初未查證就說「違反錯誤標成可編輯率 0%」，查證後更正。
 
 ## 5. 真修改證據
 
