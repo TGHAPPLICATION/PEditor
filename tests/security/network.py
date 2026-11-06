@@ -1,7 +1,8 @@
 """測試用：列出指定行程（含其子孫行程）的 TCP／UDP socket（G7-02、G7-03）。
 
-Windows 以 Get-NetTCPConnection／Get-NetUDPEndpoint 與 CIM 的父子行程關係；
-macOS 以 `lsof` 與 `pgrep -P`。
+Windows 以一次 CIM 查詢取得全部行程的父子關係、一次 Get-NetTCPConnection／Get-NetUDPEndpoint
+取得 socket；macOS 以一次 `ps` 與 `lsof`。每輪約 1–2 秒（P7 第二輪核對 W2：原本每個 pid 各叫一次
+PowerShell，一輪約 5 秒）。列舉失敗一律 RuntimeError，不讓結果變少而假通過。
 只在測試中使用，不屬產品程式碼。
 """
 
@@ -12,31 +13,43 @@ import subprocess
 import sys
 
 
-def _children(pid: int) -> list[int]:
-    """直接子行程；列舉失敗即 RuntimeError（不讓行程樹變小而假通過，P7 獨立核對 V4）。"""
+def _run(command: list[str]) -> str:
+    result = subprocess.run(command, capture_output=True, text=True, timeout=120)
+    if result.returncode != 0:
+        raise RuntimeError("enumeration failed")
+    return result.stdout
+
+
+def _parents() -> dict[int, int]:
+    """全部行程的 pid → 父 pid（一次查詢）。"""
     if sys.platform == "win32":
-        result = subprocess.run(
-            ["powershell", "-NoProfile", "-Command",
-             f"(Get-CimInstance Win32_Process -Filter 'ParentProcessId={pid}').ProcessId"],
-            capture_output=True, text=True, timeout=60,
-        )  # fmt: skip
-        ok = result.returncode == 0
+        out = _run(["powershell", "-NoProfile", "-Command",
+                    "Get-CimInstance Win32_Process | ForEach-Object "
+                    "{ \"$($_.ProcessId) $($_.ParentProcessId)\" }"])  # fmt: skip
     else:
-        result = subprocess.run(["pgrep", "-P", str(pid)], capture_output=True, text=True)
-        ok = result.returncode in (0, 1)  # 1：沒有子行程
-    if not ok:
-        raise RuntimeError("process enumeration failed")
-    return [int(v) for v in result.stdout.split() if v.isdigit()]
+        out = _run(["ps", "-A", "-o", "pid=,ppid="])
+    pairs = {}
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+            pairs[int(parts[0])] = int(parts[1])
+    if not pairs:
+        raise RuntimeError("enumeration failed")
+    return pairs
 
 
 def process_tree(pids: list[int]) -> set[int]:
+    children: dict[int, list[int]] = {}
+    for pid, ppid in _parents().items():
+        if pid != ppid:
+            children.setdefault(ppid, []).append(pid)
     seen: set[int] = set()
     todo = list(pids)
     while todo:
         pid = todo.pop()
         if pid not in seen:
             seen.add(pid)
-            todo.extend(_children(pid))
+            todo.extend(children.get(pid, []))
     return seen
 
 
@@ -55,13 +68,13 @@ def connections(pids: list[int], include_self: bool = False) -> list[str]:
             "ForEach-Object { 'UDP ' + $_.LocalAddress + ':' + $_.LocalPort + ' ' + "
             "$_.OwningProcess }"
         )
-        command = ["powershell", "-NoProfile", "-Command", script]
-        out = subprocess.run(
-            command, capture_output=True, text=True, timeout=120, check=True
-        ).stdout
+        out = _run(["powershell", "-NoProfile", "-Command", script])
         return [line.strip() for line in out.splitlines() if line.strip()]
-    out = subprocess.run(
+    # lsof：結束碼 1 且沒有輸出＝沒有符合的 socket；其他非 0 一律視為列舉失敗（P7 第二輪核對 W5）
+    result = subprocess.run(
         ["lsof", "-nP", "-a", "-p", ",".join(map(str, sorted(tree))), "-i"],
         capture_output=True, text=True, timeout=60,
-    ).stdout  # fmt: skip
-    return [line for line in out.splitlines()[1:] if line.strip()]
+    )  # fmt: skip
+    if result.returncode != 0 and not (result.returncode == 1 and not result.stdout.strip()):
+        raise RuntimeError("enumeration failed")
+    return [line for line in result.stdout.splitlines()[1:] if line.strip()]

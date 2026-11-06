@@ -165,13 +165,15 @@ def _test_hook(operation: str, params: dict) -> dict:
 
 def _deny_network(event: str, args) -> None:
     """G7-01 測試：Python 層的 socket 事件一律失敗，並記到 PEDITOR_TEST_NETWORK_LOG（被 worker 內部
-    吞掉的嘗試也留下紀錄，P7 獨立核對 V3）。"""
-    if event.startswith("socket."):
+    吞掉的嘗試也留下紀錄，P7 獨立核對 V3）。安裝後 main() 送出的 `peditor.network_hook` 事件記為
+    「installed」——hook 沒有安裝就沒有這一行（第二輪核對 W1）。"""
+    if event.startswith("socket.") or event == "peditor.network_hook":
         log = os.environ.get("PEDITOR_TEST_NETWORK_LOG")
         if log:
             with open(log, "a", encoding="utf-8") as fh:
-                fh.write(event + "\n")
-        raise RuntimeError(f"network: {event}")
+                fh.write(("installed" if event == "peditor.network_hook" else event) + "\n")
+        if event.startswith("socket."):
+            raise RuntimeError(f"network: {event}")
 
 
 def main() -> int:
@@ -179,7 +181,8 @@ def main() -> int:
 
     limit_self()  # POSIX：讀任何請求之前設定行程限制（Windows 由主行程的 Job Object 負責）
     if _TEST_HOOKS and os.environ.get("PEDITOR_TEST_DENY_NETWORK") == "1":
-        sys.addaudithook(_deny_network)  # G7-01 測試：任何 socket 操作即失敗
+        sys.addaudithook(_deny_network)  # G7-01 測試：Python 層 socket 事件即失敗並記錄
+        sys.audit("peditor.network_hook")  # 經由 hook 本身記下安裝標記
     stdin, stdout = sys.stdin.buffer, sys.stdout.buffer
     sys.stdout = sys.stderr  # 任何 print 都不得進入協定通道
     return serve(stdin, stdout)

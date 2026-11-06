@@ -55,7 +55,9 @@ def test_offline_flow(tmp_path, monkeypatch):
     result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", timeout=300)
     assert result.returncode == 0 and "OFFLINE-OK" in result.stdout, result.stderr[-2000:]
     assert out.stat().st_size > 0
-    assert not log.exists() or log.read_text(encoding="utf-8") == ""  # worker 端沒有任何事件
+    # worker 確實安裝了 hook（每次啟動寫一行安裝標記），且沒有任何 socket 事件（P7 第二輪核對 W1）
+    lines = log.read_text(encoding="utf-8").splitlines()
+    assert lines and set(lines) == {"installed"}, lines
 
 
 def test_deny_hook_blocks_sockets(monkeypatch):
