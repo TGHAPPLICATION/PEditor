@@ -335,7 +335,15 @@ class MainWindow(QMainWindow):
             ("cancel", "取消", QKeySequence(Qt.Key.Key_Escape), self.cancel),
         ):
             action = QAction(text, self)
-            action.setShortcut(QKeySequence(key))
+            if isinstance(
+                key, QKeySequence.StandardKey
+            ):  # 平台的全部標準鍵（重做另有 Ctrl+Shift+Z；P4 U12）
+                action.setShortcuts(QKeySequence.keyBindings(key))
+            else:
+                action.setShortcut(key)
+            keys = "、".join(s.toString(QKeySequence.SequenceFormat.NativeText)
+                            for s in action.shortcuts() if not s.isEmpty())  # fmt: skip
+            action.setToolTip(f"{text}（{keys}）" if keys else text)  # 工具列提示顯示快捷鍵（U12）
             action.triggered.connect(slot)
             toolbar.addAction(action)
             self.actions[name] = action
@@ -637,6 +645,7 @@ class MainWindow(QMainWindow):
         warnings = result.get("warnings") or []
         self._status("；".join(["已更新", *warnings]))
         self.load_page(self.page_index)
+        self.view.setFocus()  # 焦點回到頁面：之後的 Ctrl+Z 是文件復原，不是輸入欄的復原（P4 U12）
 
     def undo(self) -> None:
         if self.document_id is not None and not self.busy:
