@@ -31,6 +31,19 @@ $out = Join-Path $root "build\p8-sandbox"
 $results = Join-Path $out "results"
 New-Item -ItemType Directory -Force -Path $results | Out-Null
 
+# Semi-transparent PNG for the image-replacement check (P5 U2, U5): 240x160, alpha gradient
+Add-Type -AssemblyName System.Drawing
+$png = Join-Path $results "translucent.png"
+$bmp = New-Object System.Drawing.Bitmap 240, 160, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+for ($x = 0; $x -lt 240; $x++) {
+    $alpha = [int](255 * $x / 239)
+    for ($y = 0; $y -lt 160; $y++) {
+        $bmp.SetPixel($x, $y, [System.Drawing.Color]::FromArgb($alpha, 200, 40, 120))
+    }
+}
+$bmp.Save($png, [System.Drawing.Imaging.ImageFormat]::Png)
+$bmp.Dispose()
+
 function Esc([string]$s) { return [System.Security.SecurityElement]::Escape($s) }
 
 $wsb = @"
