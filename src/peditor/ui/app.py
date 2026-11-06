@@ -16,7 +16,7 @@ import sys
 from collections.abc import Callable
 
 from PySide6.QtCore import QDateTime, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPen, QPixmap
+from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPainter, QPen, QPixmap, QTransform
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -41,12 +41,14 @@ from PySide6.QtWidgets import (
 
 from peditor import __version__
 from peditor.core.geometry import PageGeometry, bbox_of
+from peditor.core.limits import MAX_RENDER_DPI
 from peditor.core.service import DocumentService, ServiceError
 from peditor.ui.jobs import JobRunner
 from peditor.ui.messages import NOTICES, reason_text, reasons_text
 
 SMOKE_MARKER = "PEDITOR_SMOKE_OK"
 PAGE_DPI = 100
+ZOOM_MIN, ZOOM_MAX, ZOOM_STEP = 0.25, 4.0, 1.25  # 頁面縮放（P8 工程師要求）
 THUMB_DPI = 24
 MAX_THUMBS = 200
 
@@ -64,9 +66,14 @@ class PageView(QGraphicsView):
     target_clicked = Signal(dict)
     box_selected = Signal(list)  # 手動選格：拉出的範圍（頁面空間 pt）
 
+    zoom_changed = Signal(float)
+
     def __init__(self) -> None:
         super().__init__()
         self.setScene(QGraphicsScene(self))
+        self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        self.zoom = 1.0  # 檢視縮放；場景座標固定為 PAGE_DPI，點選判定不受影響
+        self._pixmap_item: QGraphicsPixmapItem | None = None
         self._geometry: PageGeometry | None = None
         self._targets: list[dict] = []
         self._selected: QGraphicsRectItem | None = None
@@ -79,7 +86,8 @@ class PageView(QGraphicsView):
         scene.clear()
         self._selected = None
         self._drag_item = None
-        scene.addItem(QGraphicsPixmapItem(_pixmap(rendered)))
+        self._pixmap_item = QGraphicsPixmapItem(_pixmap(rendered))
+        scene.addItem(self._pixmap_item)
         geom = page["page_geometry"]
         self._geometry = PageGeometry(tuple(geom["cropbox"]), geom["rotation"])
         self._targets = [{**t, "kind": "text"} for t in page["text_targets"] if t.get("bbox")]
@@ -96,9 +104,40 @@ class PageView(QGraphicsView):
             item.setData(0, target["target_id"])
         scene.setSceneRect(QRectF(0, 0, rendered["width"], rendered["height"]))
 
+    def set_zoom(self, zoom: float) -> None:
+        """檢視縮放（25%–400%）：只改檢視轉換，場景與目標框座標不變。"""
+        zoom = min(ZOOM_MAX, max(ZOOM_MIN, zoom))
+        if abs(zoom - self.zoom) < 1e-6:
+            return
+        self.zoom = zoom
+        self.setTransform(QTransform.fromScale(zoom, zoom))
+        self.zoom_changed.emit(zoom)
+
+    def fit_width(self) -> None:
+        if self._pixmap_item is not None:
+            width = self.scene().sceneRect().width()
+            if width > 0:
+                self.set_zoom((self.viewport().width() - 4) / width)
+
+    def set_sharper(self, rendered: dict, dpi: int) -> None:
+        """放大時以較高 DPI 重新渲染的頁面圖取代原圖（縮回場景的 PAGE_DPI 大小），字不糊。"""
+        if self._pixmap_item is not None:
+            self._pixmap_item.setPixmap(_pixmap(rendered))
+            self._pixmap_item.setScale(PAGE_DPI / dpi)
+            self._pixmap_item.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
+
+    def wheelEvent(self, event) -> None:  # noqa: N802 — Qt 介面
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:  # Ctrl＋滾輪縮放
+            step = ZOOM_STEP if event.angleDelta().y() > 0 else 1 / ZOOM_STEP
+            self.set_zoom(self.zoom * step)
+            event.accept()
+            return
+        super().wheelEvent(event)
+
     def clear(self) -> None:
         """清空頁面與目標框（開啟沒有頁面的文件時，不留下前一份文件；P4 U13）。"""
         self.scene().clear()
+        self._pixmap_item = None
         self._selected = None
         self._drag_item = None
         self._geometry = None
@@ -306,6 +345,12 @@ class MainWindow(QMainWindow):
         self.panel.image_button.clicked.connect(self.replace_image_dialog)
         self.panel.line_choice.currentIndexChanged.connect(self._line_chosen)
         self.view.box_selected.connect(self.select_box)
+        self.view.zoom_changed.connect(self._zoomed)
+        self._sharp_timer = QTimer(self)
+        self._sharp_timer.setSingleShot(True)
+        self._sharp_timer.setInterval(300)
+        self._sharp_timer.timeout.connect(self._render_sharper)
+        self._sharp_dpi = PAGE_DPI
         self.notice = QLabel("")
         self.notice.setObjectName("notice")
         self.notice.setWordWrap(True)
@@ -332,6 +377,20 @@ class MainWindow(QMainWindow):
             ("undo", "復原", QKeySequence.StandardKey.Undo, self.undo),
             ("redo", "重做", QKeySequence.StandardKey.Redo, self.redo),
             ("manual_cell", "手動選格", QKeySequence(), self._toggle_box_mode),
+            (
+                "zoom_out",
+                "縮小",
+                QKeySequence.StandardKey.ZoomOut,
+                lambda: self.view.set_zoom(self.view.zoom / ZOOM_STEP),
+            ),
+            (
+                "zoom_in",
+                "放大",
+                QKeySequence.StandardKey.ZoomIn,
+                lambda: self.view.set_zoom(self.view.zoom * ZOOM_STEP),
+            ),
+            ("zoom_reset", "實際大小", QKeySequence("Ctrl+0"), lambda: self.view.set_zoom(1.0)),
+            ("fit_width", "符合寬度", QKeySequence(), self.view.fit_width),
             ("cancel", "取消", QKeySequence(Qt.Key.Key_Escape), self.cancel),
         ):
             action = QAction(text, self)
@@ -454,6 +513,9 @@ class MainWindow(QMainWindow):
             for target_id in line["target_ids"]
         }
         self.view.show_page(rendered, page)
+        self._sharp_dpi = PAGE_DPI
+        if self.view.zoom > 1:
+            self._sharp_timer.start()
         notes = [NOTICES[n] for n in page.get("notices", []) if n in NOTICES]
         reasons = page["capabilities"]["reasons"]
         if reasons:
@@ -540,6 +602,26 @@ class MainWindow(QMainWindow):
     def _line_chosen(self, index: int) -> None:
         if self.selection is not None and "cell" in self.selection and index >= 0:
             self._select_cell(self.selection["cell"], index, self.selection["kind"], None)
+
+    def _zoomed(self, zoom: float) -> None:
+        self._status(f"縮放 {zoom:.0%}")
+        self._sharp_timer.start()  # 停止縮放 300 ms 後才重新渲染
+
+    def _render_sharper(self) -> None:
+        """放大後以較高 DPI 重新渲染目前頁（上限 MAX_RENDER_DPI）；換頁或文件已變時丟棄結果。"""
+        if self.document_id is None or self.page is None or self.busy:
+            return
+        dpi = min(MAX_RENDER_DPI, round(PAGE_DPI * self.view.zoom))
+        if dpi <= self._sharp_dpi:
+            return
+        doc, index, revision = self.document_id, self.page_index, self.revision
+
+        def done(rendered: dict) -> None:
+            if (doc, index, revision) == (self.document_id, self.page_index, self.revision):
+                self.view.set_sharper(rendered, dpi)
+                self._sharp_dpi = dpi
+
+        self._run(lambda: self.service.render_page(doc, index, dpi), done)
 
     def _toggle_box_mode(self) -> None:
         self.view.box_mode = self.actions["manual_cell"].isChecked()
