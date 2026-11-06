@@ -47,7 +47,7 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
   Windows `PEditor-0.0.1-windows-x64-setup.exe`（SHA-256 `913e443d…`，onedir 176.6 MiB）、macOS `PEditor-0.0.1-macos-arm64.dmg`
   （先前 run 42153657549 為 `60686e01…`，onedir 158.6 MiB），兩平台打包後自我檢查都通過。先前 run 42153657549（`aa98cf6`）
   Windows release 失敗：Chocolatey 沒有 Inno Setup 6.4.3，改鎖 6.7.1（`ca3968a`）。
-- 本機全套：待執行。
+- 本機全套：`uv run ruff check . && uv run ruff format --check . && uv run pytest -q` → exit 0，604 passed、1 skipped（Windows 製作機，e1969cc；POSIX 權限位元測試略過）。
 - 反向驗證：P8-M1（重做只綁第一組標準鍵）、P8-M2（套用後不移焦點）都被 `test_shortcuts.py` 抓到。其餘待補。
 
 ## 5. 真修改證據
