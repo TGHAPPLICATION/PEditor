@@ -1,6 +1,6 @@
 """G1-02、G1-03：repo 內全部 available fixture 經 worker 分析或受控拒絕，能力判定符合 manifest。
 
-盲測 11 份（P8 由保管人執行）、U06（ADR-0012）、S03–S06（P7 產生）不在 repo，於 P1 報告標 NOT RUN。
+盲測 11 份（P8 由保管人執行）、U06（ADR-0012）不在 repo；S03–S06 於 P7 產生。
 """
 
 from pathlib import Path
@@ -50,7 +50,7 @@ def test_all_fixtures_analyzed_or_rejected(service, available_rows):
         if status == "support":
             assert len(pages) == opened["page_count"], row["fixture_id"]
         analyzed += 1
-    assert analyzed == len(available_rows) == 45
+    assert analyzed == len(available_rows) == 49
 
 
 def test_capability_matches_manifest(service, available_rows):
@@ -65,7 +65,7 @@ def test_capability_matches_manifest(service, available_rows):
             continue
         assert document["status"] == "support", fid
         page = pages[int(row["page_index"])]
-        if reason == "NO_TEXT_LAYER":
+        if reason in ("NO_TEXT_LAYER", "RESOURCE_LIMIT"):  # 頁面層級（RESOURCE_LIMIT：S03，P7）
             assert page["capabilities"] == {"status": expected, "reasons": [reason]}, fid
             checked.append(fid)
             continue

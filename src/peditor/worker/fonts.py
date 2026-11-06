@@ -16,6 +16,7 @@ import pikepdf
 import pymupdf
 
 from peditor.core.limits import MAX_CMAP_BYTES, MAX_CODE_EXPANSION, LimitExceeded
+from peditor.worker import streams
 
 # 不支援原因（對應理由碼由 capability 決定）
 VERTICAL = "vertical"
@@ -239,7 +240,7 @@ def _outline_checker(info: FontInfo):
         return never
     try:
         if isinstance(descriptor.get("/FontFile2"), pikepdf.Stream):
-            tt = TTFont(io.BytesIO(descriptor.FontFile2.read_bytes()), lazy=True)
+            tt = TTFont(io.BytesIO(streams.read(descriptor.FontFile2)), lazy=True)
             order = tt.getGlyphOrder()
             glyf = tt["glyf"]
 
@@ -247,7 +248,7 @@ def _outline_checker(info: FontInfo):
                 if cid_font is not None:
                     gid_map = cid_font.get("/CIDToGIDMap")
                     if isinstance(gid_map, pikepdf.Stream):
-                        data = gid_map.read_bytes()
+                        data = streams.read(gid_map)
                         gid = int.from_bytes(data[2 * code : 2 * code + 2], "big")
                     else:
                         gid = code
@@ -304,7 +305,7 @@ def _cff_top(descriptor) -> object | None:
     file3 = descriptor.get("/FontFile3") if isinstance(descriptor, pikepdf.Dictionary) else None
     if not isinstance(file3, pikepdf.Stream):
         return None
-    data = file3.read_bytes()
+    data = streams.read(file3)
     if str(file3.get("/Subtype", "")) == "/OpenType":
         cff = TTFont(io.BytesIO(data), lazy=True)["CFF "].cff
     else:
@@ -377,6 +378,18 @@ def _utf16(hexstr: str) -> str:
     return data.decode("utf-16-be", errors="replace")
 
 
+def _blocks(text: str, begin: str, end: str):
+    """begin 與其後第一個 end 之間的內容（同非貪婪正規表示式），線性時間：沒有 end 即停止，
+    不對每個 begin 都掃到結尾（P2 triage f022）。"""
+    pos = 0
+    while (start := text.find(begin, pos)) != -1:
+        stop = text.find(end, start + len(begin))
+        if stop == -1:
+            return
+        yield text[start + len(begin) : stop]
+        pos = stop + len(end)
+
+
 def parse_cmap(text: str) -> dict[int, str]:
     """解析 /ToUnicode CMap 的 bfchar／bfrange。
 
@@ -386,13 +399,15 @@ def parse_cmap(text: str) -> dict[int, str]:
         raise LimitExceeded("cmap_size")
     mapping: dict[int, str] = {}
     budget = MAX_CODE_EXPANSION
-    for block in re.findall(r"beginbfchar(.*?)endbfchar", text, re.S):
+    for block in _blocks(text, "beginbfchar", "endbfchar"):
         for src, dst in re.findall(_HEX + r"\s*" + _HEX, block):
             if 0 < len(src) <= 4:
                 mapping[int(src, 16)] = _utf16(dst)
-    for block in re.findall(r"beginbfrange(.*?)endbfrange", text, re.S):
+    for block in _blocks(text, "beginbfrange", "endbfrange"):
         for lo, hi, rest in re.findall(
-            _HEX + r"\s*" + _HEX + r"\s*(\[[^\]]*\]|<[0-9A-Fa-f]*>)", block
+            # 陣列遇到下一個 [ 即停：缺 ] 的陣列不使比對變成平方級（P7 掃描候選 4）
+            _HEX + r"\s*" + _HEX + r"\s*(\[[^\]\[]*\]|<[0-9A-Fa-f]*>)",
+            block,
         ):
             if not (0 < len(lo) <= 4 and 0 < len(hi) <= 4):
                 continue
@@ -420,7 +435,7 @@ def _load_to_unicode(font: pikepdf.Dictionary) -> dict[int, str] | None:
     if not isinstance(stream, pikepdf.Stream):
         return None
     try:
-        return parse_cmap(stream.read_bytes().decode("latin-1"))
+        return parse_cmap(streams.read(stream, MAX_CMAP_BYTES).decode("latin-1"))
     except (pikepdf.PdfError, ValueError):
         return {}
 

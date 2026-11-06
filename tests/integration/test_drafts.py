@@ -182,14 +182,11 @@ def test_recover_failure_closes_document(manifest_rows, tmp_path, monkeypatch):
         service.close()
     with DocumentService(drafts=store) as service:
         draft_id = service.list_drafts()[0]["draft_id"]
-        original = service._doc_call
 
-        def failing(document_id, operation, *args):
-            if operation == "replay":
-                raise RuntimeError("boom")
-            return original(document_id, operation, *args)
+        def failing(*args, **kwargs):  # 重播（P7 起分批經 _replay_batches）
+            raise RuntimeError("boom")
 
-        monkeypatch.setattr(service, "_doc_call", failing)
+        monkeypatch.setattr(service, "_replay_batches", failing)
         with pytest.raises(RuntimeError):
             service.recover_draft(draft_id)
         assert service._docs == {}

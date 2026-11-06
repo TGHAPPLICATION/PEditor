@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import pikepdf
 
 from peditor.core.limits import MAX_OBJECT_WALK
+from peditor.worker import streams
 from peditor.worker.content import TextRun, interpret
 
 _ALT_KEYS = ("/ActualText", "/Alt", "/E")
@@ -43,13 +44,13 @@ def marked_content(page: pikepdf.Page, runs: list[TextRun]) -> dict[int, tuple[i
             by_stream.setdefault(run.stream, {})[run.op_index] = i
     result: dict[int, tuple[int | None, bool]] = {}
     contents = page.obj.get("/Contents")
-    streams = list(contents) if isinstance(contents, pikepdf.Array) else [contents]
+    parts = list(contents) if isinstance(contents, pikepdf.Array) else [contents]
     stack: list[tuple[int | None, bool]] = []  # 標記內容可跨 content stream
-    for stream in streams:
+    for stream in parts:
         if not isinstance(stream, pikepdf.Stream):
             continue
         wanted = by_stream.get(stream.objgen, {})
-        for index, inst in enumerate(pikepdf.parse_content_stream(stream)):
+        for index, inst in enumerate(streams.parse(stream)):
             if not isinstance(inst, pikepdf.ContentStreamInstruction):
                 continue
             op = str(inst.operator)

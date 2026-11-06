@@ -378,6 +378,89 @@ def s02(path: Path) -> None:
     _save(doc, path)
 
 
+def _pike_page(text: str) -> pikepdf.Pdf:
+    """pikepdf 產生的 A4 單頁，一行 Helvetica 文字（S03、S05、S06；P7）。"""
+    pdf = pikepdf.new()
+    pdf.add_blank_page(page_size=(A4_W, A4_H))
+    page = pdf.pages[0]
+    font = pdf.make_indirect(pikepdf.Dictionary(
+        Type=pikepdf.Name.Font, Subtype=pikepdf.Name.Type1, BaseFont=pikepdf.Name.Helvetica,
+        Encoding=pikepdf.Name.WinAnsiEncoding))  # fmt: skip
+    page.Resources = pikepdf.Dictionary(Font=pikepdf.Dictionary(F1=font))
+    page.Contents = pdf.make_stream(f"BT /F1 12 Tf 72 742 Td ({text}) Tj ET".encode("ascii"))
+    return pdf
+
+
+def _pike_save(pdf: pikepdf.Pdf, path: Path) -> None:
+    # 不重新編碼串流：S03 的壓縮炸彈須保持原本的 Flate 資料
+    pdf.save(path, deterministic_id=True, stream_decode_level=pikepdf.StreamDecodeLevel.none)
+    pdf.close()
+
+
+def s03(path: Path) -> None:
+    """解壓膨脹：第二個內容串流 Flate 壓縮 128 MB 的空白（解壓後超過 MAX_STREAM_BYTES 64 MB）。"""
+    import zlib
+
+    pdf = _pike_page("Compression bomb fixture")
+    packer = zlib.compressobj(9)
+    chunk = b" " * (1024 * 1024)
+    data = b"".join(packer.compress(chunk) for _ in range(128)) + packer.flush()
+    bomb = pikepdf.Stream(pdf, b"")
+    bomb.write(data, filter=pikepdf.Name.FlateDecode)
+    page = pdf.pages[0]
+    page.Contents = pikepdf.Array([page.Contents, pdf.make_indirect(bomb)])
+    _pike_save(pdf, path)
+
+
+def s04(path: Path) -> None:
+    """深層巢狀物件：頁面 /Annots 指向巢狀 100,000 層的陣列。以手寫 xref 產生（pikepdf／PyMuPDF
+    都不寫出這麼深的物件）。qpdf 解析超過 500 層即視為損毀（P7 報告：預期 MALFORMED_DOCUMENT）。"""
+    depth = 100_000
+    content = b"BT /F1 12 Tf 72 742 Td (Deep nesting fixture) Tj ET"
+    objects = [
+        b"<</Type/Catalog/Pages 2 0 R>>",
+        b"<</Type/Pages/Kids[3 0 R]/Count 1>>",
+        b"<</Type/Page/Parent 2 0 R/MediaBox[0 0 %d %d]/Contents 4 0 R"
+        b"/Resources<</Font<</F1 5 0 R>>>>/Annots 6 0 R>>" % (round(A4_W), round(A4_H)),
+        b"<</Length %d>>stream\n" % len(content) + content + b"\nendstream",
+        b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>",
+        b"[" * depth + b"]" * depth,
+    ]
+    data, offsets = b"%PDF-1.7\n", []
+    for number, body in enumerate(objects, 1):
+        offsets.append(len(data))
+        data += b"%d 0 obj\n" % number + body + b"\nendobj\n"
+    xref = len(data)
+    data += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1)
+    data += b"".join(b"%010d 00000 n \n" % offset for offset in offsets)
+    trailer = b"trailer\n<</Root 1 0 R/Size %d>>\nstartxref\n%d\n%%%%EOF\n"
+    data += trailer % (len(objects) + 1, xref)
+    path.write_bytes(data)
+
+
+def s05(path: Path) -> None:
+    """嵌入附件：文件層 /Names /EmbeddedFiles（內容含 sentinel）。"""
+    pdf = _pike_page("Embedded file fixture")
+    payload = pdf.make_stream(b"peditor-sentinel embedded payload",
+                              Type=pikepdf.Name.EmbeddedFile)  # fmt: skip
+    spec = pdf.make_indirect(pikepdf.Dictionary(
+        Type=pikepdf.Name.Filespec, F=pikepdf.String("payload.txt"),
+        UF=pikepdf.String("payload.txt"), EF=pikepdf.Dictionary(F=payload)))  # fmt: skip
+    names = pikepdf.Array([pikepdf.String("payload.txt"), spec])
+    pdf.Root.Names = pikepdf.Dictionary(EmbeddedFiles=pikepdf.Dictionary(Names=names))
+    _pike_save(pdf, path)
+
+
+def s06(path: Path) -> None:
+    """Launch 動作：開檔即啟動外部程式，在目前資料夾建立 sentinel 檔；不得執行（G7-03）。"""
+    pdf = _pike_page("Launch action fixture")
+    command = pikepdf.String("/c type nul > peditor-sentinel.txt")
+    win = pikepdf.Dictionary(F=pikepdf.String("cmd.exe"), P=command)
+    pdf.Root.OpenAction = pdf.make_indirect(pikepdf.Dictionary(
+        S=pikepdf.Name.Launch, F=pikepdf.String("cmd.exe"), Win=win))  # fmt: skip
+    _pike_save(pdf, path)
+
+
 # ---------------------------------------------------------------- 首批 fixture 定義
 
 
@@ -454,6 +537,15 @@ SYNTHETIC: list[Fixture] = [
             notes="檔案截斷一半（ADR-0007）"),
     Fixture("S02", s02, "pymupdf", "Helvetica", "reject", "ACTIVE_CONTENT",
             notes="OpenAction JavaScript（含 sentinel）；不得執行（ADR-0007）"),
+    Fixture("S03", s03, "script-p7", "Helvetica", "reject", "RESOURCE_LIMIT",
+            notes="解壓膨脹（壓縮炸彈）：內容串流解壓後 128 MB，超過 64 MB 上限（ADR-0024）"),
+    Fixture("S04", s04, "script-p7", "Helvetica", "reject", "MALFORMED_DOCUMENT",
+            notes="深層巢狀物件（/Annots 巢狀 100,000 層）；qpdf 超過 500 層即視為損毀，"
+                  "預期由 RESOURCE_LIMIT 改為 MALFORMED_DOCUMENT（工程師 2026-11-05 決定）"),
+    Fixture("S05", s05, "script-p7", "Helvetica", "reject", "ACTIVE_CONTENT",
+            notes="嵌入附件（含 sentinel；ADR-0007）"),
+    Fixture("S06", s06, "script-p7", "Helvetica", "reject", "ACTIVE_CONTENT",
+            notes="Launch 動作（命令含 sentinel）；不得執行（ADR-0007）"),
 ]  # fmt: skip
 
 BY_ID = {f.fixture_id: f for f in SYNTHETIC}

@@ -96,6 +96,14 @@ class PageView(QGraphicsView):
             item.setData(0, target["target_id"])
         scene.setSceneRect(QRectF(0, 0, rendered["width"], rendered["height"]))
 
+    def clear(self) -> None:
+        """清空頁面與目標框（開啟沒有頁面的文件時，不留下前一份文件；P4 U13）。"""
+        self.scene().clear()
+        self._selected = None
+        self._drag_item = None
+        self._geometry = None
+        self._targets = []
+
     def target_rect(self, target_id: str) -> QRectF | None:
         for item in self.scene().items():
             if isinstance(item, QGraphicsRectItem) and item.data(0) == target_id:
@@ -396,6 +404,8 @@ class MainWindow(QMainWindow):
         self.page_count = result["page_count"]
         flags = result["document_flags"]
         self.thumbs.clear()
+        self.view.clear()  # 前一份文件的頁面與目標框（P4 U13）
+        self.page_index, self.page, self.cells_by_target = 0, None, {}
         self._clear_selection()
         if flags["status"] != "support":
             self.notice.setText("此檔不能編輯：" + reasons_text(flags["reasons"]))
@@ -711,7 +721,9 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event) -> None:  # noqa: N802 — Qt 介面
         """正常關閉：取消進行中的請求、收下已完成的結果，再關閉文件並刪除草稿
         （ADR-0020 §5，P4 U11）。"""
-        self.jobs.shutdown(self.service.cancel if self.service is not None else None)
+        service = self.service
+        self.jobs.shutdown(service.cancel if service is not None else None,
+                           service.close if service is not None else None)  # fmt: skip
         if self.document_id is not None:
             self.service.close_document(self.document_id)
             self.document_id = None

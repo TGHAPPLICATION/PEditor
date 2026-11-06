@@ -25,7 +25,7 @@ import pymupdf
 from peditor.core.geometry import bbox_of
 from peditor.core.limits import MAX_OBJECT_WALK
 from peditor.core.protocol import ProtocolError
-from peditor.worker import analyzer
+from peditor.worker import analyzer, streams
 
 # spec §8.2 視覺門檻（與 tests/integration/visual.py 相同）
 VISUAL_DPI = 150
@@ -144,7 +144,7 @@ def _common_ends(a: list[bytes], b: list[bytes]) -> tuple[int, int]:
 
 
 def _ops(stream: pikepdf.Stream) -> list[bytes]:
-    return [pikepdf.unparse_content_stream([inst]) for inst in pikepdf.parse_content_stream(stream)]
+    return [pikepdf.unparse_content_stream([inst]) for inst in streams.parse(stream)]
 
 
 def validate(original: bytes, data: bytes) -> dict:

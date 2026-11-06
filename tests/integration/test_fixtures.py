@@ -12,6 +12,8 @@ import pymupdf
 import pypdfium2
 import pytest
 
+from peditor.core.limits import MAX_STREAM_BYTES
+
 ROOT = Path(__file__).resolve().parents[2]
 FILES = ROOT / "tests" / "fixtures" / "files"
 FONT_DIR = ROOT / "tests" / "fixtures" / "fonts"
@@ -107,7 +109,8 @@ def test_mode_a_targets_have_new_glyphs_in_original_subset(available_rows):
 @pytest.mark.parametrize(
     "reason",
     ["GLYPH_MISSING", "UNSUPPORTED_ENCODING", "NO_TEXT_LAYER", "ENCRYPTED_DOCUMENT",
-     "MALFORMED_DOCUMENT", "ACTIVE_CONTENT", "SIGNED_DOCUMENT", "UNSUPPORTED_FEATURE"],
+     "MALFORMED_DOCUMENT", "ACTIVE_CONTENT", "SIGNED_DOCUMENT", "UNSUPPORTED_FEATURE",
+     "RESOURCE_LIMIT"],
 )  # fmt: skip
 def test_reject_fixtures_have_stated_property(available_rows, reason):
     rows = _rows(available_rows, reason_code=reason)
@@ -117,6 +120,12 @@ def test_reject_fixtures_have_stated_property(available_rows, reason):
         if reason == "MALFORMED_DOCUMENT":
             with pikepdf.open(path) as pdf:
                 assert pdf.check_pdf_syntax(), row["fixture_id"]
+            continue
+        if reason == "RESOURCE_LIMIT":  # S03：內容串流解壓後超過上限，原始資料遠小於上限
+            with pikepdf.open(path) as pdf:
+                sizes = [(len(s.read_raw_bytes()), len(s.read_bytes()))
+                         for s in pdf.pages[int(row["page_index"])].Contents]  # fmt: skip
+            assert any(raw < 1024 * 1024 and full > MAX_STREAM_BYTES for raw, full in sizes)
             continue
         if reason in {"SIGNED_DOCUMENT", "UNSUPPORTED_FEATURE"}:
             with pikepdf.open(path) as pdf:
@@ -153,9 +162,9 @@ def test_reject_fixtures_have_stated_property(available_rows, reason):
                 assert not any(m is not None and needed <= m for m in maps), row["fixture_id"]
             elif reason == "NO_TEXT_LAYER":
                 assert not page.get_text().strip(), row["fixture_id"]
-            elif reason == "ACTIVE_CONTENT":
+            elif reason == "ACTIVE_CONTENT":  # OpenAction（JavaScript、Launch）或嵌入附件（S05）
                 catalog = doc.xref_object(doc.pdf_catalog())
-                assert "/OpenAction" in catalog, row["fixture_id"]
+                assert "/OpenAction" in catalog or doc.embfile_count(), row["fixture_id"]
 
 
 def test_shared_image_fixtures(available_rows):

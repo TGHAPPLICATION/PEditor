@@ -16,19 +16,22 @@ import queue
 import subprocess
 import sys
 import threading
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
 from peditor.core.drafts import DraftStore
-from peditor.core.limits import MAX_IMAGE_BYTES, REQUEST_TIMEOUT_S
+from peditor.core.limits import MAX_IMAGE_BYTES, REPLAY_BATCH, REQUEST_TIMEOUT_S
 from peditor.core.protocol import (
     MAX_MESSAGE_BYTES,
     PROTOCOL_VERSION,
     ProtocolError,
     decode,
     encode,
+    validate_response,
 )
+from peditor.core.sandbox import CREATE_SUSPENDED, SandboxError, WorkerJob
 from peditor.export import transaction
 
 
@@ -69,9 +72,18 @@ def _used_assets(entries) -> set[str]:
     return {e["params"]["asset_id"] for e in entries if e.get("op") == "image"}
 
 
+def _processes(command: list[str]) -> int:
+    """Job 內允許的行程數：venv 的 python.exe 是轉介程式，會再啟動真正的直譯器（ADR-0024）。"""
+    base = getattr(sys, "_base_executable", sys.executable)
+    launcher = (
+        os.path.normcase(command[0]) == os.path.normcase(sys.executable) != os.path.normcase(base)
+    )
+    return 2 if sys.platform == "win32" and not getattr(sys, "frozen", False) and launcher else 1
+
+
 class _WorkerProcess:
     def __init__(self, command: list[str]) -> None:
-        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | CREATE_SUSPENDED
         self.proc = subprocess.Popen(  # noqa: S603 — 固定命令，不含使用者輸入
             command,
             stdin=subprocess.PIPE,
@@ -80,6 +92,13 @@ class _WorkerProcess:
             creationflags=flags,
             env={**os.environ, "PYTHONUNBUFFERED": "1"},
         )
+        # 送出任何請求（含檔案路徑）之前先套用 OS 限制；套用不了就不使用這個 worker（ADR-0024）
+        try:
+            self.job = WorkerJob(self.proc.pid, _processes(command))
+        except SandboxError:
+            self.proc.kill()
+            self.proc.wait()
+            raise ServiceError("WORKER_FAILED", "無法限制處理程序", retryable=False) from None
         self.lines: queue.Queue[bytes | None] = queue.Queue()
         threading.Thread(target=self._read, daemon=True).start()
 
@@ -111,6 +130,7 @@ class _WorkerProcess:
                     stream.close()
                 except OSError:
                     pass
+        self.job.close()
 
 
 class DocumentService:
@@ -267,9 +287,8 @@ class DocumentService:
         doc = self._require(document_id, expected_revision)
         if doc.position == 0:
             raise ServiceError("INVALID_REQUEST", "沒有可撤銷的操作")
-        params = {"commands": doc.log[: doc.position - 1], "revision": doc.revision + 1,
-                  "reset": True}  # fmt: skip
-        result = self._doc_call(document_id, "replay", params, expected_revision)
+        result = self._replay(doc, doc.log[: doc.position - 1], doc.revision + 1, True,
+                              expected_revision)  # fmt: skip
         doc.position -= 1
         return self._advance(doc, result)
 
@@ -350,9 +369,8 @@ class DocumentService:
         if position:
             # revision 須大於 log 中任何規劃時版本，之後的 target_id 才不會與舊版本混淆
             revision = max(e["base_revision"] for e in log) + 1
-            params = {"commands": log[:position], "revision": revision, "reset": False}
             try:
-                result = self._doc_call(document_id, "replay", params, 0)
+                result = self._replay(doc, log[:position], revision, False, 0)
             except BaseException:  # 任何失敗都不留下開啟一半的文件（P3 triage f001）
                 self.close_document(document_id)
                 raise
@@ -460,29 +478,57 @@ class DocumentService:
         doc = self._docs.get(document_id)
         if doc is None:
             raise ServiceError("INVALID_REQUEST", "文件未開啟")
+        return self._call(operation, document_id=self._attach(doc), params=params,
+                          expected_revision=expected_revision)  # fmt: skip
+
+    def _replay(self, doc: _Doc, commands: list, revision: int, reset: bool, expected_revision):
+        return self._replay_batches(self._attach(doc), commands, revision, reset, expected_revision)
+
+    def _replay_batches(self, worker_id: str, commands: list, revision: int, reset: bool,
+                        expected_revision=None) -> dict:  # fmt: skip
+        """分批重播（P7；P3 triage f008、P6 T7）：每 REPLAY_BATCH 筆一個請求，各自受逾時限制，
+        總筆數不受單一請求逾時所限。worker 端每批失敗即回到該批之前；第二批起失敗時 worker 已停在
+        中間狀態，故終止重啟，下次請求依 command log 重開重播。"""
+        batches = [commands[i : i + REPLAY_BATCH] for i in range(0, len(commands), REPLAY_BATCH)]
+        result: dict = {}
+        for i, batch in enumerate(batches or [[]]):
+            params = {"commands": batch, "revision": revision, "reset": reset and i == 0}
+            try:
+                expected = expected_revision if i == 0 else None
+                result = self._call("replay", document_id=worker_id, params=params,
+                                    expected_revision=expected)  # fmt: skip
+            except ServiceError:
+                if i:
+                    self._restart()
+                raise
+        return result
+
+    def _close_quietly(self, worker_id: str) -> None:
+        """失敗路徑上關閉 worker 端文件；關閉本身的錯誤不蓋過原本的錯誤（P3 triage f008）。"""
+        try:
+            self._call("close_document", document_id=worker_id)
+        except ServiceError:
+            pass
+
+    def _attach(self, doc: _Doc) -> str:
+        """文件在目前 worker 的 document_id；worker 重啟過時先重開並還原到目前版本。"""
         self._ensure_worker()  # worker 已結束時先重啟，才能判斷文件是否需重開
         if doc.worker_id is None:  # worker 重啟過：依原路徑重開、確認未被外部修改、重播 log
             reopened = self._call("open_document", params={"path": doc.path})
+            worker_id = reopened["document_id"]
             if reopened["sha256"] != doc.sha256:
-                self._call("close_document", document_id=reopened["document_id"])
+                self._close_quietly(worker_id)
                 raise ServiceError("REVISION_CONFLICT", "檔案已被外部修改")
             try:  # 新圖隨 worker 重啟消失：先重新登記，重播與之後的規劃才找得到
-                self._register_assets(reopened["document_id"], doc.assets)
+                self._register_assets(worker_id, doc.assets)
+                if doc.revision != reopened["revision"]:
+                    self._replay_batches(worker_id, doc.log[: doc.position], doc.revision, False)
             except ServiceError:
-                self._call("close_document", document_id=reopened["document_id"])
+                self._close_quietly(worker_id)
                 raise
-            if doc.revision != reopened["revision"]:
-                restore = {"commands": doc.log[: doc.position], "revision": doc.revision,
-                           "reset": False}  # fmt: skip
-                try:
-                    self._call("replay", document_id=reopened["document_id"], params=restore)
-                except ServiceError:
-                    self._call("close_document", document_id=reopened["document_id"])
-                    raise
-            doc.worker_id = reopened["document_id"]
+            doc.worker_id = worker_id
             doc.plans.clear()  # worker 端計畫已隨重啟消失
-        return self._call(operation, document_id=doc.worker_id, params=params,
-                          expected_revision=expected_revision)  # fmt: skip
+        return doc.worker_id
 
     def _ensure_worker(self) -> _WorkerProcess:
         with self._state:
@@ -518,21 +564,24 @@ class DocumentService:
             with self._state:
                 self._inflight = request_id
             try:
-                return self._exchange(worker, request_id, encode(message))
+                return self._exchange(worker, request_id, encode(message), operation)
             finally:
                 with self._state:
                     self._inflight = None
                     self._cancelled.discard(request_id)
 
-    def _exchange(self, worker: _WorkerProcess, request_id: str, data: bytes) -> dict:
+    def _exchange(
+        self, worker: _WorkerProcess, request_id: str, data: bytes, operation: str
+    ) -> dict:
         try:
             worker.send(data)
         except OSError:
             self._restart()
             raise self._failure(request_id) from None
+        deadline = time.monotonic() + self.timeout  # 整個請求的總時間（P7 掃描候選 7）
         while True:
             try:
-                line = worker.lines.get(timeout=self.timeout)
+                line = worker.lines.get(timeout=max(0.0, deadline - time.monotonic()))
             except queue.Empty:
                 self._restart()
                 raise ServiceError("RESOURCE_LIMIT", "操作逾時，已終止處理程序") from None
@@ -546,13 +595,17 @@ class DocumentService:
                 raise ServiceError(
                     "WORKER_FAILED", "處理程序回應格式錯誤", retryable=True
                 ) from None
-            if response.get("request_id") not in (request_id, None):
-                continue
-            if response.get("ok"):
+            if isinstance(response.get("request_id"), str) and response["request_id"] != request_id:
+                continue  # 不是這個請求的回應（例如取消前送出的請求）
+            try:  # 結構不符：worker 異常，終止重啟（P1 triage f006、f020、f021）
+                validate_response(operation, response, request_id)
+            except ProtocolError as exc:
+                self._restart()
+                raise ServiceError(exc.code, exc.message, exc.retryable) from None
+            if response["ok"]:
                 return response["result"]
-            error = response.get("error") or {}
-            raise ServiceError(error.get("code", "WORKER_FAILED"), error.get("message", ""),
-                               bool(error.get("retryable")))  # fmt: skip
+            error = response["error"]
+            raise ServiceError(error["code"], error["message"], error["retryable"])
 
     def _failure(self, request_id: str) -> ServiceError:
         if request_id in self._cancelled:

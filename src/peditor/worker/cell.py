@@ -20,6 +20,7 @@ import pymupdf
 
 from peditor.core.editplan import EditPlan, SpanTarget, validate_cell_params
 from peditor.core.geometry import bbox_of
+from peditor.core.limits import LimitExceeded
 from peditor.core.protocol import ProtocolError
 from peditor.worker import analyzer, edit, table
 
@@ -66,7 +67,10 @@ def plan_cell_edit(document: analyzer.Document, params: dict) -> dict:
     # 有垂直線穿過這一行的文字，或區域內有斜邊（斜線表頭等；第二輪核對 R2）
     if region is None or table.hits_diagonal(region, found.diagonals):
         return _reject(document, params, page_index, info, ["UNSUPPORTED_LAYOUT"])
-    region = _ink_clip(document, page_index, region, line["bbox"])
+    try:
+        region = _ink_clip(document, page_index, region, line["bbox"])
+    except LimitExceeded:
+        return _reject(document, params, page_index, info, ["RESOURCE_LIMIT"])
     if region is None:
         return _reject(document, params, page_index, info, ["UNSUPPORTED_LAYOUT"])
     texts = {t["target_id"]: t["text"] for t in analyzer.inspect_page(document, page_index)[
@@ -86,6 +90,7 @@ def plan_cell_edit(document: analyzer.Document, params: dict) -> dict:
 INK_ZOOM = 150 / 72  # 墨跡檢查的渲染解析度（150 DPI，與另存視覺驗證相同）
 INK_TOL = 24  # 與區域底色任一通道相差超過此值即為墨跡（第四輪核對 T1：淡色、半透明的線也算）
 TEXT_MARGIN = 1.0  # 目標文字外框外擴（pt），其內的墨跡是這一行自己的字形
+INK_MAX_PIXELS = 12_000_000  # 墨跡檢查的渲染像素上限（同另存視覺驗證；P7 掃描候選 3）
 
 
 def _ink_clip(document, page_index: int, region: list[float], text_bbox) -> list[float] | None:
@@ -99,6 +104,9 @@ def _ink_clip(document, page_index: int, region: list[float], text_bbox) -> list
     region = None if rects is None else _annot_clip(region, text_bbox, rects)
     if region is None:
         return None
+    width_pt, height_pt = region[2] - region[0], region[3] - region[1]
+    if width_pt * height_pt * INK_ZOOM**2 > INK_MAX_PIXELS:
+        raise LimitExceeded("ink_pixels")  # 逐點走訪的 Python 工作量上限
     with pymupdf.open(stream=document.current, filetype="pdf") as doc:
         page = doc[page_index]
         page.set_rotation(0)  # 與頁面空間（未套用 /Rotate）一致

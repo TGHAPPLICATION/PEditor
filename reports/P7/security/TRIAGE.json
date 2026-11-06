@@ -1,0 +1,385 @@
+{
+  "triage_context": {
+    "mode": "interactive（沿用 P1／P3 訪談答案：同一產品、同一信任邊界；工程師 2026-11-05 決定處理全部候選）",
+    "environment": "Offline single-user desktop app (no network services). PDF files are untrusted (external sources). The PDF worker subprocess may be compromised by a malicious PDF, so its output is untrusted to the main process. Operator CLI flags and environment variables are trusted. Local files written by the app itself in the user's app-data directory (drafts, pending-temps registry) can be corrupted by crashes/disk errors; other same-user processes are not a security boundary.",
+    "threat_model": [
+      "Malicious PDF executes code on the user's host (THREAT_MODEL T1)",
+      "Original file corruption or leakage of document content/paths (T3, T9, T13)",
+      "Resource exhaustion making the app or host unusable (T5; P7 limits per ADR-0024)",
+      "Compromised or abnormal worker disabling the main process via IPC (T2)"
+    ],
+    "scoring": "Derived HIGH/MEDIUM/LOW from preconditions",
+    "noise_tolerance": "recall",
+    "votes_per_finding": 2,
+    "repo": ".",
+    "code_commit": "0533432（候選所在）；修正 87ec3b2（程式與回歸測試）、8ca60b2（ADR-0024 增補）",
+    "votes_note": "兩票都由 triage 代理人本身以兩個獨立角度判讀，沒有另派子代理人：A 票＝SKILL.md 3a 的對抗式驗證（從 sink 反向追可達性、找保護、套 16 條排除規則）；B 票＝對照 ADR-0024／THREAT_MODEL 宣稱的控制，判斷該控制是否確實失效、影響是否越過信任邊界。只有 f009 分票（A cannot_verify、B true_positive），依 noise tolerance = recall 判為 true_positive／needs_manual_test，未加第三票。"
+  },
+  "summary": {
+    "input_count": 9,
+    "duplicates": 0,
+    "false_positives": 3,
+    "true_positives": 6,
+    "needs_manual_test": 1,
+    "by_severity": {
+      "HIGH": 0,
+      "MEDIUM": 1,
+      "LOW": 5
+    },
+    "observations": 1
+  },
+  "triage_completed": "2026-11-05",
+  "findings": [
+    {
+      "id": "f001",
+      "scanner_id": "F-001",
+      "source": "reports/P7/security/VULN-FINDINGS.json#0 (json)",
+      "title": "Corrupt Flate data makes _inflated_size report 0, so a later filter multiplies to 0 or NaN and passes the 64 MB pre-decompression check",
+      "file": "src/peditor/worker/streams.py",
+      "line": 68,
+      "category": "resource exhaustion / size-check bypass",
+      "verdict": "true_positive",
+      "confidence": 8.0,
+      "claimed_severity": "MEDIUM",
+      "rationale": "streams.py:68-69 吞掉 zlib.error 後回傳 total；本次以標準函式庫確認串流中段毀損時 decompressobj().decompress 直接拋錯、該次輸出不回傳，所以已解出的前段被算成 0。check（streams.py:89-93）把剩餘過濾器倍數相乘，0×1032=0、0×inf=NaN，`bound > limit` 對兩者都為假。可達：content.py:182 _execute → streams.parse → check，content.py:283 字型串流也呼叫 check；之後 analyzer._analyze_page 交給 MuPDF 擷取（_chars），render_page 也只看這個結果。單一 Flate 時低估不超過上限，所以只有 Flate 後還有過濾器的串流受影響。\n\n前置條件：使用者開啟並檢視含此類串流的頁面（1 項），存取層級為本機開檔 → 依表為 LOW；直接對應 T5（ADR-0024 §3 宣稱的解壓前限制失效）升一級為 MEDIUM。Windows 有 Job Object 2 GB 上限（MemoryError → RESOURCE_LIMIT），macOS 沒有 OS 強制的記憶體上限。",
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 0,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [],
+      "exclusion_rule": null,
+      "first_links": [
+        "src/peditor/worker/content.py:182",
+        "src/peditor/worker/content.py:283"
+      ],
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; top committer tghtaipei (1/1 commits on streams.py)",
+      "verify_verdict": "exploitable",
+      "severity": "MEDIUM",
+      "severity_label": "MEDIUM",
+      "severity_alignment": 0,
+      "preconditions": [
+        "User opens and views a page of an attacker-crafted PDF",
+        "A content, font or CMap stream on that page has FlateDecode followed by another filter, and the Flate data is corrupt"
+      ],
+      "access_level": "local",
+      "threat_match": "T5 resource exhaustion (ADR-0024 §3 pre-decompression limit bypassed; Windows Job Object 2 GB cap remains, macOS none)",
+      "outcome": "fixed",
+      "outcome_note": "87ec3b2：zlib 錯誤時 _inflated_size 回傳 limit（錯誤發生前的輸出不超過該次 max_length，所以 limit 是有效上限）；比較改為 `not bound <= limit`，NaN 也拒絕。ADR-0024 §3 增補（8ca60b2）。",
+      "regression_tests": "tests/security/test_p7_limits.py::test_corrupt_flate_before_other_filter_rejected"
+    },
+    {
+      "id": "f004",
+      "scanner_id": "F-004",
+      "source": "reports/P7/security/VULN-FINDINGS.json#3 (json)",
+      "title": "parse_cmap bfrange array regex is quadratic when the closing ] is missing",
+      "file": "src/peditor/worker/fonts.py",
+      "line": 408,
+      "category": "ReDoS / algorithmic complexity",
+      "verdict": "true_positive",
+      "confidence": 9.0,
+      "claimed_severity": "LOW",
+      "rationale": "fonts.py:407-409 的 `\\[[^\\]]*\\]` 在缺 `]` 時每個起點掃到區塊結尾。本次在暫存目錄單獨計時 0533432 的正規表示式：重複 2,000／4,000／8,000 次未結尾的 bfrange 項目分別約 0.16／0.66／2.7 秒（每倍增約 4 倍，平方級），新寫法約 0.001～0.009 秒；4 MB 上限（fonts.py:399）可容納數十萬個起點，遠超 30 秒。可達：content.py:231 _font → load_font → parse_cmap，任何 Tf 都會觸發，檢視頁面即執行。排除規則 1 明文保留 ReDoS 與演算法複雜度。\n\n前置條件 1 項（檢視含此字型的頁面），本機開檔 → LOW；對應 T5，但工作量受 30 秒逾時終止，影響限於該份不可信文件，未升級（與 P3 f015 一致）。注意 P2 f022（同類，_blocks 層級）當時以分票 1-2 判為誤報；本項是 P7 宣稱已線性化之後殘留的同類問題，兩票都判為真。",
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 0,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [],
+      "exclusion_rule": null,
+      "first_links": [
+        "src/peditor/worker/content.py:231"
+      ],
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; top committer tghtaipei (5/5 commits on fonts.py)",
+      "verify_verdict": "exploitable",
+      "severity": "LOW",
+      "severity_label": "LOW",
+      "severity_alignment": 0,
+      "preconditions": [
+        "User opens and views a page that uses a font whose ToUnicode CMap has many unterminated bfrange arrays"
+      ],
+      "access_level": "local",
+      "threat_match": "T5 resource exhaustion (bounded by the 30 s timeout and worker restart)",
+      "outcome": "fixed",
+      "outcome_note": "87ec3b2：陣列改為 `\\[[^\\]\\[]*\\]`，遇到下一個 `[` 即停。ADR-0024 §3 增補。",
+      "regression_tests": "tests/security/test_p7_limits.py::test_cmap_unterminated_array_linear（牆鐘時間 < 2 秒，100,000 個未結尾項目）"
+    },
+    {
+      "id": "f005",
+      "scanner_id": "F-005",
+      "source": "reports/P7/security/VULN-FINDINGS.json#4 (json)",
+      "title": "Points of a path that is never painted accumulate without the MAX_PAINTED_POINTS limit",
+      "file": "src/peditor/worker/content.py",
+      "line": 350,
+      "category": "unbounded allocation",
+      "verdict": "true_positive",
+      "confidence": 7.5,
+      "claimed_severity": "LOW",
+      "rationale": "content.py:213-214 對路徑運算子呼叫 _path_op，曲線以 CURVE_STEPS=16 點延伸 poly（content.py:369-377）；path 只在 _PAINT 分支（content.py:219-226）清空，MAX_PAINTED_POINTS 只在 _record_paths（content.py:328-331）檢查。唯一的間接上限是 MAX_CONTENT_OPERATORS=1,000,000（limits.py:19），一百萬個曲線運算子約一千六百萬個點 tuple、估計 1.5～2 GB，內容串流本身只需約 14 MB，低於 64 MB 上限。檢視頁面即觸發（analyzer._analyze_page → interpret）。\n\n前置條件 1 項，本機開檔 → LOW；受運算子上限間接約束，Windows 另有 Job Object 記憶體上限，未升級。",
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 0,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [],
+      "exclusion_rule": null,
+      "first_links": [
+        "src/peditor/worker/content.py:214"
+      ],
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; top committer tghtaipei (7/7 commits on content.py)",
+      "verify_verdict": "exploitable",
+      "severity": "LOW",
+      "severity_label": "LOW",
+      "severity_alignment": 0,
+      "preconditions": [
+        "User opens and views a page whose content stream has a very large number of path operators that are never painted"
+      ],
+      "access_level": "local",
+      "threat_match": "T5 resource exhaustion",
+      "outcome": "fixed",
+      "outcome_note": "87ec3b2：_execute 以 path_points 計算每個路徑運算子增加的點數（曲線 16、re 4、其他 1），超過 MAX_PAINTED_POINTS 即 LimitExceeded（頁面 RESOURCE_LIMIT），塗繪時歸零。ADR-0024 §3 增補。",
+      "regression_tests": "tests/security/test_p7_limits.py::test_unpainted_path_points_bounded"
+    },
+    {
+      "id": "f003",
+      "scanner_id": "F-003",
+      "source": "reports/P7/security/VULN-FINDINGS.json#2 (json)",
+      "title": "Cell ink check renders the cell region with no pixel cap and walks samples in pure Python, so a huge page can exceed the 30 s timeout",
+      "file": "src/peditor/worker/cell.py",
+      "line": 105,
+      "category": "algorithmic complexity / unbounded allocation",
+      "verdict": "true_positive",
+      "confidence": 7.0,
+      "claimed_severity": "LOW",
+      "rationale": "cell.py:69 plan_cell_edit 無條件呼叫 _ink_clip；cell.py:105-106 以 150 DPI 渲染整個 region，沒有像素檢查；cell.py:110-112 以 Python 產生器取樣四分之一像素建 Counter，之後逐欄逐列呼叫 ink()。region 只受頁面尺寸限制；render_page 的 50 MP 上限依呼叫端 DPI 計算（最低 18 DPI），因此檢視可通過的頁面在 150 DPI 下可達數十億像素。同類為 P3 f015（已確認 LOW）。\n\n前置條件 3 項（極大頁面、可偵測的表格、使用者選格並規劃編輯），本機 → LOW；對應 T5，但需使用者動作，未升級。",
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 0,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [],
+      "exclusion_rule": null,
+      "first_links": [
+        "src/peditor/worker/cell.py:69"
+      ],
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; top committer tghtaipei (7/7 commits on cell.py)",
+      "verify_verdict": "exploitable",
+      "severity": "LOW",
+      "severity_label": "LOW",
+      "severity_alignment": 0,
+      "preconditions": [
+        "User opens an attacker-crafted PDF with a very large page",
+        "Table detection finds a cell on that page",
+        "User selects the cell and requests a cell edit plan"
+      ],
+      "access_level": "local",
+      "threat_match": "T5 resource exhaustion (bounded by the 30 s timeout; Windows Job Object memory cap)",
+      "outcome": "fixed",
+      "outcome_note": "87ec3b2：_ink_clip 在渲染前以 region 面積 × INK_ZOOM² 對 INK_MAX_PIXELS=12 MP 檢查，超過即 LimitExceeded；plan_cell_edit 轉成該行 RESOURCE_LIMIT。ADR-0024 §3 增補。",
+      "regression_tests": "tests/security/test_p7_limits.py::test_ink_check_pixel_bound（以 monkeypatch 把上限降為 100 像素，在 B01 驗證拒絕路徑；未以真正的極大頁面測試）"
+    },
+    {
+      "id": "f006",
+      "scanner_id": "F-006",
+      "source": "reports/P7/security/VULN-FINDINGS.json#5 (json)",
+      "title": "50 MP and 64 MB checks cover only objects the interpreter walks; inline images, SMasks, tiling patterns, soft-mask groups, Type3 /Resources and embedded Type0 CMaps are decompressed by MuPDF unchecked",
+      "file": "src/peditor/worker/content.py",
+      "line": 381,
+      "category": "incomplete limit coverage / resource exhaustion",
+      "verdict": "true_positive",
+      "confidence": 7.0,
+      "claimed_severity": "LOW",
+      "rationale": "content.py:388-390 只檢查 Image XObject 本身的 /Width×/Height；content.py:195-197 inline image 只計數；_do 不讀 /SMask，解譯器不走訪 /Pattern、ExtGState soft-mask group、Type3 /Resources；_font_streams（content.py:447-466）不含 Type0 的 /Encoding CMap 串流。這些物件由 MuPDF 在 _chars（擷取）與 render_page（analyzer.py:407）時自行解壓。0533432 版 ADR-0024 後果只提到「註解外觀、影像等」，沒有列出這些具體路徑，而 §3 宣稱影像超過 50 MP 即 RESOURCE_LIMIT。\n\n前置條件 1 項（檢視頁面），本機 → LOW；Windows Job Object 記憶體上限與 30 秒逾時把影響限制在 worker 重啟，判為 mitigated（macOS 沒有記憶體強制）。",
+      "vote_breakdown": {
+        "true_positive": 2,
+        "false_positive": 0,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [],
+      "exclusion_rule": null,
+      "first_links": [
+        "src/peditor/worker/content.py:389",
+        "src/peditor/worker/analyzer.py:407"
+      ],
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; top committer tghtaipei (7/7 commits on content.py)",
+      "verify_verdict": "mitigated",
+      "severity": "LOW",
+      "severity_label": "LOW",
+      "severity_alignment": 0,
+      "preconditions": [
+        "User opens and views a page whose large or highly compressed data sits in an object the interpreter does not walk"
+      ],
+      "access_level": "local",
+      "threat_match": "T5 resource exhaustion (mitigated on Windows by the Job Object 2 GB cap and the 30 s timeout; macOS has no enforced memory cap)",
+      "outcome": "documented",
+      "outcome_note": "未改程式。ADR-0024「後果」殘餘（8ca60b2）明列 inline image、影像的 SMask、tiling pattern、soft-mask group、Type3 /Resources、Type0 內嵌 CMap、註解外觀等由 MuPDF 自行解壓，只受 Job Object 記憶體上限保護（macOS 無；候選 6）。",
+      "regression_tests": null
+    },
+    {
+      "id": "f009",
+      "scanner_id": "F-009",
+      "source": "reports/P7/security/VULN-FINDINGS.json#8 (json)",
+      "title": "render_page decides 'over limit, do not render' from pikepdf's parse while MuPDF parses the same file independently",
+      "file": "src/peditor/worker/analyzer.py",
+      "line": 405,
+      "category": "parser differential",
+      "verdict": "true_positive",
+      "confidence": 4.0,
+      "claimed_severity": "LOW",
+      "rationale": "B 票（true_positive）：analyzer.py:405 的判定來自 inspect_page → _analyze_page → interpret(document.pike.pages[i])（analyzer.py:476），analyzer.py:407 卻由 document.mu 渲染；兩個解析器各自開啟同一份位元組（analyzer.py:117、131）。MuPDF 修復過或 qpdf 有警告的檔案只標 MALFORMED_DOCUMENT（analyzer.py:125-127、137-139），render_page 不看這個理由，所以「判定用的解析」與「實際渲染的解析」可能不同。A 票（cannot_verify）：兩者對特定毀損結構是否真的解析出不同頁面內容，取決於 qpdf 與 MuPDF 的修復行為（C／C++ 程式庫），靜態讀 Python 無法確認。\n\n分票，依 recall 判 true_positive／needs_manual_test。前置條件 3 項（檔案需修復、兩個解析器結果不同、差異恰好落在超限內容），本機 → LOW；後果與 f006 相同，受 Job Object 記憶體上限與逾時限制。",
+      "vote_breakdown": {
+        "true_positive": 1,
+        "false_positive": 0,
+        "cannot_verify": 1
+      },
+      "refute_reasons": [],
+      "exclusion_rule": null,
+      "first_links": [
+        "src/peditor/worker/analyzer.py:476",
+        "src/peditor/worker/analyzer.py:407"
+      ],
+      "owner_hint": "component: src/peditor/worker/; no CODEOWNERS; top committer tghtaipei (13/13 commits on analyzer.py)",
+      "verify_verdict": "needs_manual_test",
+      "severity": "LOW",
+      "severity_label": "LOW",
+      "severity_alignment": 0,
+      "preconditions": [
+        "User opens an attacker-crafted PDF that needs repair",
+        "qpdf and MuPDF resolve different content or resources for the same page",
+        "The content only MuPDF sees exceeds the work or decompression limits"
+      ],
+      "access_level": "local",
+      "threat_match": "T5 resource exhaustion (same bound as f006)",
+      "outcome": "documented",
+      "outcome_note": "未改程式。ADR-0024「後果」殘餘（8ca60b2）：「超限、不渲染」以 pikepdf 的解析結果判定，MuPDF 對同一份檔案的解析（例如需要修復的檔案）可能不同（候選 9）。未做執行期驗證。",
+      "regression_tests": null
+    },
+    {
+      "id": "f002",
+      "scanner_id": "F-002",
+      "source": "reports/P7/security/VULN-FINDINGS.json#1 (json)",
+      "title": "On Windows, copymode makes the temp file read-only when overwriting a read-only destination, so the temp with the full document cannot be deleted after replace fails",
+      "file": "src/peditor/export/transaction.py",
+      "line": 145,
+      "category": "data remnant / regression",
+      "verdict": "false_positive",
+      "confidence": 7.0,
+      "claimed_severity": "LOW",
+      "rationale": "機制屬實：transaction.py:143-148 在 Windows 也執行 shutil.copymode，唯讀目的檔使暫存檔唯讀；os.replace 失敗後 commit 的 except（transaction.py:117-121）呼叫 _remove（transaction.py:181-185），os.remove 對唯讀檔失敗且被忽略；_remove_stale 與啟動清除同樣刪不掉。觸發者是使用者自己的另存動作（覆寫唯讀檔），不經不可信輸入；留下的內容是使用者正要存到同一資料夾的新文件，沒有越過信任邊界。與 P3 f011（暫存檔刪除失敗殘留，判為誤報）同類，但本項是 P7 帶入、必然重現的回歸，列為正確性缺陷。",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "exclusion_rule": "12",
+      "first_links": [
+        "src/peditor/export/transaction.py:112"
+      ],
+      "owner_hint": null,
+      "verify_verdict": null,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "outcome": "fixed",
+      "outcome_note": "87ec3b2：_place 只在 POSIX 複製權限位元，Windows 不複製（唯讀屬性與 ACL 都不複製；唯讀目的檔本來就無法取代，回 SAVE_FAILED）。ADR-0024「後果」增補（8ca60b2）。",
+      "regression_tests": "tests/integration/test_crash_injection.py::test_overwrite_readonly_leaves_no_readonly_temp（只在 Windows 執行，macOS skip）"
+    },
+    {
+      "id": "f007",
+      "scanner_id": "F-007",
+      "source": "reports/P7/security/VULN-FINDINGS.json#6 (json)",
+      "title": "Request timeout restarts on every line read, so a worker that keeps sending responses for other request ids never times out",
+      "file": "src/peditor/core/service.py",
+      "line": 582,
+      "category": "timeout bypass",
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "claimed_severity": "LOW",
+      "rationale": "機制屬實：service.py:582 每次讀取重給 self.timeout，service.py:596-597 對不符的 request_id continue。但正常 worker 只回應收到的請求，不相符的回應數量有限（取消前送出的請求）；非 JSON 輸出會在 service.py:590-595 直接重啟。能持續送出不相符回應的只有已被攻陷的 worker，它本來就以使用者權限常駐（閒置時 worker 也一直存在），讓請求不逾時沒有給它額外能力；使用者仍可取消（service.py:406-416 會終止 worker）。屬 THREAT_MODEL T2 範圍內的強健性缺陷，非可利用問題。",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "implausible_trigger"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "src/peditor/core/service.py:596"
+      ],
+      "owner_hint": null,
+      "verify_verdict": null,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "outcome": "fixed",
+      "outcome_note": "87ec3b2：_exchange 以 time.monotonic() 計算整個請求的期限，每次讀取只給剩餘時間。ADR-0024 §5 增補（8ca60b2）。",
+      "regression_tests": "tests/security/test_ipc_fuzz.py::test_request_timeout_is_total"
+    },
+    {
+      "id": "f008",
+      "scanner_id": "F-008",
+      "source": "reports/P7/security/VULN-FINDINGS.json#7 (json)",
+      "title": "ActiveProcessLimit only blocks processes the worker creates directly; ADR-0024 §1 overstates it",
+      "file": "src/peditor/core/sandbox.py",
+      "line": 141,
+      "category": "overstated control / documentation",
+      "verdict": "false_positive",
+      "confidence": 8.0,
+      "claimed_severity": "LOW",
+      "rationale": "sandbox.py:135-141 正確設定 JOB_OBJECT_LIMIT_ACTIVE_PROCESS，且未設 BREAKAWAY_OK，worker 直接建立子行程確實被擋；程式沒有缺陷。間接啟動（由 job 外的既有行程或服務代為執行）是 Job Object 的設計範圍之外，且已被 ADR-0024 §2 的既有缺口涵蓋（被攻陷的 worker 以使用者權限執行、可讀寫使用者所有檔案）。問題只在 ADR 措辭過強，沒有新的利用路徑。",
+      "vote_breakdown": {
+        "true_positive": 0,
+        "false_positive": 2,
+        "cannot_verify": 0
+      },
+      "refute_reasons": [
+        "not_actionable"
+      ],
+      "exclusion_rule": "13",
+      "first_links": [
+        "src/peditor/core/service.py:96"
+      ],
+      "owner_hint": null,
+      "verify_verdict": null,
+      "severity": null,
+      "severity_label": null,
+      "severity_alignment": null,
+      "preconditions": [],
+      "access_level": null,
+      "threat_match": null,
+      "outcome": "documented",
+      "outcome_note": "未改程式。ADR-0024 §1 改為「worker 自己不得再建立子行程……不涵蓋經由已存在的其他行程或系統服務間接啟動程式」，§2 缺口補上間接啟動（8ca60b2）。THREAT_MODEL.md T1 仍寫「不得建立子行程」，未同步修正。",
+      "regression_tests": null
+    }
+  ],
+  "observations": [
+    {
+      "id": "O-1",
+      "title": "Document-level RESOURCE_LIMIT makes render_page refuse every page",
+      "file": "src/peditor/worker/analyzer.py",
+      "line": 405,
+      "status": "confirmed（非安全）",
+      "note": "_analyze_page 把 doc_reasons 併入每頁 reasons（analyzer.py:477-481、500、551、585），render_page 只看合併後的清單，所以書籤或表單欄位節點過多的文件整份無法檢視。",
+      "outcome": "fixed",
+      "outcome_note": "87ec3b2：render_page 在文件層級已有 RESOURCE_LIMIT 時不再以 RESOURCE_LIMIT 拒絕渲染。ADR-0024 §3 增補。",
+      "regression_tests": "tests/security/test_p7_limits.py::test_document_level_limit_still_renders",
+      "post_fix_issue": "修正後的條件（87ec3b2 analyzer.py:406-407）無法區分「只有文件層級超限」與「文件層級與頁面本身都超限」：文件層級已有 RESOURCE_LIMIT 時，頁面本身超限（壓縮炸彈、工作量上限）的頁面也會交給 MuPDF 渲染。文件層級超限的條件來自不可信 PDF 本身，因此 ADR-0024 §3「超過即該頁 RESOURCE_LIMIT，且不交給 MuPDF 擷取或渲染（render_page 也拒絕）」在這種文件上失效（後果同 f006，受 Job Object 記憶體上限與逾時限制）。回歸測試只驗證正常頁面可渲染，沒有驗證超限頁面在此情況仍被拒絕。建議由 _analyze_page 另外記錄頁面本身是否超限，render_page 以該值判定。未修。",
+      "post_fix_outcome": "fixed 57fdb4d：Document.limited_pages 記錄頁面本身超限，render_page 只依此判定；test_document_level_limit_still_renders 加 S03 文件層級超限仍拒絕；反向驗證 M25 抓到"
+    }
+  ],
+  "verification_runs": {
+    "regression_tests": "2026-11-05 於本機 Windows、HEAD 8ca60b2 執行 `uv run pytest -p no:cacheprovider tests/security/test_p7_limits.py tests/security/test_ipc_fuzz.py::test_request_timeout_is_total tests/integration/test_crash_injection.py::test_overwrite_readonly_leaves_no_readonly_temp`：13 passed。未在 0533432 上執行這些測試（未確認修正前會失敗）。",
+    "standalone_checks": "f004：在暫存目錄單獨計時新舊正規表示式（不匯入產品碼），結果見 f004 rationale。f001：以標準函式庫 zlib 確認串流中段毀損時 decompress 拋錯、不回傳該次輸出。兩者都不是 PDF，未寫入 repo。"
+  }
+}

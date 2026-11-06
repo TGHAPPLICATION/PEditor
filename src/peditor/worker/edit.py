@@ -19,7 +19,7 @@ from peditor.core.editplan import EditPlan, SpanTarget, parse_target_id, validat
 from peditor.core.geometry import apply, bbox_of, contains
 from peditor.core.limits import MAX_OBJECT_WALK
 from peditor.core.protocol import ProtocolError
-from peditor.worker import analyzer, fontb, span, table, tagged
+from peditor.worker import analyzer, fontb, span, streams, table, tagged
 from peditor.worker.content import TextRun
 
 POSITION_TOL = 0.01  # pt；溢出判定的數值容許
@@ -265,7 +265,7 @@ def _between_pieces(document: analyzer.Document, runs: list[TextRun]) -> str | N
             return "UNSUPPORTED_LAYOUT"
         if any(abs(u - v) > 1e-6 for u, v in zip(run.matrix[:4], first.matrix[:4], strict=True)):
             return "UNSUPPORTED_LAYOUT"
-    instructions = list(pikepdf.parse_content_stream(document.pike.get_object(first.stream)))
+    instructions = list(streams.parse(document.pike.get_object(first.stream)))
     for inst in instructions[first.op_index + 1 : runs[-1].op_index]:
         if not isinstance(inst, pikepdf.ContentStreamInstruction):
             return "UNSUPPORTED_LAYOUT"
@@ -509,8 +509,8 @@ def replay(document: analyzer.Document, commands, revision, reset) -> dict:
 
 
 def _rewrite(document: analyzer.Document, pending: _Pending) -> None:
-    streams = {e.run.stream for e in pending.edits}
-    if len(streams) != 1:
+    targets = {e.run.stream for e in pending.edits}
+    if len(targets) != 1:
         raise ProtocolError("VALIDATION_FAILED", "內容與計畫不一致")
     b_codes: list[int] = []
     if pending.font_name is not None:  # 模式 B：新增子集字型資源（頁面資源寫時複製）
@@ -526,8 +526,8 @@ def _rewrite(document: analyzer.Document, pending: _Pending) -> None:
         fonts[pending.font_name] = font
         resources.Font = fonts
         page.obj.Resources = resources
-    stream = document.pike.get_object(streams.pop())
-    instructions = list(pikepdf.parse_content_stream(stream))
+    stream = document.pike.get_object(targets.pop())
+    instructions = list(streams.parse(stream))
     # 由後往前改寫：模式 B 會把一個運算子展開成多個，先改後面的才不影響前面的索引
     for edit in sorted(pending.edits, key=lambda e: e.run.op_index, reverse=True):
         index = edit.run.op_index

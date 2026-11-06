@@ -24,7 +24,7 @@ import pymupdf
 from peditor.core.editplan import EditPlan, parse_target_id, validate_image_params
 from peditor.core.limits import MAX_IMAGE_BYTES, MAX_IMAGE_PIXELS
 from peditor.core.protocol import ProtocolError
-from peditor.worker import analyzer, edit
+from peditor.worker import analyzer, edit, streams
 
 ASPECT_TOL = 0.01  # 新圖與外框長寬比相差 1% 以內視為相同，不補邊
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -333,7 +333,7 @@ def _has_type3(page: pikepdf.Page) -> bool:
 def rewrite(document: analyzer.Document, pending: ImagePending) -> None:
     pdf = document.pike
     stream = pdf.get_object(pending.stream)
-    instructions = list(pikepdf.parse_content_stream(stream))
+    instructions = list(streams.parse(stream))
     inst = instructions[pending.op_index] if pending.op_index < len(instructions) else None
     if (not isinstance(inst, pikepdf.ContentStreamInstruction) or str(inst.operator) != "Do"
             or not inst.operands or str(inst.operands[0]) != pending.name):  # fmt: skip
