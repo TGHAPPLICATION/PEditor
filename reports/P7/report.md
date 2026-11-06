@@ -56,6 +56,7 @@ uv run pytest -q                                        → exit 0，550 passed�
 - 第一次在重播分批後跑全套時，被 Claude Code 因系統記憶體不足終止（無輸出、不是測試失敗）；工程師同意後重跑：528 passed、1 failed。
   失敗的 `test_drafts.py::test_recover_failure_closes_document` 以替換 `_doc_call` 注入重播失敗，重播改走 `_replay_batches` 後注入不到；
   改為替換 `_replay_batches`，預期（任何例外都關閉文件、草稿保留）不變（`968b027`）。
+- 第一輪核對處理後（`3e99755`）本機全套 551 passed、1 failed：`test_offline_guard.py::test_no_network_imports_in_product_code`——V3 的對照 hook（`_socket`）在 worker 的測試 hook 裡匯入了 socket，違反「產品碼不得匯入網路模組」；改為在測試端子行程安裝同一個 `_deny_network` 並嘗試建立 socket（`14b6f79`），M26 重做仍抓到。
 - CI：run [42011872284](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42011872284)（commit `ad427c0`）windows-latest 550 passed＋1 skipped（POSIX 權限位元測試）、macos-15 547 passed＋4 skipped（Windows-only 的 Job Object 與唯讀屬性測試）；run [42005863669](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42005863669)（commit `0533432`）windows-latest 543 passed＋1 skipped（POSIX 權限位元測試）、macos-15 541 passed＋3 skipped（Windows-only 的 Job Object 測試）。先前 run [42004855861](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42004855861)（commit `78bce58`）
   macos-15 在 `tests/gui/test_p7_ui.py::test_shutdown_wait_is_bounded` 發生 segmentation fault（windows-latest 543 passed）：關閉等待逾時返回後，
   背景工作結束時對已回收的 JobRunner 發 signal。產品端改為逾時返回前先標記放棄、之後結束的工作不再發 signal，測試改為結束前等背景工作完成（`0533432`）；
