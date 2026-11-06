@@ -24,8 +24,9 @@ THREAT_MODEL §6 的待決問題：worker 是否需要 OS 層級沙箱。
 
 - **Windows**：worker 以 `CREATE_SUSPENDED` 建立，主行程以 Job Object 包住後才恢復執行（Toolhelp 列舉執行緒、
   `ResumeThread`），沒有未受限的時間窗。Job 限制：
-  - 行程記憶體上限 2 GB（`WORKER_MEMORY_BYTES`）；超過時配置失敗，worker 回 `RESOURCE_LIMIT`（MemoryError），
-    不是崩潰。
+  - 行程記憶體上限 2 GB（`WORKER_MEMORY_BYTES`）；Python 層配置超過時 worker 回 `RESOURCE_LIMIT`（MemoryError），
+    不是崩潰。MuPDF、qpdf 原生配置失敗時的回應沒有驗證（可能回 `WORKER_FAILED`，或 worker 結束後由主行程重啟；
+    P7 獨立核對 V7）。
   - `ActiveProcessLimit`：worker 自己不得再建立子行程（Launch 與被攻陷後直接建立行程都會失敗）。不涵蓋經由
     已存在的其他行程或系統服務間接啟動程式（例如 COM、排程工作、殼層代為開啟），列入 §2 缺口。開發環境的 venv
     `python.exe` 是轉介程式、會再啟動真正的直譯器，該情況允許 2 個行程（仍不能再多）；打包後為 1。
@@ -34,6 +35,7 @@ THREAT_MODEL §6 的待決問題：worker 是否需要 OS 層級沙箱。
   - 套用失敗即不使用該 worker（fail closed，回 `WORKER_FAILED`）。
 - **macOS／POSIX**：worker 讀任何請求之前自行設 `RLIMIT_AS`（2 GB）與 `RLIMIT_CORE`（0），hard limit 一併設定。
   macOS 核心不強制 `RLIMIT_AS`，記憶體上限在 macOS 只是宣告；也沒有等同 `ActiveProcessLimit` 的機制。
+  設定失敗時不中止（POSIX 不是 fail closed，與 Windows 不同）。
 - 以 ctypes 呼叫系統 API，不新增相依。
 
 ### 2. 不做完整 OS 沙箱（缺口明列）
@@ -45,6 +47,15 @@ THREAT_MODEL §6 的待決問題：worker 是否需要 OS 層級沙箱。
 | macOS App Sandbox | 需簽章與 entitlements，配合 P8 打包與 notarization；Python 子行程須同一 bundle | 不做（P8 與正式散布時另議） |
 | macOS `sandbox-exec` | Apple 已標為 deprecated，規則語法無正式文件 | 不採用 |
 | 網路封鎖 | 產品碼不匯入網路模組（測試）、測試以 audit hook 驗證無 socket、實機以腳本監測 | 不加 OS 防火牆規則（需系統管理權限） |
+
+spec P7「最低必須有獨立程序、限制 IPC、路徑白名單與作業系統出站封鎖驗證」逐項（P7 獨立核對 V1）：
+
+| 最低要求 | 狀態 | 說明 |
+| --- | --- | --- |
+| 獨立程序 | 達成 | 解析只在 worker 子行程（ADR-0004）；Windows 另以 Job Object 限制（§1） |
+| 限制 IPC | 達成 | 只用 stdin／stdout 管線、JSON Lines、單行大小上限；請求參數白名單（P1）；回應結構驗證（§5）；無任何 socket（G7-02 測試） |
+| 路徑白名單 | 部分達成 | 主行程層級：開檔路徑由使用者選擇、另存只接受 `destination_token`（ADR-0020 §3），worker 只收主行程指定的路徑；worker 本身沒有 OS 強制的路徑限制，被攻陷時可讀寫使用者可存取的任何檔案 |
+| 作業系統出站封鎖驗證 | 部分達成 | 沒有加 OS 防火牆封鎖規則（需系統管理權限）；以自動測試（audit hook、socket 監測）與實機監測腳本驗證「沒有出站」；Windows 實機尚未執行，macOS 實機 NOT RUN |
 
 缺口：worker 仍以使用者權限執行，可讀寫使用者可存取的所有檔案、可開 socket（被攻陷時），也可能經由其他行程或
 系統服務間接啟動程式（Job Object 只擋 worker 直接建立子行程）；主行程與 worker 之間只靠 stdin／stdout 管線。
@@ -75,8 +86,9 @@ macOS 上記憶體與子行程都沒有 OS 強制。
 ### 5. worker 回應驗證（core/protocol.py `validate_response`；P1 triage f006、f020、f021）
 
 - 主行程對每個 operation 檢查回應結構：`ok` 為布林、`result` 為物件且主行程用到的欄位型別正確（int 不接受 bool）、
-  `error` 的 code 在已知清單、message 為字串且 ≤1,000 字、retryable 為布林；request_id 為字串時須與請求相同。
-  不符即視為 worker 異常：終止重啟、回 `WORKER_FAILED`。只檢查結構，不檢查巢狀內容的語義（被攻陷的 worker
+  `error` 的 code 在已知清單、message 為字串且 ≤1,000 字、retryable 為布林；request_id 必須是字串或 null。
+  不符即視為 worker 異常：終止重啟、回 `WORKER_FAILED`。request_id 是其他字串的回應視為不是這個請求的回應而略過
+  （仍受請求總逾時限制，P7 獨立核對 V7）。只檢查結構，不檢查巢狀內容的語義（被攻陷的 worker
   仍可回傳結構正確但內容錯誤的結果，影響限於 UI 顯示與該次操作）。
 - worker 只回傳字串 request_id。
 - 逾時以整個請求計，不因 worker 送出其他 request_id 的回應而重新計時（候選 7）。
@@ -110,7 +122,9 @@ macOS 上記憶體與子行程都沒有 OS 強制。
   16 KB 即視為超限。
 - 回應結構不符一律重啟 worker，比原本嚴格。
 - 殘餘：解壓前檢查與 50 MP 檢查只涵蓋 content 解譯器實際走到的物件；inline image、影像的 SMask、tiling pattern、
-  soft-mask group、Type3 字型的 /Resources、Type0 內嵌 CMap、註解外觀等由 MuPDF 自行解壓的串流，炸彈只受 Job Object
+  soft-mask group、Type3 字型的 /Resources、Type0 內嵌 CMap、註解外觀、shading（含 Type 4–7 mesh 串流）、Function
+  串流、ICCBased 色彩描述檔，以及影像資料本身（只檢查宣告的寬×高，不檢查壓縮比；P7 獨立核對 V6），都由 MuPDF
+  自行解壓，炸彈只受 Job Object
   記憶體上限保護（macOS 無；候選 6）；「超限、不渲染」以 pikepdf 的解析結果判定，MuPDF 對同一份檔案的解析（例如需要
   修復的檔案）可能不同（候選 9）；
   非完整 OS 沙箱（§2）；實機出站監測以輪詢進行，短於輪詢間隔的連線嘗試可能漏掉（自動測試以 audit hook 與
