@@ -70,11 +70,12 @@ def connections(pids: list[int], include_self: bool = False) -> list[str]:
         )
         out = _run(["powershell", "-NoProfile", "-Command", script])
         return [line.strip() for line in out.splitlines() if line.strip()]
-    # lsof：結束碼 1 且沒有輸出＝沒有符合的 socket；其他非 0 一律視為列舉失敗（P7 第二輪核對 W5）
+    # lsof：-p 指定的行程中有任一個沒有符合的檔案即回結束碼 1（其他行程的結果照常輸出）；
+    # 結束碼 1 且 stderr 沒有錯誤訊息視為正常，其他情況一律視為列舉失敗（P7 第二輪核對 W5）
     result = subprocess.run(
         ["lsof", "-nP", "-a", "-p", ",".join(map(str, sorted(tree))), "-i"],
         capture_output=True, text=True, timeout=60,
     )  # fmt: skip
-    if result.returncode != 0 and not (result.returncode == 1 and not result.stdout.strip()):
+    if result.returncode != 0 and not (result.returncode == 1 and not result.stderr.strip()):
         raise RuntimeError("enumeration failed")
     return [line for line in result.stdout.splitlines()[1:] if line.strip()]
