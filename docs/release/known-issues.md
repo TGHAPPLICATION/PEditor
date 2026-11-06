@@ -36,7 +36,7 @@
 | F7 | 儲存格編輯偏保守：底色塊、比文字長的刪除線、曲線、斜線、蓋在文字上的註解會使該行不能改或不能長過它們 | ADR-0023 後果、P6 U6、P6 U7 |
 | F8 | 加密、簽章、PDF/A、XFA、含主動內容（JavaScript、Launch、嵌入檔）的文件整份拒絕 | ADR-0007 |
 | F9 | 單一串流解壓後超過 64 MB、影像宣告超過 50 MP、頁面運算子超過上限的頁面不能編輯 | ADR-0024 §3 |
-| F10 | 沒有 ToUnicode 的 CID 字集字型（例如 Identity-H＋Adobe-CNS1 的標楷體）不能修改；面板顯示 MuPDF 擷取的文字僅供參考 | ADR-0011、ADR-0026（提議） |
+| F10 | 沒有 ToUnicode 的 CID 字集字型（例如 Identity-H＋Adobe-CNS1 的標楷體）不能修改；面板顯示 MuPDF 擷取的文字僅供參考 | ADR-0011、ADR-0026 |
 
 ## 效能
 

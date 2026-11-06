@@ -50,7 +50,7 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
 - 本機全套：`uv run ruff check . && uv run ruff format --check . && uv run pytest -q` → exit 0，604 passed、1 skipped（Windows 製作機，e1969cc；POSIX 權限位元測試略過）。
 - 本機全套 → exit 0，612 passed、1 skipped（bcd6059，實機發現與工程師要求處理後）。CI run [42170637580](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42170637580)（commit `bcd6059`）test 與 release 雙平台 success；Windows 安裝包 SHA-256 `c63b0911f1b9674076aca72d93bb98c6309e6759a0cac8dd734b251cce40e64d`——**實機驗收以此版為準**。
 - 反向驗證：P8-M1（重做只綁第一組標準鍵）、P8-M2（套用後不移焦點）都被 `test_shortcuts.py` 抓到；P8-M3（格支援時不看行的判定）、P8-M4（不能改的行仍預填）、P8-M5（不顯示□）都被 `test_cell_ui.py::test_unsupported_line_not_previewable` 抓到。
-- **工程師回報（2026-11-06）：編碼問題仍未解決**——`4a56661` 後亂碼改成「□」、不能預覽，但文字仍看不到也不能改。查證：字型為標楷體 Type0、Identity-H、Adobe-CNS1-3、沒有 ToUnicode；MuPDF 依內建字集表擷取正確。依 ADR-0011 判為拒絕是既定範圍，讓它可編輯屬擴大支援範圍。工程師決定「照建議」：方案 A（`2ab591a`）——目標與儲存格的行另附 `display_text`（對應不到的字改用 MuPDF 在同一位置擷取的字），面板顯示並註明「MuPDF 擷取，僅供參考」，判定與定位仍用 `text`（該格仍 `reject`）；測試 `test_analyzer.py::test_display_text_for_unmapped_glyphs`、`test_cell_ui.py::test_display_text_shown_for_reference`；反向驗證 P8-M12、P8-M13 都被抓到。方案 B 寫成 ADR-0026（提議、待人工確認）：該 PDF 的子集字型沒有 cmap 與字形名稱，原設想的交叉驗證做不到，建議維持拒絕，另段評估字形形狀比對。已知缺陷 F10。
+- **工程師回報（2026-11-06）：編碼問題仍未解決**——`4a56661` 後亂碼改成「□」、不能預覽，但文字仍看不到也不能改。查證：字型為標楷體 Type0、Identity-H、Adobe-CNS1-3、沒有 ToUnicode；MuPDF 依內建字集表擷取正確。依 ADR-0011 判為拒絕是既定範圍，讓它可編輯屬擴大支援範圍。工程師決定「照建議」：方案 A（`2ab591a`）——目標與儲存格的行另附 `display_text`（對應不到的字改用 MuPDF 在同一位置擷取的字），面板顯示並註明「MuPDF 擷取，僅供參考」，判定與定位仍用 `text`（該格仍 `reject`）；測試 `test_analyzer.py::test_display_text_for_unmapped_glyphs`、`test_cell_ui.py::test_display_text_shown_for_reference`；反向驗證 P8-M12、P8-M13 都被抓到。方案 B 寫成 ADR-0026（工程師 2026-11-06 決定採 B0、B2 另段評估）：該 PDF 的子集字型沒有 cmap 與字形名稱，原設想的交叉驗證做不到，建議維持拒絕，另段評估字形形狀比對。已知缺陷 F10。
 - **工程師要求（2026-11-06）：編輯面板浮動、尋找改為 Ctrl+F**——編輯與搜尋佔空間。`9aba032`：編輯面板改為 QDockWidget，預設浮動在視窗右側，可拖動、貼回邊緣或關閉，「檢視 → 編輯面板」切換，選取內容時自動叫回；尋找移出面板，改為選單「編輯 → 尋找…」（平台標準 Find 鍵，Windows 為 Ctrl+F），小型浮動視窗、Enter 送出，不放工具列；新增「檔案」「編輯」「檢視」選單（與工具列共用動作）。`test_e2e.py` 的尋找改由選單開啟尋找框（介面變更，預期不變）。測試 `tests/gui/test_layout.py`（2 項）；反向驗證 P8-M9（面板不浮動）、P8-M10（選取時不叫回）、P8-M11（尋找也放工具列）都被抓到。
 - **工程師要求（2026-11-06）：頁面縮放**——文件字很小時看不清楚。`716d1f3`：放大、縮小、實際大小、符合寬度（工具列與平台標準快捷鍵、Ctrl＋0），Ctrl＋滾輪；25%–400%；放大停止 300 ms 後以 min(300 DPI, 100 DPI×縮放) 重新渲染該頁（字不糊），換頁或文件變動時丟棄結果；點選判定用場景座標，縮放不影響。測試 `tests/gui/test_zoom.py`（5 項）；反向驗證 P8-M6（不套用縮放轉換）、P8-M7（放大不重新渲染）、P8-M8（滾輪不縮放）都被抓到。實機驗收清單待加一項。
 - **工程師實機發現（2026-11-06）**：以 CI 安裝包開啟一份外部下載的公開 PDF（非盲測、不入 repo），表格儲存格的選取內容、行選單與新文字欄顯示 U+FFFD 亂碼，且「預覽」可按。查證：該字型（標楷體，Type0）沒有 ToUnicode，文字目標與儲存格的每一行都正確判為 `UNSUPPORTED_ENCODING`，實際規劃 `ready: false`，**沒有誤標成可編輯**；問題在介面：選取儲存格時只看格的結構判定（support），沒看所選行的判定，並把對應不到的字（U+FFFD）原樣顯示與預填。`4a56661` 修正：以所選行的判定為準（不能預覽、直接顯示原因）、不能改的目標不預填新文字、對應不到的字顯示為「□」。我最初未查證就說「違反錯誤標成可編輯率 0%」，查證後更正。
@@ -88,7 +88,7 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
 | U1 | 防毒誤判未簽署的執行檔；原始碼編譯 bootloader 的效果未知 | 機關電腦可能無法安裝 | 待工程師（偵測名稱、A01 結果） |
 | U2 | Windows 實機驗收、盲測、授權核對都需人工 | G8 要求實機與盲測 | 待工程師／保管人／負責人 |
 | U3 | macOS 實機 NOT RUN | G8 的 macOS 部分 | 待工程師決定（附條件） |
-| U4 | ADR-0026（提議）：沒有 ToUnicode 的 CID 字集字型是否納入編輯；建議維持拒絕、另段評估字形形狀比對 | 這類政府表格不能修改 | 待工程師決定 |
+| U4 | ADR-0026：沒有 ToUnicode 的 CID 字集字型是否納入編輯 | 這類政府表格不能修改 | **維持拒絕（B0），B2 另段評估**（工程師 2026-11-06「照建議」） |
 
 ## 10. 關卡結果
 
