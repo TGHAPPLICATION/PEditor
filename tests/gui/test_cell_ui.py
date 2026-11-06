@@ -123,3 +123,18 @@ def test_unsupported_line_not_previewable(qtbot, make_window):
     assert window.panel.new_text.text() == "N99796" and window.panel.info.text() == ""
     window.select_target({"target_id": "t9", "text": "��", "capability": bad})
     assert window.panel.new_text.text() == "" and window.panel.selected.text() == "□□"
+
+
+def test_display_text_shown_for_reference(qtbot, make_window):
+    """P8 實機：有 display_text（MuPDF 擷取）時面板顯示它並註明僅供參考；仍不能預覽、不預填。"""
+    window = make_window()
+    bad = {"status": "reject", "reasons": ["UNSUPPORTED_ENCODING"]}
+    cell = {"cell_id": "c1", "row": 1, "col": 3, "capability": {"status": "support", "reasons": []},
+            "lines": [{"text": "�O�", "display_text": "許O維", "capability": bad,
+                       "target_ids": ["t1"]}]}  # fmt: skip
+    window._select_cell(cell, 0, "cell", None)
+    assert "許O維" in window.panel.selected.text() and "僅供參考" in window.panel.selected.text()
+    assert not window.panel.preview_button.isEnabled() and window.panel.new_text.text() == ""
+    window.select_target({"target_id": "t9", "text": "�", "display_text": "許",
+                          "capability": bad})  # fmt: skip
+    assert window.panel.selected.text().startswith("許") and window.panel.new_text.text() == ""

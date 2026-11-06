@@ -597,7 +597,7 @@ class MainWindow(QMainWindow):
             self.panel.selected.setText(f"圖片（{x1 - x0:.0f} × {y1 - y0:.0f} pt）")
             self.panel.new_text.clear()
         else:
-            self.panel.selected.setText(_shown(text))
+            self.panel.selected.setText(_shown(target.get("display_text", text), text))
             # 不能改的目標不預填（對應不到 Unicode 的字不能當新文字的起點；P8 實機發現）
             supported = target["capability"]["status"] == "support"
             self.panel.new_text.setText(text if supported else "")
@@ -625,11 +625,13 @@ class MainWindow(QMainWindow):
         self.view.highlight(highlight)
         where = ("手動選格" if kind == "manual_cell"
                  else f"表格第 {cell['row'] + 1} 列第 {cell['col'] + 1} 欄")  # fmt: skip
-        self.panel.selected.setText(f"{where}：{_shown(text)}" if text else where)
+        shown = _shown(lines[line_index].get("display_text", text), text) if lines else ""
+        self.panel.selected.setText(f"{where}：{shown}" if text else where)
         choice = self.panel.line_choice
         choice.blockSignals(True)
         choice.clear()
-        choice.addItems([f"第 {i + 1} 行：{_shown(line['text'])}" for i, line in enumerate(lines)])
+        choice.addItems([f"第 {i + 1} 行：{_shown(line.get('display_text', line['text']))}"
+                         for i, line in enumerate(lines)])  # fmt: skip
         choice.setCurrentIndex(line_index if lines else -1)
         choice.blockSignals(False)
         choice.setVisible(len(lines) > 1)
@@ -885,8 +887,11 @@ class MainWindow(QMainWindow):
         super().closeEvent(event)
 
 
-def _shown(text: str) -> str:
-    """顯示用：對應不到 Unicode 的字（worker 以 U+FFFD 表示）改為「□」，不顯示成亂碼。"""
+def _shown(text: str, original: str | None = None) -> str:
+    """顯示用：對應不到 Unicode 的字（worker 以 U+FFFD 表示）改為「□」，不顯示成亂碼。
+    給 original 且 text 與它不同時，text 是 MuPDF 擷取的顯示文字，加註僅供參考。"""
+    if original is not None and text != original:
+        return text.replace("\ufffd", "□") + "（MuPDF 擷取，僅供參考）"
     return text.replace("\ufffd", "□")
 
 

@@ -395,6 +395,7 @@ def assess(box: list[float], text_targets: list[dict], reasons: list[str]) -> di
         line_reasons = list(dict.fromkeys(r for t in line for r in t["capability"]["reasons"]))
         out_lines.append({
             "text": "".join(t["text"] for t in line),
+            "display_text": "".join(t.get("display_text", t["text"]) for t in line),
             "target_ids": [t["target_id"] for t in line],
             "bbox": [min(t["bbox"][0] for t in line), min(t["bbox"][1] for t in line),
                      max(t["bbox"][2] for t in line), max(t["bbox"][3] for t in line)],
