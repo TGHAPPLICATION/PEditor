@@ -177,3 +177,20 @@ P7 對既有測試的修改都有正當理由。結論「有出入」，**有 mu
 | V6（should-fix） | ADR-0024 殘餘未列 shading（含 mesh 串流）、Function、ICCBased 串流，以及影像資料本身的壓縮比（只檢查宣告的寬×高） | ADR-0024 後果殘餘補列 shading（含 mesh）、Function、ICCBased、影像資料壓縮比；§9 U5 同步 |
 | V7（備查） | 措辭：ADR §1「超限回 RESOURCE_LIMIT 不是崩潰」只驗證 Python 層配置；ADR §5 不相符的字串 request_id 實際是略過而非視為異常；THREAT_MODEL T2「每種訊息都有畸形輸入測試」主行程端只測 open_document；POSIX limit_self 失敗不中止，ADR §1 未寫 | ADR-0024 §1 註明原生配置失敗未驗證、POSIX 不是 fail closed；§5 改為「request_id 必須是字串或 null，其他字串略過」；THREAT_MODEL T2 改為 worker 端每種請求、主行程端以 open_document 測畸形回應 |
 | V8（備查） | 拿掉 CREATE_SUSPENDED 沒有測試抓得到（時間窗本質上難測，靠讀程式確認）；打包後 ActiveProcessLimit 1 未驗證（建議 P8）；S06 sentinel 只在 Windows 有意義；TRIAGE.md f008 列「T1 未同步」已過時；實機腳本以「Up 網卡數＝0」判斷斷網，虛擬網卡可能使其不為 0；G7-05 未檢查 CLI stdout、未 assert worker stderr 檔非空 | §7 補列（暫停建立靠讀程式確認、打包後行程數列 P8、S06 只在 Windows 有意義）；實機腳本改為列出每張網卡狀態（`ac66cba`）；TRIAGE.md f008 列的「T1 未同步」已由 `57fdb4d` 處理（§8 已記）；G7-05 未檢查 CLI stdout 與 worker stderr 檔非空，備查不處理 |
+
+第二輪（2026-11-06，HEAD `eaade45`，範圍只限第一輪 V1–V8 的處理）：另一個未參與實作、掃描、triage 與第一輪的 Claude 子代理人核對（複本與突變腳本放在 repo 外，結束時工作區乾淨）。
+自行驗證屬實：V1 對照表、§7、§9 U6 一致且 U6 仍待決；V2 各檔收集數與報告一致（全套 553＝552＋1 skipped）；V3 拿掉記錄（M26）、worker 吞掉 socket 嘗試都被抓到，
+對照測試用同一個 `_deny_network`，`test_offline_guard` 通過；V4 `_children` 永遠回空、列舉指令失敗都被抓到；V5 斷言合理；V6–V8 措辭正確，實機腳本只列網卡名稱、狀態、描述且為純 ASCII；
+ruff、format 通過，pytest 552 passed、1 skipped。結論「有出入」，無 must-fix：
+
+| # | 內容 | 處理 |
+| --- | --- | --- |
+| W1（should-fix） | V3 未涵蓋「安裝」：把 worker main() 的 `sys.addaudithook(_deny_network)` 拿掉，測試仍通過（hook 沒裝就不產生紀錄檔，`test_offline_flow` 的斷言照樣成立；對照測試自己安裝 hook，不經 worker 的 main()） | 待工程師決定 |
+| W2（should-fix） | V4「流程進行中背景持續輪詢」沒有涵蓋流程：流程約 0.28 秒結束，第一次輪詢約 4.8 秒才完成（每輪對每個 pid 各叫一次 PowerShell，約 5 秒）；worker 在流程中開 4 秒的 listener 沒被抓到。§3、§6、traceability、測試 docstring 的「流程中」「每 0.2 秒」過強 | 待工程師決定 |
+| W3（should-fix） | §7 仍寫「audit hook（任何 socket 操作即失敗）與 Job Object 補足」：應為 Python 層事件，且 Job Object 不限制網路 | 待工程師決定 |
+| W4（備查） | §10 仍寫本機 550 passed（已為 552）；§1 未列 `14b6f79` | 待工程師決定 |
+| W5（備查） | macOS 的 socket 列舉（lsof）不檢查結束碼，失敗時回空清單 | 待工程師決定 |
+| W6（備查） | PowerShell 結束碼 0 但輸出為空時視為沒有子行程（偶發一次只列到轉介程式，無法穩定重現）；V5 測試會因此失敗（安全方向），G7-02 則少查子孫 | 待工程師決定 |
+| W7（備查） | ADR-0024 狀態欄未記 2026-11-06 的增補 | 待工程師決定 |
+| W8（備查） | 全套輸出開頭的 faulthandler「access violation」堆疊來自測試專用的 pypdfium2 匯入，結果不受影響 | 待工程師決定 |
+
