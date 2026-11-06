@@ -94,8 +94,14 @@ jobs:
       - name: Inno Setup (pinned, ADR-0025)
         if: runner.os == 'Windows'
         run: choco install innosetup --version=6.7.1 -y --no-progress --allow-downgrade
+      # 同一版 PyInstaller 改由原始碼編譯 bootloader（預編譯的 bootloader 常被防毒啟發式規則誤判；ADR-0025）
+      - name: PyInstaller bootloader from source (Windows, same version)
+        if: runner.os == 'Windows'
+        env:
+          PYINSTALLER_COMPILE_BOOTLOADER: "1"
+        run: uv pip install --reinstall --no-binary pyinstaller "pyinstaller==6.22.3"
       - name: Build release and self-check
-        run: uv run python packaging/build_release.py
+        run: uv run --no-sync python packaging/build_release.py
       - name: Upload release artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
