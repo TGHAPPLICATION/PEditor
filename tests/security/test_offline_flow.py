@@ -10,8 +10,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from peditor.core.service import DocumentService
-
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 
 FLOW = """
@@ -80,9 +78,19 @@ def test_deny_hook_blocks_sockets(monkeypatch):
 
 
 def test_worker_hook_records_swallowed_attempts(tmp_path, monkeypatch):
-    """對照：worker 內部嘗試建立 socket 並吞掉錯誤時，紀錄檔仍有事件（worker 端的檢查不是空的）。"""
+    """對照：安裝 worker 同一個 deny hook 後，嘗試建立 socket 並吞掉錯誤，紀錄檔仍有事件
+    （worker 端的檢查不是空的）。產品碼不得匯入網路模組，所以在另一個行程裡做。"""
     log = tmp_path / "worker-network.log"
     _deny_env(monkeypatch, log)
-    with DocumentService() as svc:
-        assert svc._send_raw("_socket", {}) == {"created": False}
+    code = (
+        "import sys\n"
+        "from peditor.worker import server\n"
+        "sys.addaudithook(server._deny_network)\n"
+        "import socket\n"
+        "try:\n"
+        "    socket.socket().close()\n"
+        "except Exception:\n"
+        "    pass\n"
+    )
+    subprocess.run([sys.executable, "-P", "-c", code], check=True, timeout=60)
     assert "socket." in log.read_text(encoding="utf-8")

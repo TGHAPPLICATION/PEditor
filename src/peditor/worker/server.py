@@ -152,14 +152,6 @@ def _test_hook(operation: str, params: dict) -> dict:
     if operation == "_alloc":
         block = bytearray(int(params["bytes"]))
         return {"allocated": len(block)}
-    if operation == "_socket":  # G7-01 對照：worker 內部嘗試建立 socket 並吞掉錯誤
-        try:
-            import socket
-
-            socket.socket().close()
-        except Exception:  # noqa: BLE001
-            return {"created": False}
-        return {"created": True}
     if operation == "_spawn":
         import subprocess
 
