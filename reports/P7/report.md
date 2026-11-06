@@ -8,7 +8,7 @@
 - 階段：P7　分支：`p7-security-hardening`　commit：`c2891d7`（worker Job Object／rlimit）、`16e860a`（解壓前大小限制、CMap 線性解析、影像像素上限）、
   `699e80d`（S03、S05、S06；惡意樣本與 socket 測試；超限頁面不渲染）、`420c686`（回應結構驗證、畸形輸入測試）、`dce8aec`（G7-05、G7-01 自動測試）、
   `968b027`（重播分批、關閉等待上限、U13）、`294e352`（S04）、`c594efd`（`.gitattributes`）、`132eb14`（f009、f012、U10）、`e2e899c`（實機腳本）、
-  `c5960e0`、`3412e05`、`860927c`（測試補強）、`0533432`（關閉逾時後不發 signal）、`87ec3b2`、`57fdb4d`（安全掃描候選與 triage 處理）、`ac66cba`（第一輪核對 V3–V5、V8）　日期：2026-11-04～11-05
+  `c5960e0`、`3412e05`、`860927c`（測試補強）、`0533432`（關閉逾時後不發 signal）、`87ec3b2`、`57fdb4d`（安全掃描候選與 triage 處理）、`ac66cba`、`14b6f79`（第一輪核對 V3–V5、V8）、`bd825f1`（第二輪核對 W1、W2、W5）　日期：2026-11-04～11-05
 - 只改報告、traceability、THREAT_MODEL 或 CI 紀錄的 commit 依 P4 慣例不列。
 - S1／S2 決定（工程師 2026-11-04「照建議」）：OS 限制採 Windows Job Object＋POSIX rlimit、不做完整沙箱並列缺口；Windows 實機以一鍵腳本由工程師執行，
   macOS NOT RUN；帶入項目做安全與穩定性類，U13 一併處理，P4 U12、U14、P5 U3 移 P8；不新增產品日誌，G7-05 改檢查所有對外輸出。
@@ -35,7 +35,7 @@ fixture hash（前 12 碼）：S03 `8f5cbf6df7a7`、S04 `2dd116833d7e`、S05 `1e
 | 需求 ID | test ID | fixture | 環境 | 結果 |
 | --- | --- | --- | --- | --- |
 | G7-01 斷網完整開／編／存 | `tests/security/test_offline_flow.py::test_offline_flow`（主行程與 worker 以 audit hook 禁止並記錄 Python 層的 socket 事件，完整開、分析、渲染、規劃、預覽、套用、復原、重做、另存後兩邊都沒有事件；原生函式庫的 socket 不經 audit hook，由 G7-02 涵蓋）、`::test_deny_hook_blocks_sockets`、`::test_worker_hook_records_swallowed_attempts`（對照） | T01 | 本機、CI | PASS（自動測試）；**Windows 實機 NOT RUN**（`scripts/p7_offline_check.ps1` 須於網路介面全部中斷時由工程師執行；本機以連網狀態試跑腳本：10 輪、25.5 秒、FLOW-OK，見 §6）；macOS 實機 NOT RUN |
-| G7-02 零出站、無 listener | `tests/security/test_no_listener.py::test_no_listening_sockets`（流程進行中背景持續輪詢、結束後再查一次，測試行程＝主行程與 worker 整棵行程樹沒有任何 socket，含 loopback；列舉失敗即測試失敗）、`::test_connection_check_detects_sockets`、`::test_connection_check_covers_child_processes`（對照：自己或子行程開 listener 時列得出來） | T01 | 本機、CI | PASS（自動測試）；**Windows 實機 NOT RUN**（同上腳本）；macOS 實機 NOT RUN |
+| G7-02 零出站、無 listener | `tests/security/test_no_listener.py::test_no_listening_sockets`（背景輪詢每輪約 1–2 秒，重複執行流程直到流程期間至少輪詢 3 次，結束後再查一次，測試行程＝主行程與 worker 整棵行程樹沒有任何 socket，含 loopback；列舉失敗即測試失敗）、`::test_connection_check_detects_sockets`、`::test_connection_check_covers_child_processes`（對照：自己或子行程開 listener 時列得出來） | T01 | 本機、CI | PASS（自動測試）；**Windows 實機 NOT RUN**（同上腳本）；macOS 實機 NOT RUN |
 | G7-03 惡意樣本不啟動外部程式／連線 | `tests/security/test_malicious.py::test_no_external_launch`（S02–S06 開檔、判定、分析、渲染、另存；S06 Launch 若執行會在目前資料夾建立 sentinel 檔；worker 無 socket）、`tests/security/test_sandbox.py::test_worker_cannot_spawn_processes`、`::test_spawn_hook_works_without_job`（對照） | S02–S06 | 本機、CI | PASS；子行程限制 macOS 無 OS 強制（ADR-0024 缺口，Windows-only 測試在 macOS 略過，記 NOT RUN） |
 | G7-04 逾時停止、崩潰重啟 | `tests/security/test_worker_limits.py`（P1：逾時、取消、崩潰重啟）、`tests/security/test_sandbox.py::test_worker_dies_with_main_process`（worker 執行長操作時主行程異常結束，worker 整棵行程樹一併終止）、`tests/unit/test_replay_batches.py`（3 項）、`tests/gui/test_p7_ui.py::test_shutdown_wait_is_bounded` | T01 | 本機、CI | PASS；隨主行程終止 macOS NOT RUN |
 | G7-05 日誌不洩漏 | `tests/security/test_logging.py::test_no_sentinel_in_logs`（sentinel 資料夾、檔名、文件內容、新文字；錯誤訊息與 worker stderr）、`::test_cli_stderr_has_no_sentinel`（2 組） | T01、S01–S03、U02 | 本機、CI | PASS |
@@ -65,7 +65,7 @@ uv run pytest -q                                        → exit 0，552 passed�
 - P7 新增測試：`tests/security/` 的 `test_sandbox.py` 4 項、`test_p7_limits.py` 11 項、`test_malicious.py` 5 項、`test_no_listener.py` 3 項、`test_ipc_fuzz.py` 32 項、
   `test_logging.py` 3 項、`test_offline_flow.py` 3 項；`tests/unit/test_replay_batches.py` 3 項；`tests/gui/test_p7_ui.py` 2 項；`test_crash_injection.py` 4 項；
   另 `test_analyzer.py`、`test_fixtures.py`、`test_manifest.py` 納入 S03–S06。
-- **反向驗證**（repo 外的臨時腳本；工作區先提交乾淨，逐一改壞實作、跑對應測試、再還原）：26 項全部被抓到（M3、M16 第一次沒抓到，補強測試後重做抓到；M17–M25 為安全掃描候選與 triage 處理後、M26 為第一輪核對處理後補做）——
+- **反向驗證**（repo 外的臨時腳本；工作區先提交乾淨，逐一改壞實作、跑對應測試、再還原）：28 項全部被抓到（M3、M16 第一次沒抓到，補強測試後重做抓到；M17–M25 為安全掃描候選與 triage 處理後、M26 為第一輪、M27–M28 為第二輪核對處理後補做）——
 
   | # | 改壞的地方 | 抓到的測試 |
   | --- | --- | --- |
@@ -95,6 +95,8 @@ uv run pytest -q                                        → exit 0，552 passed�
   | M24 | 逾時每行重新計時（候選 7） | `test_ipc_fuzz.py::test_request_timeout_is_total`（90 秒未結束，視為抓到） |
   | M25 | 渲染判定改回 `87ec3b2` 的條件（triage 指出的繞過） | `test_p7_limits.py::test_document_level_limit_still_renders`（S03 部分） |
   | M26 | worker 的 deny hook 不記錄事件（第一輪核對 V3） | `test_offline_flow.py::test_worker_hook_records_swallowed_attempts` |
+  | M27 | worker 不安裝 deny hook（第二輪核對 W1） | `test_offline_flow.py::test_offline_flow`（沒有安裝標記） |
+  | M28 | worker 在流程中途開 4 秒的 loopback listener（第二輪核對 W2） | `test_no_listener.py::test_no_listening_sockets` |
 
 - 反向驗證過程：M6 卡住時第一版腳本的逾時只終止 `uv`，pytest 孫行程仍握著管線而一直等待；以 Stop-Process 終止後，腳本的外層 shell 結束但 Python 腳本繼續跑完，
   其間我以 `git checkout` 還原了當時突變中的 analyzer.py（M8），因此 M8 重做。之後的腳本改為每項寫入結果、逾時以 `taskkill /T` 終止整棵行程樹。
@@ -105,7 +107,7 @@ uv run pytest -q                                        → exit 0，552 passed�
 
 ## 6. 資料完整性與資源／出站紀錄
 
-- **出站**：產品碼不匯入網路模組（`test_offline_guard`）；自動測試以 audit hook 禁止 socket 完成完整流程（G7-01）、流程中無任何 socket（G7-02）。
+- **出站**：產品碼不匯入網路模組（`test_offline_guard`）；自動測試以 audit hook 禁止並記錄 Python 層 socket 事件完成完整流程（G7-01）；重複執行流程期間至少輪詢 3 次（每輪約 1–2 秒）與結束後都沒有任何 socket（G7-02）。
 - **實機腳本試跑**（2026-11-05，製作機，**網路連線中**，因此不是 G7-01 證據）：`powershell -ExecutionPolicy Bypass -File scripts\p7_offline_check.ps1` → exit 0；
   10 輪、25.5 秒、輪詢 29 次（平均間隔 0.88 秒，`Get-NetTCPConnection` 本身約 0.8 秒）、行程樹最多 6 個行程、看到的 socket 0 個；S06 未建立 sentinel 檔。
   輪詢可能漏掉短於間隔的連線嘗試（§7）。
@@ -117,7 +119,7 @@ uv run pytest -q                                        → exit 0，552 passed�
 
 - **Windows 實機 G7-01、G7-02：NOT RUN**——須由工程師在網路介面全部中斷時執行 `scripts\p7_offline_check.ps1`，把 `build\p7-check\summary.md` 交回。
 - **macOS 實機：NOT RUN**（ADR-0003：P7 斷網與零出站不能以 CI 代替）；macOS 上記憶體與子行程限制沒有 OS 強制，相關 4 項測試在 macOS 略過。
-- 實機出站監測以輪詢進行，短於約 1 秒的連線嘗試可能漏掉；自動測試的 audit hook（任何 socket 操作即失敗）與 Job Object 補足。
+- 實機出站監測以輪詢進行，短於約 1 秒的連線嘗試可能漏掉；自動測試的 audit hook 只涵蓋 Python 層 socket 事件（原生函式庫的 socket 不在內），Job Object 不限制網路；兩者都不能補足輪詢的時間解析度（第二輪核對 W3）。
 - 非完整 OS 沙箱：worker 仍有使用者的檔案與網路權限（ADR-0024 §2）。spec P7 四項最低要求（ADR-0024 §2 對照表）：獨立程序、限制 IPC 達成；路徑白名單只在主行程層級（部分達成）；OS 出站封鎖驗證只有監測、沒有封鎖規則，Windows 實機待執行（部分達成）；見 §9 U6。
 - 只靠讀程式確認、沒有測試抓得到的項目：worker 以暫停狀態建立再套用 Job（拿掉時間窗本質上難以測到）；MuPDF、qpdf 原生配置失敗時的回應碼。
 - 打包後（PyInstaller）worker 在 Job 內以 1 個行程啟動未驗證，列 P8。S06 的 Launch 只定義 Windows 的命令，macOS 上「沒有 sentinel 檔」的檢查沒有實際作用。
@@ -151,12 +153,12 @@ uv run pytest -q                                        → exit 0，552 passed�
 | U3 | Windows 實機驗證須工程師執行腳本；macOS 實機 NOT RUN | G7 要求兩平台實機 | **附條件**（工程師 2026-11-05 回覆「你建議」）：Windows 實機由工程師斷網後執行 `scripts\p7_offline_check.ps1`，結果寫回 §6（目前 NOT RUN）；macOS 實機依 ADR-0021／ADR-0003 附條件，取得實機後補驗 |
 | U4 | 安全掃描後新增的保守行為：毀損的 Flate 後接其他過濾器即視為超限；未塗繪路徑點數超過 100,000 即頁面 RESOURCE_LIMIT；格區域渲染超過 12 MP 的儲存格編輯回 RESOURCE_LIMIT | 這類頁面或格不能編輯 | **接受**（工程師 2026-11-05 回覆「你建議」） |
 | U5 | 殘餘（ADR-0024 後果）：MuPDF 自行解壓的物件（inline image、SMask、pattern、soft mask、Type3 資源、內嵌 CMap、註解外觀、shading、Function、ICC、影像資料的壓縮比）只受記憶體上限保護；pikepdf 與 MuPDF 對同檔的解析差異（triage f009，needs manual test） | macOS 無記憶體上限 | **列殘餘**（工程師 2026-11-05 回覆「你建議」；ADR-0024 後果、THREAT_MODEL T1、T5） |
-| U6 | spec P7 最低要求中「路徑白名單」只在主行程層級（worker 無 OS 強制）、「作業系統出站封鎖驗證」只有監測沒有封鎖規則（ADR-0024 §2 對照表；第一輪核對 V1） | worker 被攻陷時可讀寫使用者檔案、可嘗試連線 | 待工程師決定 |
+| U6 | spec P7 最低要求中「路徑白名單」只在主行程層級（worker 無 OS 強制）、「作業系統出站封鎖驗證」只有監測沒有封鎖規則（ADR-0024 §2 對照表；第一輪核對 V1） | worker 被攻陷時可讀寫使用者檔案、可嘗試連線 | **接受，缺口列明**（工程師 2026-11-06 回覆「照建議」；ADR-0024 §2 對照表、§7） |
 
 ## 10. 關卡結果
 
-- **關卡結果：BLOCKED**。自動測試全部通過（本機 550 passed）、反向驗證 26 項全部被抓到、vuln-scan／triage 完成且確認項目已處理；
-  run [42145861858](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42145861858)（commit `ca11a15`）windows-latest 552 passed＋1 skipped（POSIX 權限位元測試）、macos-15 549 passed＋4 skipped（Windows-only 的 Job Object 與唯讀屬性測試）；§9 U1–U5 已由工程師決定（U3 附條件）；Windows 實機 G7-01、G7-02 待工程師執行；macOS 實機 NOT RUN；獨立核對待執行。
+- **關卡結果：BLOCKED**。自動測試全部通過（本機 552 passed，第一輪核對處理後）、反向驗證 28 項全部被抓到、vuln-scan／triage 完成且確認項目已處理；
+  run [42145861858](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42145861858)（commit `ca11a15`）windows-latest 552 passed＋1 skipped（POSIX 權限位元測試）、macos-15 549 passed＋4 skipped（Windows-only 的 Job Object 與唯讀屬性測試）；§9 U1–U6 已由工程師決定（U3 附條件）；Windows 實機 G7-01、G7-02 待工程師執行；macOS 實機 NOT RUN；獨立核對待執行。
 - **下一段可開始：否**（條件：上述項目完成並由工程師決定）。
 
 ## 11. 獨立核對紀錄
@@ -185,12 +187,12 @@ ruff、format 通過，pytest 552 passed、1 skipped。結論「有出入」，�
 
 | # | 內容 | 處理 |
 | --- | --- | --- |
-| W1（should-fix） | V3 未涵蓋「安裝」：把 worker main() 的 `sys.addaudithook(_deny_network)` 拿掉，測試仍通過（hook 沒裝就不產生紀錄檔，`test_offline_flow` 的斷言照樣成立；對照測試自己安裝 hook，不經 worker 的 main()） | 待工程師決定 |
-| W2（should-fix） | V4「流程進行中背景持續輪詢」沒有涵蓋流程：流程約 0.28 秒結束，第一次輪詢約 4.8 秒才完成（每輪對每個 pid 各叫一次 PowerShell，約 5 秒）；worker 在流程中開 4 秒的 listener 沒被抓到。§3、§6、traceability、測試 docstring 的「流程中」「每 0.2 秒」過強 | 待工程師決定 |
-| W3（should-fix） | §7 仍寫「audit hook（任何 socket 操作即失敗）與 Job Object 補足」：應為 Python 層事件，且 Job Object 不限制網路 | 待工程師決定 |
-| W4（備查） | §10 仍寫本機 550 passed（已為 552）；§1 未列 `14b6f79` | 待工程師決定 |
-| W5（備查） | macOS 的 socket 列舉（lsof）不檢查結束碼，失敗時回空清單 | 待工程師決定 |
-| W6（備查） | PowerShell 結束碼 0 但輸出為空時視為沒有子行程（偶發一次只列到轉介程式，無法穩定重現）；V5 測試會因此失敗（安全方向），G7-02 則少查子孫 | 待工程師決定 |
-| W7（備查） | ADR-0024 狀態欄未記 2026-11-06 的增補 | 待工程師決定 |
-| W8（備查） | 全套輸出開頭的 faulthandler「access violation」堆疊來自測試專用的 pypdfium2 匯入，結果不受影響 | 待工程師決定 |
+| W1（should-fix） | V3 未涵蓋「安裝」：把 worker main() 的 `sys.addaudithook(_deny_network)` 拿掉，測試仍通過（hook 沒裝就不產生紀錄檔，`test_offline_flow` 的斷言照樣成立；對照測試自己安裝 hook，不經 worker 的 main()） | 工程師決定全部照建議處理（2026-11-06）。`bd825f1`：worker 安裝 hook 後送出 `peditor.network_hook` 事件，由 hook 本身記為 installed；`test_offline_flow` 要求紀錄檔只有安裝標記（M27） |
+| W2（should-fix） | V4「流程進行中背景持續輪詢」沒有涵蓋流程：流程約 0.28 秒結束，第一次輪詢約 4.8 秒才完成（每輪對每個 pid 各叫一次 PowerShell，約 5 秒）；worker 在流程中開 4 秒的 listener 沒被抓到。§3、§6、traceability、測試 docstring 的「流程中」「每 0.2 秒」過強 | `bd825f1`：`network.py` 改為一次 CIM／ps 查全部行程再組行程樹（每輪約 1–2 秒）；`test_no_listening_sockets` 重複執行流程直到流程期間至少輪詢 3 次；worker 流程中開 4 秒 listener 被抓到（M28）；§3、§6、traceability、docstring 措辭照實修正 |
+| W3（should-fix） | §7 仍寫「audit hook（任何 socket 操作即失敗）與 Job Object 補足」：應為 Python 層事件，且 Job Object 不限制網路 | §7 改為 audit hook 只涵蓋 Python 層、Job Object 不限制網路 |
+| W4（備查） | §10 仍寫本機 550 passed（已為 552）；§1 未列 `14b6f79` | §10 改為 552 passed；§1 補列 `14b6f79` |
+| W5（備查） | macOS 的 socket 列舉（lsof）不檢查結束碼，失敗時回空清單 | `bd825f1`：lsof 結束碼 1 且無輸出才視為沒有 socket，其他非 0 即失敗（macOS CI 驗證） |
+| W6（備查） | PowerShell 結束碼 0 但輸出為空時視為沒有子行程（偶發一次只列到轉介程式，無法穩定重現）；V5 測試會因此失敗（安全方向），G7-02 則少查子孫 | 改為一次查全部行程後不再逐 pid 呼叫 PowerShell；查詢結果為空即失敗 |
+| W7（備查） | ADR-0024 狀態欄未記 2026-11-06 的增補 | ADR-0024 狀態欄補記 2026-11-06 增補 |
+| W8（備查） | 全套輸出開頭的 faulthandler「access violation」堆疊來自測試專用的 pypdfium2 匯入，結果不受影響 | 不處理（與 P7 無關，P1 起即有） |
 
