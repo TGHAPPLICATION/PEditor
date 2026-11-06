@@ -41,6 +41,10 @@ def main(argv: list[str] | None = None) -> int:
         from peditor.cli import edit_text
 
         return edit_text(argv[1:])
+    if argv[:1] == ["blind-run"]:  # 盲測（P8，保管人在離線實機執行）
+        from peditor.cli import blind_run
+
+        return blind_run(argv[1:])
 
     parser = argparse.ArgumentParser(prog="peditor")
     parser.add_argument("--smoke", action="store_true", help="啟動後立即結束（CI 用）")

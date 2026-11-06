@@ -1,5 +1,6 @@
 """`peditor analyze`：輸出 JSON 能力報告與頁面 PNG（spec P1 輸出、G1-07）。
 `peditor edit-text`：以內容尋找文字、產生 EditPlan、套用並另存，輸出計畫與驗證報告（spec P2 輸出）。
+`peditor blind-run`：盲測，只輸出判定與結果碼，不含文件內容（P8）。
 
 PDF 只在 worker 中解析；本模組只透過 DocumentService 取得結果並寫檔。
 錯誤訊息只含錯誤碼，不含檔案路徑或文件內容。
@@ -109,3 +110,78 @@ def edit_text(argv: list[str]) -> int:
     })  # fmt: skip
     print(json.dumps({"mode": plan["mode"], "output_hash": exported["output_hash"]}))
     return 0
+
+
+def blind_run(argv: list[str]) -> int:
+    """`peditor blind-run`：盲測（spec §5、G8-03；ADR-0012 為 11 份），由保管人在離線實機
+    以打包程式執行。
+
+    folder 內為以編號命名的盲測 PDF（例如 T10.pdf）；--cases 為保管人自備的 CSV
+    （欄位 fixture_id,original_text,new_text,page_index,editable_region_pt；可省略，只做能力判定）。
+    輸出 JSON 只含編號、SHA-256、能力判定、理由碼、計畫結果、模式與另存驗證是否通過，
+    **不含文件文字、新文字或路徑**，可交回給開發者；比對答案卡由保管人進行。
+    """
+    import csv
+
+    parser = argparse.ArgumentParser(prog="peditor blind-run")
+    parser.add_argument("folder", type=Path, help="盲測 PDF 所在資料夾（檔名為編號）")
+    parser.add_argument("--cases", type=Path, help="保管人自備的編輯案例 CSV")
+    parser.add_argument("--out", type=Path, required=True, help="結果 JSON（不得已存在）")
+    args = parser.parse_args(argv)
+    if args.out.exists():
+        print("結果檔已存在", file=sys.stderr)
+        return 2
+    cases: dict[str, dict] = {}
+    if args.cases is not None:
+        with open(args.cases, encoding="utf-8-sig", newline="") as fh:
+            cases = {row["fixture_id"]: row for row in csv.DictReader(fh)}
+    work = args.out.parent / f".{args.out.stem}-work"
+    work.mkdir(parents=True, exist_ok=True)
+    results = []
+    with DocumentService() as service:
+        for pdf in sorted(args.folder.glob("*.pdf")):
+            fid = pdf.stem
+            entry: dict = {"fixture_id": fid}
+            try:
+                opened = service.open_document(pdf)
+            except ServiceError as exc:
+                results.append({**entry, "open_error": exc.code})
+                continue
+            doc = opened["document_id"]
+            entry["sha256"] = opened["sha256"]
+            assessment = service.assess_editability(doc)
+            entry["document"] = assessment["document"]
+            entry["pages"] = [{"page_index": p["page_index"], "status": p["status"],
+                               "reasons": p["reasons"]} for p in assessment["pages"]]  # fmt: skip
+            case = cases.get(fid)
+            if case and case.get("original_text") and case.get("new_text"):
+                entry["edit"] = _blind_edit(service, doc, opened, case, work / f"{fid}.pdf")
+            service.close_document(doc)
+            results.append(entry)
+    for leftover in work.glob("*"):
+        leftover.unlink()
+    work.rmdir()
+    summary = {"tool": "peditor blind-run", "version": __version__, "count": len(results),
+               "results": results}  # fmt: skip
+    _write_json(args.out, summary)
+    print(json.dumps({"count": len(results)}))
+    return 0
+
+
+def _blind_edit(service: DocumentService, doc: str, opened: dict, case: dict, dest: Path) -> dict:
+    """規劃→套用→另存到暫存位置並驗證；只回傳結果碼（輸出檔不保留）。"""
+    page = int(case.get("page_index") or 0)
+    region = _region(case["editable_region_pt"]) if case.get("editable_region_pt") else None
+    try:
+        span = service.find_text(doc, page, case["original_text"])
+        plan = service.plan_text_edit(doc, span, case["new_text"], "prefer_a", None, region)
+        result = {"ready": plan["ready"], "reasons": plan["unsupported_reasons"],
+                  "mode": plan["mode"]}  # fmt: skip
+        if plan["ready"]:
+            applied = service.apply_edit(doc, plan["plan_id"], opened["revision"])
+            token = service.destination_token(dest, overwrite=True)
+            report = service.export_document(doc, token, applied["new_revision"])
+            result["validation_ok"] = bool(report["validation_report"]["ok"])
+        return result
+    except ServiceError as exc:
+        return {"ready": False, "error": exc.code}
