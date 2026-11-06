@@ -13,7 +13,7 @@
 - S1／S2 決定（工程師 2026-11-04「照建議」）：OS 限制採 Windows Job Object＋POSIX rlimit、不做完整沙箱並列缺口；Windows 實機以一鍵腳本由工程師執行，
   macOS NOT RUN；帶入項目做安全與穩定性類，U13 一併處理，P4 U12、U14、P5 U3 移 P8；不新增產品日誌，G7-05 改檢查所有對外輸出。
   2026-11-05：S04 預期改為 `MALFORMED_DOCUMENT`（工程師「你的建議」）；安全掃描候選 1–9 與觀察的處理（工程師「照建議」，§8）。
-- 撰寫：Claude Code；審查：待工程師；獨立核對：待（CLAUDE.md：由未參與實作的子代理人核對）
+- 撰寫：Claude Code；審查：工程師（2026-11-06 決定附條件通過）；獨立核對：2026-11-05～11-06 兩輪（§11，未參與實作的子代理人），另有 vuln-scan／triage（§8）
 
 ## 2. 環境
 
@@ -158,9 +158,8 @@ uv run pytest -q                                        → exit 0，552 passed�
 
 ## 10. 關卡結果
 
-- **關卡結果：BLOCKED**。自動測試全部通過（本機 552 passed，第一輪核對處理後）、反向驗證 28 項全部被抓到、vuln-scan／triage 完成且確認項目已處理；
-  run [42150652779](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42150652779)（commit `e0237de`）windows-latest 552 passed＋1 skipped（POSIX 權限位元測試）、macos-15 549 passed＋4 skipped（Windows-only 的 Job Object 與唯讀屬性測試）；§9 U1–U6 已由工程師決定（U3 附條件）；Windows 實機 G7-01、G7-02 待工程師執行；macOS 實機 NOT RUN；獨立核對待執行。
-- **下一段可開始：否**（條件：上述項目完成並由工程師決定）。
+- **關卡結果：附條件通過**（工程師 2026-11-06 決定）。G7-01～G7-06 自動測試本機與 CI 雙平台通過（run [42150652779](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42150652779)（commit `e0237de`）windows-latest 552 passed、macos-15 549 passed）；反向驗證 28 項全部被抓到；vuln-scan／triage 確認項目已處理；兩輪獨立核對（§11）V1–V8、W1–W8 已處理；§9 U1–U6 已由工程師決定。條件：**Windows 實機 G7-01、G7-02 NOT RUN**——工程師於網路介面全部中斷時執行 `scripts\p7_offline_check.ps1`，結果寫回 §3、§6；**macOS 實機 NOT RUN**——依 ADR-0003／ADR-0021 附條件，取得實機後補驗。G7-07 為文件審查（ADR-0024 §2，四項最低要求中路徑白名單、OS 出站封鎖驗證為部分達成，U6 接受）。
+- **下一段可開始：是（附條件）**（工程師 2026-11-06 決定）。帶入後段：P8 實機驗收加 Windows 斷網與出站監測（若 P7 條件尚未補）、macOS 實機的 G7 項目、打包後 worker 在 Job Object 內以 1 個行程啟動的驗證；P4 U12、U14、P5 U3（S2 決定移 P8）。
 
 ## 11. 獨立核對紀錄
 
