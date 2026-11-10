@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -52,6 +53,7 @@ PAGE_DPI = 100
 ZOOM_MIN, ZOOM_MAX, ZOOM_STEP = 0.25, 4.0, 1.25  # 頁面縮放（P8 工程師要求）
 THUMB_DPI = 24
 MAX_THUMBS = 200
+PREVIEW_MAX_H = 160  # 前後對照圖最大高度（px）
 
 
 def _pixmap(rendered: dict) -> QPixmap:
@@ -217,11 +219,19 @@ class TextInput(QLineEdit):
 
 class EditPanel(QWidget):
     """側欄：選取內容、新文字輸入、計畫資訊、前後對照。
-    只在按「預覽」或 Enter 時規劃（IME 組字中不送出）。"""
+    只在按「預覽」或 Enter 時規劃（IME 組字中不送出）。
+    內容放在捲動區；「套用」固定在底部，螢幕較矮或預覽圖較高時不被擠出畫面（P8 S10）。"""
 
     def __init__(self) -> None:
         super().__init__()
-        layout = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        self.scroll = QScrollArea()
+        self.scroll.setObjectName("panel_scroll")
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        content = QWidget()
+        layout = QVBoxLayout(content)
         self.selected = QLabel("尚未選取文字")
         self.selected.setObjectName("selected")
         self.selected.setWordWrap(True)
@@ -247,9 +257,15 @@ class EditPanel(QWidget):
         for widget in (QLabel("選取的內容"), self.selected, self.line_choice, QLabel("新文字"),
                        self.new_text,
                        self.preview_button, self.image_button, self.info, QLabel("修改前"),
-                       self.before, QLabel("修改後"), self.after, self.apply_button):  # fmt: skip
+                       self.before, QLabel("修改後"), self.after):  # fmt: skip
             layout.addWidget(widget)
         layout.addStretch(1)
+        self.scroll.setWidget(content)
+        outer.addWidget(self.scroll, 1)
+        bottom = QVBoxLayout()
+        bottom.setContentsMargins(9, 0, 9, 9)
+        bottom.addWidget(self.apply_button)
+        outer.addLayout(bottom)
 
 
 class FindBar(QDialog):
@@ -697,7 +713,11 @@ class MainWindow(QMainWindow):
         super().showEvent(event)
         if not self._dock_placed and self.panel_dock.isFloating():
             geo = self.geometry()
-            self.panel_dock.move(geo.right() - self.panel_dock.width() - 24, geo.top() + 96)
+            top = geo.top() + 96
+            screen = self.screen().availableGeometry()  # 面板不超出螢幕可用高度（P8 S10）
+            height = max(320, min(self.panel_dock.height(), screen.bottom() - top - 16))
+            self.panel_dock.resize(self.panel_dock.width(), height)
+            self.panel_dock.move(geo.right() - self.panel_dock.width() - 24, top)
             self._dock_placed = True
 
     def find(self) -> None:
@@ -777,7 +797,13 @@ class MainWindow(QMainWindow):
             m = 12  # 改動區域外留邊，看得到鄰近內容
             for label, key in ((self.panel.before, "before"), (self.panel.after, "after")):
                 pix = _pixmap(preview[key]).copy(x0 - m, y0 - m, x1 - x0 + 2 * m, y1 - y0 + 2 * m)
-                label.setPixmap(pix.scaledToWidth(min(340, max(1, pix.width()))))
+                fit = pix.scaled(  # 限高，前後兩張與「套用」在矮螢幕上也放得下
+                    min(320, max(1, pix.width())),
+                    min(PREVIEW_MAX_H, max(1, pix.height())),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                label.setPixmap(fit)
             self._status("預覽完成，按「套用」提交")
         self._refresh_actions()
 

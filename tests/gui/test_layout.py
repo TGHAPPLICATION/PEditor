@@ -43,3 +43,29 @@ def test_edit_panel_floats_and_comes_back(qtbot, make_window):
     assert dock.isVisible()
     window.actions["panel"].trigger()
     assert not dock.isVisible()
+
+
+def test_apply_button_visible_on_short_panel(qtbot, make_window, tmp_path):
+    """P8 實機 S10：圖片替換預覽後，面板較矮時「套用」仍在可見範圍內（不被前後對照擠出）。"""
+    from PIL import Image
+    from test_image_ui import click_image
+
+    from peditor.ui.app import PREVIEW_MAX_H
+
+    new_image = tmp_path / "translucent.png"
+    Image.new("RGBA", (240, 160), (200, 0, 120, 128)).save(new_image, "PNG")
+    window = make_window(ask_image=lambda: str(new_image))
+    open_file(qtbot, window, FILES / "I01.pdf")
+    click_image(qtbot, window, 0)
+    window.panel.image_button.click()
+    wait(qtbot, window)
+    assert window.panel.apply_button.isEnabled()
+    for label in (window.panel.before, window.panel.after):
+        assert 0 < label.pixmap().height() <= PREVIEW_MAX_H
+    window.panel_dock.resize(360, 420)  # 矮螢幕：內容超出時捲動，「套用」不捲走
+    window.panel_dock.show()
+    qtbot.waitUntil(lambda: window.panel.apply_button.isVisible())
+    button = window.panel.apply_button
+    bottom = button.mapTo(window.panel, button.rect().bottomLeft()).y()
+    assert bottom <= window.panel.height()
+    assert not window.panel.scroll.isAncestorOf(button)
