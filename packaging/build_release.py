@@ -40,6 +40,16 @@ def _version() -> str:
     return __version__
 
 
+def _commit() -> str:
+    """建置來源 commit（CI 用 GITHUB_SHA，本機用 git）；寫進包內 resources/BUILD 供視窗標題顯示。"""
+    sha = os.environ.get("GITHUB_SHA", "")
+    if not sha:
+        done = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True,
+                              text=True, check=False)  # fmt: skip
+        sha = done.stdout.strip() if done.returncode == 0 else ""
+    return sha[:7] if sha.isalnum() else ""
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -58,6 +68,10 @@ def build() -> Path:
         f"{font}{sep}peditor/resources/fonts",
         f"{FONTS / FONT_LICENSE}{sep}peditor/resources/fonts",
     ]
+    if commit := _commit():
+        OUT.mkdir(parents=True, exist_ok=True)
+        (OUT / "BUILD").write_text(commit, encoding="ascii")
+        data.append(f"{OUT / 'BUILD'}{sep}peditor/resources")
     command = [
         sys.executable, "-m", "PyInstaller",
         "--noconfirm", "--clean", "--onedir", "--windowed",
@@ -145,7 +159,8 @@ def main(argv: list[str]) -> int:
     sums = checksums(package)
     base = DIST / ("PEditor.app" if sys.platform == "darwin" else "PEditor")
     size = sum(f.stat().st_size for f in base.rglob("*") if f.is_file() and not f.is_symlink())
-    summary = {"version": version, "platform": sys.platform, "self_check": results,
+    summary = {"version": version, "commit": _commit(), "platform": sys.platform,
+               "self_check": results,
                "onedir_mib": round(size / 1_048_576, 1),
                "package": package.name if package else None,
                "package_sha256": _sha256(package) if package else None}  # fmt: skip

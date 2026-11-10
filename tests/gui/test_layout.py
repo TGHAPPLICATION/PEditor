@@ -69,3 +69,31 @@ def test_apply_button_visible_on_short_panel(qtbot, make_window, tmp_path):
     bottom = button.mapTo(window.panel, button.rect().bottomLeft()).y()
     assert bottom <= window.panel.height()
     assert not window.panel.scroll.isAncestorOf(button)
+
+
+def test_floating_panel_kept_above_taskbar(qtbot, make_window):
+    """P8 實機 S10：浮動面板底部超出螢幕可用範圍時縮短（內容改捲動），叫回時也重新檢查。"""
+    window = make_window()
+    dock = window.panel_dock
+    open_file(qtbot, window, FILES / "T01.pdf")
+    screen = dock.screen().availableGeometry()
+    dock.resize(360, 720)
+    dock.move(screen.left() + 10, screen.bottom() - 200)  # 底部遠超出螢幕
+    dock.close()
+    click_target(qtbot, window, "衛生局")  # 選取後叫回並重新檢查
+    assert dock.isVisible()
+    frame = dock.frameGeometry()
+    assert frame.bottom() <= screen.bottom() and frame.top() >= screen.top()
+    assert dock.height() >= 320
+
+
+def test_build_id_in_title(tmp_path):
+    """P8：安裝包的視窗標題帶建置 commit，實機驗收可辨認裝的是哪一版；開發環境不顯示。"""
+    from peditor.ui.app import _build_suffix
+
+    build = tmp_path / "BUILD"
+    assert _build_suffix(build) == ""
+    build.write_text("0b821ff", encoding="ascii")
+    assert _build_suffix(build) == "（0b821ff）"
+    build.write_text("bad value\n<x>", encoding="ascii")
+    assert _build_suffix(build) == ""

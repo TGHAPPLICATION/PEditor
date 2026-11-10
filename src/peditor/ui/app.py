@@ -14,6 +14,7 @@ import json
 import os
 import sys
 from collections.abc import Callable
+from pathlib import Path
 
 from PySide6.QtCore import QDateTime, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPainter, QPen, QPixmap, QTransform
@@ -207,6 +208,18 @@ class PageView(QGraphicsView):
         super().mouseReleaseEvent(event)
 
 
+BUILD_FILE = Path(__file__).resolve().parents[1] / "resources" / "BUILD"
+
+
+def _build_suffix(path: Path = BUILD_FILE) -> str:
+    """打包時寫入的建置 commit（P8 實機驗收辨認安裝包）；開發環境沒有此檔則不顯示。"""
+    try:
+        commit = path.read_text(encoding="ascii").strip()
+    except (OSError, UnicodeDecodeError):
+        return ""
+    return f"（{commit}）" if commit.isalnum() and len(commit) <= 12 else ""
+
+
 class TextInput(QLineEdit):
     """記錄是否在 IME 組字中：Qt 不保證組字中按 Enter 不發出 returnPressed（P4 U7）。"""
 
@@ -338,7 +351,7 @@ class MainWindow(QMainWindow):
         ask_image: Callable[[], str | None] | None = None,
     ) -> None:
         super().__init__()
-        self.setWindowTitle(f"PEditor {__version__}")
+        self.setWindowTitle(f"PEditor {__version__}{_build_suffix()}")
         self.resize(1280, 860)
         self.service = service
         self.jobs = JobRunner()
@@ -597,6 +610,7 @@ class MainWindow(QMainWindow):
         if self.busy:
             return
         self.panel_dock.show()  # 面板被關閉時，選取內容後叫回
+        self._fit_dock()
         kind = target.get("kind", "text")
         if kind == "text" and target["target_id"] in self.cells_by_target:
             cell, line_index = self.cells_by_target[target["target_id"]]
@@ -628,6 +642,7 @@ class MainWindow(QMainWindow):
     def _select_cell(self, cell: dict, line_index: int, kind: str, highlight: str | None) -> None:
         """儲存格選取（ADR-0023）：顯示格位置與行；能力判定不支援時顯示原因、不能預覽。"""
         self.panel_dock.show()
+        self._fit_dock()
         lines = cell["lines"]
         text = lines[line_index]["text"] if lines else ""
         # 格本身支援時，以所選這一行的判定為準（行內文字無法對應 Unicode 等；P8 實機發現）
@@ -713,12 +728,23 @@ class MainWindow(QMainWindow):
         super().showEvent(event)
         if not self._dock_placed and self.panel_dock.isFloating():
             geo = self.geometry()
-            top = geo.top() + 96
-            screen = self.screen().availableGeometry()  # 面板不超出螢幕可用高度（P8 S10）
-            height = max(320, min(self.panel_dock.height(), screen.bottom() - top - 16))
-            self.panel_dock.resize(self.panel_dock.width(), height)
-            self.panel_dock.move(geo.right() - self.panel_dock.width() - 24, top)
+            self.panel_dock.move(geo.right() - self.panel_dock.width() - 24, geo.top() + 96)
             self._dock_placed = True
+        self._fit_dock()
+
+    def _fit_dock(self) -> None:
+        """浮動面板底部不超出所在螢幕的可用範圍（工作列以上）；超出時縮短，內容改捲動（P8 S10）。"""
+        dock = self.panel_dock
+        if not dock.isFloating():
+            return
+        screen = (dock.screen() or self.screen()).availableGeometry()
+        frame = dock.frameGeometry()
+        if frame.bottom() <= screen.bottom():
+            return
+        deco = frame.height() - dock.height()  # 標題列與邊框
+        top = max(screen.top(), min(frame.top(), screen.bottom() - deco - 320))
+        dock.move(frame.left(), top)
+        dock.resize(dock.width(), max(320, screen.bottom() - top - deco))
 
     def find(self) -> None:
         text = self.find_bar.find_text.text()
