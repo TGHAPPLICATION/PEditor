@@ -127,8 +127,8 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 
 | 需求 ID | spec | 需求 | 預定 test ID | fixture | 狀態 |
 | --- | --- | --- | --- | --- | --- |
-| G7-01 | G7 | 斷網完整開／編／存 | 實機 `scripts/p7_offline_check.ps1`（網路介面全部中斷）+ `tests/security/test_offline_flow.py::test_offline_flow`（主行程與 worker 以 audit hook 禁止並記錄 Python 層 socket 事件，完整流程後兩邊都沒有事件）、`::test_deny_hook_blocks_sockets`、`::test_worker_hook_records_swallowed_attempts`（對照） | T01 | 自動測試 PASS（本機 Windows）、CI run 42150652779 雙平台（Windows 552 passed、macOS 549 passed）；Windows 實機 NOT RUN（待工程師執行）；macOS 實機 NOT RUN（ADR-0003） |
-| G7-02 | G7 | app 與全部子程序零非 loopback 出站；無 HTTP listener | 實機 `scripts/p7_offline_check.ps1`（輪詢流程行程樹的 TCP／UDP）+ `tests/security/test_no_listener.py::test_no_listening_sockets`（重複執行流程期間背景輪詢至少 3 次〔每輪約 1–2 秒〕與結束後，測試行程與 worker 整棵行程樹沒有任何 socket，含 loopback）、`::test_connection_check_detects_sockets`、`::test_connection_check_covers_child_processes`（對照） | T01、S02–S06 | 自動測試 PASS（本機 Windows）、CI run 42150652779 雙平台（Windows 552 passed、macOS 549 passed）；Windows 實機 NOT RUN（待工程師執行）；macOS 實機 NOT RUN |
+| G7-01 | G7 | 斷網完整開／編／存 | 實機 `scripts/p7_offline_check.ps1`（網路介面全部中斷）+ `tests/security/test_offline_flow.py::test_offline_flow`（主行程與 worker 以 audit hook 禁止並記錄 Python 層 socket 事件，完整流程後兩邊都沒有事件）、`::test_deny_hook_blocks_sockets`、`::test_worker_hook_records_swallowed_attempts`（對照） | T01 | 自動測試 PASS（本機 Windows）、CI run 42150652779 雙平台（Windows 552 passed、macOS 549 passed）；Windows 實機 PASS（2026-11-11，`scripts/p7_offline_check.ps1`，P8 報告 §6）；macOS 實機 NOT RUN（ADR-0003） |
+| G7-02 | G7 | app 與全部子程序零非 loopback 出站；無 HTTP listener | 實機 `scripts/p7_offline_check.ps1`（輪詢流程行程樹的 TCP／UDP）+ `tests/security/test_no_listener.py::test_no_listening_sockets`（重複執行流程期間背景輪詢至少 3 次〔每輪約 1–2 秒〕與結束後，測試行程與 worker 整棵行程樹沒有任何 socket，含 loopback）、`::test_connection_check_detects_sockets`、`::test_connection_check_covers_child_processes`（對照） | T01、S02–S06 | 自動測試 PASS（本機 Windows）、CI run 42150652779 雙平台（Windows 552 passed、macOS 549 passed）；Windows 實機 PASS（2026-11-11，Sockets seen 0，P8 報告 §6）；macOS 實機 NOT RUN |
 | G7-03 | G7 | 惡意樣本不啟動外部程式／連線 | `tests/security/test_malicious.py::test_no_external_launch`（5 組：S02–S06；S06 Launch 若執行會建立 sentinel 檔）、`tests/security/test_sandbox.py::test_worker_cannot_spawn_processes`、`::test_spawn_hook_works_without_job`（對照） | S02–S06 | PASS（本機 Windows）、CI run 42150652779 雙平台（Windows 552 passed、macOS 549 passed）；macOS 子行程限制 NOT RUN（ADR-0024 缺口） |
 | G7-04 | G7 | worker 逾時可停止、崩潰可重啟 | `tests/security/test_worker_limits.py::test_basic_timeout_and_cancel`、`::test_worker_crash_recovers`（P1）、`tests/security/test_sandbox.py::test_worker_dies_with_main_process`、`tests/unit/test_replay_batches.py`（2 個測試、3 項）、`tests/gui/test_p7_ui.py::test_shutdown_wait_is_bounded` | T01 | PASS（本機 Windows）、CI run 42150652779 雙平台（Windows 552 passed、macOS 549 passed）；隨主行程終止 macOS NOT RUN |
 | G7-05 | G7 | 日誌不洩漏 sentinel、原文、密碼、完整路徑 | `tests/security/test_logging.py::test_no_sentinel_in_logs`、`::test_cli_stderr_has_no_sentinel`（2 組） | T01、S01–S03、U02 | PASS（本機 Windows）、CI run 42150652779 雙平台（Windows 552 passed、macOS 549 passed） |
@@ -139,11 +139,11 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 
 | 需求 ID | spec | 需求 | 預定 test ID | fixture | 狀態 |
 | --- | --- | --- | --- | --- | --- |
-| G8-01 | G8 | 乾淨 VM／實機無 Python、無網路可安裝並完成核心流程 | 實機驗收清單 S01–S15（Windows Sandbox，`scripts/p8_sandbox.ps1`）＋ `packaging/build_release.py` 打包結果自我檢查 | T01、F02、I01、B01 | 自我檢查 CI 雙平台 PASS；Windows 實機 NOT RUN（待工程師）；macOS NOT RUN |
-| G8-02 | G8 | 兩種 PDF 閱讀器正常開啟輸出 | 實機驗收清單 R01–R03（Acrobat Reader、Edge） | T01、F02、I01、B01 | NOT RUN（待工程師） |
-| G8-03 | G8 | 完整支援矩陣 100%；61 fixture 與 12 盲測結果（依 ADR-0012 為 11 份，U06 無法製作） | `tests/integration/test_release_matrix.py`（49＋1 項）＋ `peditor blind-run`（`tests/integration/test_cli_blind.py`） | 全部 | 矩陣 PASS（本機）；盲測 NOT RUN（待保管人） |
+| G8-01 | G8 | 乾淨 VM／實機無 Python、無網路可安裝並完成核心流程 | 實機驗收清單 S01–S15（Windows Sandbox，`scripts/p8_sandbox.ps1`）＋ `packaging/build_release.py` 打包結果自我檢查 | T01、F02、I01、B01 | 自我檢查 CI 雙平台 PASS；Windows 實機 PASS（2026-11-10～11，S12 NOT RUN；`reports/P8/acceptance.md`）；macOS NOT RUN |
+| G8-02 | G8 | 兩種 PDF 閱讀器正常開啟輸出 | 實機驗收清單 R01–R03（Acrobat Reader、Edge） | T05、F06、I01、B03 | Windows 實機 PASS（2026-11-11） |
+| G8-03 | G8 | 完整支援矩陣 100%；61 fixture 與 12 盲測結果（依 ADR-0012 為 11 份，U06 無法製作） | `tests/integration/test_release_matrix.py`（49＋1 項）＋ `peditor blind-run`（`tests/integration/test_cli_blind.py`） | 全部 | 矩陣 PASS（本機）；盲測 NOT RUN（工程師 2026-11-11 決定本輪略過） |
 | G8-04 | G8 | 已知缺陷清單、SBOM、LICENSE、相依來源與版本、卸載／草稿清理說明 | `docs/release/`、`packaging/sbom/`、`THIRD_PARTY_NOTICES.md` 文件審查 | — | 文件完成；授權核對待負責人 |
-| G8-06 | P8 實機 S10 | 編輯面板內容可捲動、「套用」固定在底部；前後對照圖限高；浮動面板高度不超出螢幕；面板顯示或叫回時底部不超出螢幕可用範圍；視窗標題顯示安裝包建置 commit | `tests/gui/test_layout.py::test_apply_button_visible_on_short_panel`、`::test_floating_panel_kept_above_taskbar`、`::test_build_id_in_title` | I01、T01 | PASS（本機 Linux offscreen）；Windows 實機待 S10 重測 |
+| G8-06 | P8 實機 S10 | 編輯面板內容可捲動、「套用」固定在底部；前後對照圖限高；浮動面板高度不超出螢幕；面板顯示或叫回時底部不超出螢幕可用範圍；視窗標題顯示安裝包建置 commit | `tests/gui/test_layout.py::test_apply_button_visible_on_short_panel`、`::test_floating_panel_kept_above_taskbar`、`::test_build_id_in_title` | I01、T01 | PASS（本機 Linux offscreen）、CI run 42773024799 雙平台；Windows 實機 S10 PASS |
 | G8-05 | P8 | 標明 macOS 最低支援版本 | ADR-0025 §3（15.0、Apple Silicon） | — | 完成 |
 
 ## 共通（§8）
