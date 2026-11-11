@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QScrollArea,
@@ -349,6 +350,7 @@ class MainWindow(QMainWindow):
         ask_save: Callable[[], str | None] | None = None,
         ask_draft: Callable[[list[dict]], tuple[str, str] | None] | None = None,
         ask_image: Callable[[], str | None] | None = None,
+        ask_unsaved: Callable[[], str] | None = None,
     ) -> None:
         super().__init__()
         self.setWindowTitle(f"PEditor {__version__}{_build_suffix()}")
@@ -359,6 +361,8 @@ class MainWindow(QMainWindow):
         self._ask_save = ask_save or self._dialog_save
         self._ask_draft = ask_draft or self._dialog_draft
         self._ask_image = ask_image or self._dialog_image
+        self._ask_unsaved = ask_unsaved or self._dialog_unsaved
+        self.saved_revision: int | None = None  # 開檔或最後一次另存成功時的版本（ADR-0027）
         self.document_id: str | None = None
         self.revision = 0
         self.page_count = 0
@@ -528,7 +532,28 @@ class MainWindow(QMainWindow):
         if path:
             self.open_path(path)
 
+    @property
+    def unsaved(self) -> bool:
+        """有尚未另存的修改（ADR-0027）：版本與開檔或上次另存時不同；改了又全部復原也算。"""
+        return self.document_id is not None and self.revision != self.saved_revision
+
+    def _confirm_leave(self, then: Callable[[], None]) -> bool:
+        """關閉或換檔前詢問「另存／不儲存／取消」（ADR-0027）。回傳 True 表示可以立即繼續；
+        選另存時另存成功後才呼叫 then，取消、另存對話框取消或另存失敗則停在原文件。"""
+        if not self.unsaved or self.busy:
+            return True
+        answer = self._ask_unsaved()
+        if answer == "discard":
+            return True
+        if answer == "save":
+            path = self._ask_save()
+            if path:
+                self.save_as(path, then)
+        return False
+
     def open_path(self, path: str) -> None:
+        if not self._confirm_leave(lambda: self.open_path(path)):
+            return
         if self.document_id is not None:
             old, self.document_id = self.document_id, None
             self._run(lambda: self.service.close_document(old), lambda _: None)
@@ -538,6 +563,7 @@ class MainWindow(QMainWindow):
     def _opened(self, result: dict) -> None:
         self.document_id = result["document_id"]
         self.revision = result["revision"]
+        self.saved_revision = result["revision"]
         self.page_count = result["page_count"]
         flags = result["document_flags"]
         self.thumbs.clear()
@@ -868,7 +894,8 @@ class MainWindow(QMainWindow):
         if path:
             self.save_as(path)
 
-    def save_as(self, path: str) -> None:
+    def save_as(self, path: str, then: Callable[[], None] | None = None) -> None:
+        """另存；then：另存成功後要繼續的動作（關閉或換檔，ADR-0027）。"""
         if self.document_id is None or self.busy:
             return
         doc, revision = self.document_id, self.revision
@@ -877,10 +904,17 @@ class MainWindow(QMainWindow):
             token = self.service.destination_token(path, overwrite=os.path.exists(path))
             return self.service.export_document(doc, token, revision)
 
-        self._status("另存中…")
-        self._run(work, self._saved)
+        def done(result: dict) -> None:
+            self._saved(result, doc, revision)
+            if then is not None:
+                then()
 
-    def _saved(self, result: dict) -> None:
+        self._status("另存中…")
+        self._run(work, done)
+
+    def _saved(self, result: dict, doc: str, revision: int) -> None:
+        if doc == self.document_id:
+            self.saved_revision = revision
         warnings = result.get("warnings") or []
         self._status("；".join(["已另存", *warnings]))
 
@@ -908,6 +942,7 @@ class MainWindow(QMainWindow):
     def _recovered(self, result: dict) -> None:
         flags = result.get("document_flags") or {"status": "support", "reasons": []}
         self._opened({**result, "document_flags": flags})
+        self.saved_revision = None  # 復原的修改尚未另存（ADR-0027）
 
     # --- 對話框（測試以參數替換） -------------------------------------------
     def _dialog_open(self) -> str | None:
@@ -922,6 +957,21 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, "選擇新圖片", "", "圖片 (*.png *.jpg *.jpeg)")
         return path or None
 
+    def _dialog_unsaved(self) -> str:
+        """回傳 "save"、"discard" 或 "cancel"（ADR-0027）；不顯示路徑。"""
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle("尚未另存")
+        box.setText("這份文件有尚未另存的修改，要先另存嗎？")
+        save = box.addButton("另存…", QMessageBox.ButtonRole.AcceptRole)
+        discard = box.addButton("不儲存", QMessageBox.ButtonRole.DestructiveRole)
+        cancel = box.addButton("取消", QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(save)
+        box.setEscapeButton(cancel)
+        box.exec()
+        clicked = box.clickedButton()
+        return "save" if clicked is save else "discard" if clicked is discard else "cancel"
+
     def _dialog_draft(self, drafts: list[dict]) -> tuple[str, str] | None:
         dialog = DraftDialog(drafts, self)
         dialog.exec()
@@ -929,7 +979,11 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:  # noqa: N802 — Qt 介面
         """正常關閉：取消進行中的請求、收下已完成的結果，再關閉文件並刪除草稿
-        （ADR-0020 §5，P4 U11）。"""
+        （ADR-0020 §5，P4 U11）。有未另存的修改時先詢問（ADR-0027）；
+        進行中的工作照 P4 U11 處理，不詢問。"""
+        if not self._confirm_leave(self.close):
+            event.ignore()
+            return
         service = self.service
         self.jobs.shutdown(service.cancel if service is not None else None,
                            service.close if service is not None else None)  # fmt: skip

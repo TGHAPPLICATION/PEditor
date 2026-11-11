@@ -59,6 +59,11 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
 - 本機全套 → exit 0，612 passed、1 skipped（bcd6059，實機發現與工程師要求處理後）。CI run [42170637580](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42170637580)（commit `bcd6059`）test 與 release 雙平台 success；Windows 安裝包 SHA-256 `c63b0911f1b9674076aca72d93bb98c6309e6759a0cac8dd734b251cce40e64d`（已被下一版取代）。
 - 本機全套 → exit 0，614 passed、1 skipped（c06e5aa，方案 A 後）。CI run [42174486671](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42174486671)（commit `c06e5aa`）test 與 release 雙平台 success；Windows 安裝包 SHA-256 `1c6ba32c7406c4d93ae143eb18864d9a44d84c1b78938e03547c859f1e7fa92f`——S01–S09 的實機驗收用此版；之後 `0b821ff`、`57ab13a` 修改了程式，S10 以後用的版本見下方「實機驗收」。
 - 反向驗證：P8-M1（重做只綁第一組標準鍵）、P8-M2（套用後不移焦點）都被 `test_shortcuts.py` 抓到；P8-M3（格支援時不看行的判定）、P8-M4（不能改的行仍預填）、P8-M5（不顯示□）都被 `test_cell_ui.py::test_unsupported_line_not_previewable` 抓到。
+- **ADR-0027 關閉前提醒（2026-11-11，工程師決定並確認設計）**：`MainWindow` 記錄開檔與另存成功時的版本，不同即視為未另存；
+  關閉或開啟另一份檔案前詢問「另存…／不儲存／取消」；另存成功才繼續；復原草稿後視為未另存；工作進行中關閉不詢問（P4 U11）。
+  測試 `tests/gui/test_unsaved.py`（9 項）；`tests/gui/conftest.py` 的 `make_window` 預設回答「不儲存」，避免既有測試被對話框擋住。
+  反向驗證：關閉不詢問、換檔不詢問、另存後不更新已存版本、「不儲存」不生效、復原草稿視為已存，都被抓到。
+  本工作環境全套：ruff 通過；pytest 622 passed、4 skipped、1 failed（同上 fixture 位元重現，環境差異）。
 - **實機驗收（2026-11-10～11-11）**：清單與結果見 `reports/P8/acceptance.md`。
   - CI run [42766515136](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42766515136)（`0b821ff`）、
     [42773024799](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42773024799)（`57ab13a`）test 與 release 雙平台 success。
@@ -126,7 +131,7 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
 | U2 | 盲測、授權核對需人工；Windows 實機驗收已完成（S12 NOT RUN） | G8 要求盲測 | **盲測：附條件發布**（工程師 2026-11-11 決定；保管人日後補測 11 份，結果寫回本報告）；授權：待負責人 |
 | U3 | macOS 實機 NOT RUN | G8 的 macOS 部分 | 待工程師決定（附條件） |
 | U4 | ADR-0026：沒有 ToUnicode 的 CID 字集字型是否納入編輯 | 這類政府表格不能修改 | **維持拒絕（B0），B2 另段評估**（工程師 2026-11-06「照建議」）；使用者確認的整行替換 **B3 列下一版**、整份統一換字型不採用（工程師同日決定） |
-| U5 | 改了沒存就按 ✕，或直接開啟另一份檔案：依 ADR-0020 §5 草稿被刪，修改消失且沒有提醒 | 使用者可能遺失修改 | **工程師 2026-11-11 決定要加提醒**：ADR-0027（提議，待工程師確認設計後實作）；實作前維持已知缺陷 F11 |
+| U5 | 改了沒存就按 ✕，或直接開啟另一份檔案：依 ADR-0020 §5 草稿被刪，修改消失且沒有提醒 | 使用者可能遺失修改 | 工程師 2026-11-11 決定要加提醒並確認設計：ADR-0027 已接受、實作（見 §4）；**Windows 實機待驗**（S13b） |
 | U6 | S05 備註「預覽時字數太多，很擁擠看不到預覽」（`c06e5aa`） | 預覽可讀性 | 工程師 2026-11-11 確認新版（`0b821ff` 起限制前後對照圖高度、面板可捲動）已改善；未另做實機項目 |
 | U7 | 11/10 下午以後的實機項目用的安裝包版本由時間推定，未逐項以視窗標題確認 | 證據對應版本 | 工程師 2026-11-11 回覆「不確定，應該是」`57ab13a`：**維持推定**；ADR-0027 後的重測要求記錄視窗標題 |
 | U8 | P01 輪詢平均 0.53 秒，較設計 100 ms 稀疏 | 極短連線嘗試可能漏看 | 由自動測試補足；照實記錄 |
@@ -136,7 +141,7 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
 ## 10. 關卡結果
 
 - **關卡結果：BLOCKED**。自動化部分與 Windows 實機驗收完成（S12 NOT RUN）、P7 附條件 G7-01／G7-02 Windows 實機 PASS；
-  未滿足：S06 重測；ADR-0027（關閉前提醒，工程師決定要加）待確認、實作與實機重測；授權核對（ADR-0002，待負責人）；
+  未滿足：以新安裝包實機重測 S06、S13、S14 與新增的 S13b（ADR-0027 關閉前提醒）；授權核對（ADR-0002，待負責人）；
   macOS 實機（ADR-0003）。盲測 11 份 NOT RUN，工程師 2026-11-11 決定**附條件發布**（日後補測）。
 - **下一段可開始：—**（P8 為最後一段；發布候選待工程師決定）。
 

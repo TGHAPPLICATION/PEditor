@@ -144,6 +144,7 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | G8-03 | G8 | 完整支援矩陣 100%；61 fixture 與 12 盲測結果（依 ADR-0012 為 11 份，U06 無法製作） | `tests/integration/test_release_matrix.py`（49＋1 項）＋ `peditor blind-run`（`tests/integration/test_cli_blind.py`） | 全部 | 矩陣 PASS（本機）；盲測 NOT RUN（工程師 2026-11-11 決定附條件發布，日後補測） |
 | G8-04 | G8 | 已知缺陷清單、SBOM、LICENSE、相依來源與版本、卸載／草稿清理說明 | `docs/release/`、`packaging/sbom/`、`THIRD_PARTY_NOTICES.md` 文件審查 | — | 文件完成；授權核對待負責人 |
 | G8-06 | P8 實機 S10 | 編輯面板內容可捲動、「套用」固定在底部；前後對照圖限高；浮動面板高度不超出螢幕；面板顯示或叫回時底部不超出螢幕可用範圍；視窗標題顯示安裝包建置 commit | `tests/gui/test_layout.py::test_apply_button_visible_on_short_panel`、`::test_floating_panel_kept_above_taskbar`、`::test_build_id_in_title` | I01、T01 | PASS（本機 Linux offscreen）、CI run 42773024799 雙平台；Windows 實機 S10 PASS（安裝包推定 57ab13a，P8 報告 U7） |
+| G8-07 | P8 實機 S13、ADR-0027 | 有未另存修改時，關閉視窗或開啟另一份檔案前詢問「另存／不儲存／取消」；另存成功才繼續，取消或另存失敗停在原文件；改了又復原、復原草稿後也算未另存 | `tests/gui/test_unsaved.py`（9 項） | F04、T01 | PASS（本機 Linux offscreen）；Windows 實機待驗（清單 S13b） |
 | G8-05 | P8 | 標明 macOS 最低支援版本 | ADR-0025 §3（15.0、Apple Silicon） | — | 完成 |
 
 ## 共通（§8）
