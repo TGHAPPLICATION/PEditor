@@ -31,12 +31,12 @@
 
 | 需求 ID | test ID／證據 | 環境 | 結果 |
 | --- | --- | --- | --- |
-| G8-01 乾淨環境、無 Python、無網路可安裝並完成核心流程 | 實機驗收清單 S01–S15（Windows Sandbox，`scripts/p8_sandbox.ps1`）；打包結果自我檢查（`packaging/build_release.py`：`--smoke`、T01 模式 A、F02 模式 B 經打包後 worker） | CI 自我檢查；實機 | 自我檢查 CI 雙平台 PASS；**Windows 實機 PASS**（S01–S11、S13–S15；S12 NOT RUN，見下）；macOS 實機 NOT RUN |
+| G8-01 乾淨環境、無 Python、無網路可安裝並完成核心流程 | 實機驗收清單 S01–S15（Windows Sandbox，`scripts/p8_sandbox.ps1`）；打包結果自我檢查（`packaging/build_release.py`：`--smoke`、T01 模式 A、F02 模式 B 經打包後 worker） | CI 自我檢查；實機 | 自我檢查 CI 雙平台 PASS；**Windows 實機 PASS**（S01–S11、S13–S15；S12 NOT RUN，見下；S04c、S05 在 `c06e5aa` 上測，新版面板未重看，U6）；macOS 實機 NOT RUN |
 | G8-02 兩種 PDF 閱讀器正常開啟 | 實機驗收清單 R01–R03（Acrobat Reader、Edge） | 實機（主機） | **PASS**（R01–R03，2026-11-11） |
 | G8-03 支援矩陣 100%；fixture 與盲測 | `tests/integration/test_release_matrix.py`（49 份 available 經 worker 完整判定＋1 項涵蓋檢查）；盲測 `peditor blind-run`（`tests/integration/test_cli_blind.py`：輸出不含文件內容） | 本機 | 矩陣 PASS（49／49）；**盲測 11 份 NOT RUN（工程師 2026-11-11 決定本輪略過）**；U06 無法製作（ADR-0012） |
 | G8-04 已知缺陷、SBOM、LICENSE、相依、卸載／草稿清理 | `docs/release/known-issues.md`、`packaging/sbom/sbom-runtime.cdx.json`、`LICENSE`、`THIRD_PARTY_NOTICES.md`、`docs/release/dependencies.md`、`docs/release/install.md` | 文件 | 文件完成；**授權核對待負責人**（ADR-0002） |
 | G8-05 macOS 最低支援版本 | ADR-0025 §3：15.0、Apple Silicon（pikepdf 10.14.0 只有 `macosx_15_0_arm64` wheel） | 文件 | 完成 |
-| G8-06 實機 S10：編輯面板「套用」不被擠出畫面 | `tests/gui/test_layout.py::test_apply_button_visible_on_short_panel`、`::test_floating_panel_kept_above_taskbar`、`::test_build_id_in_title` | 本機 offscreen、CI；實機 | 自動測試 PASS；實機 S10 PASS |
+| G8-06 實機 S10：編輯面板「套用」不被擠出畫面 | `tests/gui/test_layout.py::test_apply_button_visible_on_short_panel`、`::test_floating_panel_kept_above_taskbar`、`::test_build_id_in_title` | 本機 offscreen、CI；實機 | 自動測試 PASS；實機 S10 PASS（安裝包推定 `57ab13a`，U7） |
 | P4 U12 | `tests/gui/test_shortcuts.py::test_all_standard_bindings_tooltips_and_focus` | 本機；實機 | PASS；實機 S08、S09 PASS |
 | P4 U14 套用中取消 | `tests/gui/test_e2e.py::test_cancel_does_not_commit` | 本機 offscreen；實機 | offscreen PASS；**實機 S12 NOT RUN**（套用太快來不及按 Esc，與 P4 相同） |
 | P4 U11／ADR-0020 §5 草稿 | `tests/gui/test_drafts_ui.py`；實機 S13（強制結束後重開詢問草稿）、S14（另存後關閉不再詢問） | 實機 | PASS（S13 依修訂後步驟重測，見 §7） |
@@ -57,7 +57,7 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
   Windows release 失敗：Chocolatey 沒有 Inno Setup 6.4.3，改鎖 6.7.1（`ca3968a`）。
 - 本機全套：`uv run ruff check . && uv run ruff format --check . && uv run pytest -q` → exit 0，604 passed、1 skipped（Windows 製作機，e1969cc；POSIX 權限位元測試略過）。
 - 本機全套 → exit 0，612 passed、1 skipped（bcd6059，實機發現與工程師要求處理後）。CI run [42170637580](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42170637580)（commit `bcd6059`）test 與 release 雙平台 success；Windows 安裝包 SHA-256 `c63b0911f1b9674076aca72d93bb98c6309e6759a0cac8dd734b251cce40e64d`（已被下一版取代）。
-- 本機全套 → exit 0，614 passed、1 skipped（c06e5aa，方案 A 後）。CI run [42174486671](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42174486671)（commit `c06e5aa`）test 與 release 雙平台 success；Windows 安裝包 SHA-256 `1c6ba32c7406c4d93ae143eb18864d9a44d84c1b78938e03547c859f1e7fa92f`——**實機驗收以此版為準**（之後的 commit 只改文件）。
+- 本機全套 → exit 0，614 passed、1 skipped（c06e5aa，方案 A 後）。CI run [42174486671](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42174486671)（commit `c06e5aa`）test 與 release 雙平台 success；Windows 安裝包 SHA-256 `1c6ba32c7406c4d93ae143eb18864d9a44d84c1b78938e03547c859f1e7fa92f`——S01–S09 的實機驗收用此版；之後 `0b821ff`、`57ab13a` 修改了程式，S10 以後用的版本見下方「實機驗收」。
 - 反向驗證：P8-M1（重做只綁第一組標準鍵）、P8-M2（套用後不移焦點）都被 `test_shortcuts.py` 抓到；P8-M3（格支援時不看行的判定）、P8-M4（不能改的行仍預填）、P8-M5（不顯示□）都被 `test_cell_ui.py::test_unsupported_line_not_previewable` 抓到。
 - **實機驗收（2026-11-10～11-11）**：清單與結果見 `reports/P8/acceptance.md`。
   - CI run [42766515136](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42766515136)（`0b821ff`）、
@@ -71,7 +71,7 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
     改動前的 `c2493df` 在同一環境也失敗，屬環境差異，CI 雙平台通過）。這不是 Windows 製作機證據。
 - **工程師回報（2026-11-06）：編碼問題仍未解決**——`4a56661` 後亂碼改成「□」、不能預覽，但文字仍看不到也不能改。查證：字型為標楷體 Type0、Identity-H、Adobe-CNS1-3、沒有 ToUnicode；MuPDF 依內建字集表擷取正確。依 ADR-0011 判為拒絕是既定範圍，讓它可編輯屬擴大支援範圍。工程師決定「照建議」：方案 A（`2ab591a`）——目標與儲存格的行另附 `display_text`（對應不到的字改用 MuPDF 在同一位置擷取的字），面板顯示並註明「MuPDF 擷取，僅供參考」，判定與定位仍用 `text`（該格仍 `reject`）；測試 `test_analyzer.py::test_display_text_for_unmapped_glyphs`、`test_cell_ui.py::test_display_text_shown_for_reference`；反向驗證 P8-M12、P8-M13 都被抓到。方案 B 寫成 ADR-0026（工程師 2026-11-06 決定採 B0、B2 另段評估）：該 PDF 的子集字型沒有 cmap 與字形名稱，原設想的交叉驗證做不到，建議維持拒絕，另段評估字形形狀比對。已知缺陷 F10。
 - **工程師要求（2026-11-06）：編輯面板浮動、尋找改為 Ctrl+F**——編輯與搜尋佔空間。`9aba032`：編輯面板改為 QDockWidget，預設浮動在視窗右側，可拖動、貼回邊緣或關閉，「檢視 → 編輯面板」切換，選取內容時自動叫回；尋找移出面板，改為選單「編輯 → 尋找…」（平台標準 Find 鍵，Windows 為 Ctrl+F），小型浮動視窗、Enter 送出，不放工具列；新增「檔案」「編輯」「檢視」選單（與工具列共用動作）。`test_e2e.py` 的尋找改由選單開啟尋找框（介面變更，預期不變）。測試 `tests/gui/test_layout.py`（2 項）；反向驗證 P8-M9（面板不浮動）、P8-M10（選取時不叫回）、P8-M11（尋找也放工具列）都被抓到。
-- **工程師要求（2026-11-06）：頁面縮放**——文件字很小時看不清楚。`716d1f3`：放大、縮小、實際大小、符合寬度（工具列與平台標準快捷鍵、Ctrl＋0），Ctrl＋滾輪；25%–400%；放大停止 300 ms 後以 min(300 DPI, 100 DPI×縮放) 重新渲染該頁（字不糊），換頁或文件變動時丟棄結果；點選判定用場景座標，縮放不影響。測試 `tests/gui/test_zoom.py`（5 項）；反向驗證 P8-M6（不套用縮放轉換）、P8-M7（放大不重新渲染）、P8-M8（滾輪不縮放）都被抓到。實機驗收清單待加一項。
+- **工程師要求（2026-11-06）：頁面縮放**——文件字很小時看不清楚。`716d1f3`：放大、縮小、實際大小、符合寬度（工具列與平台標準快捷鍵、Ctrl＋0），Ctrl＋滾輪；25%–400%；放大停止 300 ms 後以 min(300 DPI, 100 DPI×縮放) 重新渲染該頁（字不糊），換頁或文件變動時丟棄結果；點選判定用場景座標，縮放不影響。測試 `tests/gui/test_zoom.py`（5 項）；反向驗證 P8-M6（不套用縮放轉換）、P8-M7（放大不重新渲染）、P8-M8（滾輪不縮放）都被抓到。實機清單 S04b PASS（11/10，`c06e5aa`）。
 - **工程師實機發現（2026-11-06）**：以 CI 安裝包開啟一份外部下載的公開 PDF（非盲測、不入 repo），表格儲存格的選取內容、行選單與新文字欄顯示 U+FFFD 亂碼，且「預覽」可按。查證：該字型（標楷體，Type0）沒有 ToUnicode，文字目標與儲存格的每一行都正確判為 `UNSUPPORTED_ENCODING`，實際規劃 `ready: false`，**沒有誤標成可編輯**；問題在介面：選取儲存格時只看格的結構判定（support），沒看所選行的判定，並把對應不到的字（U+FFFD）原樣顯示與預填。`4a56661` 修正：以所選行的判定為準（不能預覽、直接顯示原因）、不能改的目標不預填新文字、對應不到的字顯示為「□」。我最初未查證就說「違反錯誤標成可編輯率 0%」，查證後更正。
 
 ## 5. 真修改證據
@@ -80,8 +80,8 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
 
 ## 6. 資料完整性與資源／出站紀錄
 
-- **P7 附條件 G7-01、G7-02（實機清單 P01，2026-11-11 16:38 台北時間）**：工程師於製作機中斷網路後執行
-  `scripts\p7_offline_check.ps1`（原始碼 `p8-release` zip，對應 `57ab13a`；zip 無 git，摘要的 Commit 欄空白）。
+- **P7 附條件 G7-01、G7-02（實機清單 P01，2026-11-11 16:38 台北時間）**：工程師於製作機中斷網路後執行（16:38 為摘要的執行時間，16:42 為清單填寫時間）
+  `scripts\p7_offline_check.ps1`（原始碼 `p8-release` zip，依下載時分支最新版推定為 `57ab13a`；zip 無 git，摘要的 Commit 欄空白）。
   摘要：Windows 11 Pro 10.0.26300；Up 的網路介面 1 個，為 `vEthernet (Default Switch)`（Hyper-V 虛擬介面，Windows Sandbox 使用），
   Wi-Fi、乙太網路與兩個 Fortinet VPN 介面皆 Disconnected；Flow exit code 0、`FLOW-OK`；10 輪、13.7 秒；
   socket 輪詢 26 次（**平均間隔 0.53 秒**，腳本設計為 100 ms）；行程樹最多 6 個；**Sockets seen 0**（含 loopback 與 listener）。
@@ -125,7 +125,7 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
 | U2 | 盲測、授權核對需人工；Windows 實機驗收已完成（S12 NOT RUN） | G8 要求盲測 | 盲測：工程師決定本輪略過，**是否附條件發布待工程師**；授權：待負責人 |
 | U3 | macOS 實機 NOT RUN | G8 的 macOS 部分 | 待工程師決定（附條件） |
 | U4 | ADR-0026：沒有 ToUnicode 的 CID 字集字型是否納入編輯 | 這類政府表格不能修改 | **維持拒絕（B0），B2 另段評估**（工程師 2026-11-06「照建議」）；使用者確認的整行替換 **B3 列下一版**、整份統一換字型不採用（工程師同日決定） |
-| U5 | 改了沒存就按 ✕：依 ADR-0020 §5 草稿被刪，修改消失且**沒有提醒** | 使用者可能遺失修改 | 本輪不改（工程師 2026-11-11 選擇只改正 S13 步驟）；列已知缺陷 F11；加「要儲存嗎？」提醒需另立 ADR |
+| U5 | 改了沒存就按 ✕，或直接開啟另一份檔案：依 ADR-0020 §5 草稿被刪，修改消失且**沒有提醒** | 使用者可能遺失修改 | 本輪不改（工程師 2026-11-11 選擇只改正 S13 步驟）；列已知缺陷 F11；加「要儲存嗎？」提醒需另立 ADR |
 | U6 | S05 備註「預覽時字數太多，很擁擠看不到預覽」（`c06e5aa`） | 預覽可讀性 | `0b821ff` 已限制前後對照圖高度並讓面板捲動，**未在新版重看**；待工程師 |
 | U7 | 11/10 下午以後的實機項目用的安裝包版本由時間推定，未逐項以視窗標題確認 | 證據對應版本 | 待工程師確認（或下次驗收記錄標題） |
 | U8 | P01 輪詢平均 0.53 秒，較設計 100 ms 稀疏 | 極短連線嘗試可能漏看 | 由自動測試補足；照實記錄 |
@@ -140,4 +140,8 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
 
 ## 11. 獨立核對紀錄
 
-（待執行）
+- 2026-11-11，未參與實作的子代理人（只讀）核對 `3126415`：程式修改（`0b821ff`、`57ab13a`）與報告描述、G8-06 三個 test ID、
+  CI run 42766515136／42773024799 結論、ADR-0020 §5 與 `close_document` 行為、acceptance.md 合計 26 項（PASS 24、NOT RUN 2）均一致。
+  指出 4 類問題，已於下一個 commit 修正：§4 過時的「實機驗收以此版為準（之後只改文件）」；頁面縮放實機項目狀態（S04b）未回填；
+  S10、P01 的版本對應未標「推定」、G8-01 未附註 S04c／S05 在舊版測；F11 漏了「開啟另一份檔案」也會遺失修改；另補 P01 執行與填寫時間差。
+  無法查證：本工作環境的測試數（核對者未重跑）、安裝包 SHA-256（未取回）、工程師自填的實機結果（無截圖）、驗收頁面原始檔（不在 repo）。

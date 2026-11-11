@@ -1,7 +1,7 @@
 # P8 Windows 實機驗收清單
 
 - 清單與結果：Artifact 頁面 https://claude.ai/artifact/Ba8BAH5hV3vZbWfS8858gf（私人；結果存在頁面資料庫，Claude 以 ArtifactData 讀取後寫回 `reports/P8/report.md`）
-- 頁面原始檔：本 repo 不收（頁面內容即清單，項目 A01–A03、S01–S15、R01–R03、P01、BL1）
+- 頁面原始檔：本 repo 不收（頁面內容即清單，項目 A01–A03、S01–S15（含 S04b、S04c、S04d）、R01–R03、P01、BL1）
 - 乾淨環境：`scripts/p8_sandbox.ps1`（Windows Sandbox，網路關閉；產生 `translucent.png` 供圖片替換）
 - macOS 實機：不在清單（ADR-0003，NOT RUN）
 - 清單修訂：2026-11-10 S04–S07、S11 改用 T05、F06、B03（原用 ADR-0015 渲染空白檔），新增 S04d；2026-11-11 S13 改為以 `taskkill /IM PEditor.exe /F` 強制結束（原步驟與 ADR-0020 §5 矛盾）
