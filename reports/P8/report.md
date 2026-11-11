@@ -64,6 +64,7 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
   測試 `tests/gui/test_unsaved.py`（9 項）；`tests/gui/conftest.py` 的 `make_window` 預設回答「不儲存」，避免既有測試被對話框擋住。
   反向驗證：關閉不詢問、換檔不詢問、另存後不更新已存版本、「不儲存」不生效、復原草稿視為已存，都被抓到。
   本工作環境全套：ruff 通過；pytest 622 passed、4 skipped、1 failed（同上 fixture 位元重現，環境差異）。
+  CI run [42997750865](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42997750865)（`d702e29`）test 與 release 雙平台 success；實機重測用此版安裝包（標題 `PEditor 0.0.1（d702e29）`）。
 - **實機驗收（2026-11-10～11-11）**：清單與結果見 `reports/P8/acceptance.md`。
   - CI run [42766515136](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42766515136)（`0b821ff`）、
     [42773024799](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42773024799)（`57ab13a`）test 與 release 雙平台 success。
