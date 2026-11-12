@@ -64,8 +64,8 @@
 
 ## 5. 工程師決定與修正（2026-11-12）
 
-- 著作權人：**開發者個人**；目前以「TGH.ai」寫入（`NOTICE`、README、「關於」畫面、`src/peditor/ui/app.py` 的 `COPYRIGHT`），
-  如需改為本名，只需改這幾處。**請負責人確認名稱。**
+- 著作權人：**開發者個人**，工程師 2026-11-12 選定署名「Mipaliw」（阿美族語「換工互助」，取開源互相貢獻之意），
+  寫入 `NOTICE`、README、「關於」畫面（`src/peditor/ui/app.py` 的 `COPYRIGHT`）。以署名（非本名）登載著作權人是否符合機關需求，**請負責人確認。**
 - 散布管道：**GitHub Releases 為主**；轉載處須附原始碼連結（`docs/release/install.md`）。
 - 已修正（`p8-license` 分支）：
   - F1：`packaging/build_release.py::collect_licenses` 於建置時把隨包套件 `dist-info` 授權檔、PyInstaller 授權與

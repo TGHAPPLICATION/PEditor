@@ -212,7 +212,7 @@ class PageView(QGraphicsView):
 BUILD_FILE = Path(__file__).resolve().parents[1] / "resources" / "BUILD"
 
 
-COPYRIGHT = "Copyright (C) 2026 TGH.ai"
+COPYRIGHT = "Copyright (C) 2026 Mipaliw"
 SOURCE_URL = "https://github.com/TGHAPPLICATION/PEditor"
 
 
