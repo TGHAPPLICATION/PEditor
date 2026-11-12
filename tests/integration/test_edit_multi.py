@@ -1,4 +1,4 @@
-"""改動跨同一 BT 內相鄰的多段文字運算子（G2-18、G2-19、G2-11；ADR-0018 §1、§2）。
+"""改動跨同一 BT 內相鄰的多段文字運算子（G2-18、G2-19、G2-11；ADR-0018 §1、ADR-0028 §1）。
 
 既有 fixture 縮小到實際改動範圍後都只涉及一段運算子，故以測試內產生的 Helvetica 樣本驗證。
 """
@@ -45,10 +45,10 @@ def _origins(document, text):
 
 
 CASES = [
-    # 兩段：「Hel」「lo」→ 改動「ello」跨兩段；後續「 World」不得移動
+    # 兩段：「Hel」「lo」→ 改動「ello」跨兩段；後續「 World」接在新字之後（ADR-0028）
     (b"BT /F1 24 Tf 72 100 Td (Hel) Tj (lo) Tj ( World) Tj ET", "Hello", "Howdy", " World", 2,
      "Howdy World"),
-    # 三段、含原有 TJ 位移與段間狀態運算子（色彩、Tc）；改動「BCD」跨三段，「E」與「 tail」不得移動
+    # 三段、含原有 TJ 位移與段間狀態運算子（色彩、Tc）；改動「BCD」跨三段，「E」與「 tail」跟著移動
     (b"BT /F1 24 Tf 72 100 Td [(A) -50 (B)] TJ 0 g (C) Tj 1 Tc [(D) 20 (E)] TJ 0 Tc ( tail) Tj ET",
      "ABCDE", "AxyzE", "E tail", 3, "AxyzE tail"),
     # 新文較長

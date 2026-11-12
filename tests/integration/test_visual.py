@@ -87,10 +87,10 @@ def _adr0019_pdfium(original, result, plan, region, mask):
             _, x1, y1 = after[block.b + k]
             same_line = abs(y0 - baseline_pdf_y) < plan["geometry"]["font_size"] / 2
             limit = residual + ORIGIN_TOL if same_line else ORIGIN_TOL
-            # ADR-0028：同一行改動起點之後的字可移動 shift_pt（被推或往左收）
-            start_x = geom.cropbox[0] + plan["geometry"]["baseline_start"][0]
-            after_start = same_line and x0 >= start_x
-            moved = min(abs(x1 - x0), abs(x1 - x0 - shift)) if after_start else abs(x1 - x0)
+            # ADR-0028：同一行新字之後的字（移動後在新字結尾之後）移動 shift_pt（被推或往左收）
+            end_x = geom.cropbox[0] + plan["geometry"]["baseline_end"][0]
+            after_start = same_line and x1 >= end_x - ORIGIN_TOL
+            moved = abs(x1 - x0 - shift) if after_start else abs(x1 - x0)
             assert moved <= limit and abs(y1 - y0) <= ORIGIN_TOL, (x0, x1, y0, y1)
     # 行外不得有任何超標像素：遮去改動區與目標所在行（垂直方向 ±2 pt）後必須為 0
     a, b = visual.render("pdfium", original), visual.render("pdfium", result)
@@ -107,13 +107,30 @@ def _adr0019_pdfium(original, result, plan, region, mask):
     assert over.histogram()[255] == 0
 
 
+def _line_mask(original: bytes, result: bytes, region: list[float]) -> list[float]:
+    """region 與原檔、結果中和 region 垂直重疊的文字行外框之聯集（頁面座標）。"""
+    import pymupdf
+
+    boxes = [region]
+    for data in (original, result):
+        with pymupdf.open(stream=data, filetype="pdf") as doc:
+            for block in doc[0].get_text("dict")["blocks"]:
+                for line in block.get("lines", []):
+                    x0, y0, x1, y1 = line["bbox"]
+                    if min(y1, region[3]) - max(y0, region[1]) > 0 and x1 > region[0]:
+                        boxes.append([x0, y0, x1, y1])
+    return [min(b[0] for b in boxes), min(b[1] for b in boxes),
+            max(b[2] for b in boxes), max(b[3] for b in boxes)]  # fmt: skip
+
+
 @pytest.mark.parametrize(("fid", "old", "new", "region"), _cases())
 def test_changed_page_outside_mask_threshold(fid, old, new, region):
     """G2-11：改動區 +2 pt 外每通道差 >8/255 的像素 ≤0.01%（同引擎原／新比對）。
-    改動區為計畫的 allowed_change_mask（ADR-0028：含同一行被推或往左收的字）。"""
+    改動區＝manifest 區域，加上該行在原檔與結果中的外框（ADR-0028：含同一行被推或往左收的字；
+    以 MuPDF 擷取的行外框獨立計算，不用計畫自己的 allowed_change_mask）。"""
     original, result, plan = visual.apply_manifest_edit(fid, old, new, _region(region))
     assert result is not None, plan["unsupported_reasons"]
-    mask = visual.mask_pixels(original, 0, plan["allowed_change_mask"])
+    mask = visual.mask_pixels(original, 0, _line_mask(original, result, _region(region)))
     residual = plan["geometry"]["pdfium_width_residual_pt"]
     for engine in visual.engines(fid):
         if engine == "pdfium" and residual and fid not in visual.MUPDF_BLANK:

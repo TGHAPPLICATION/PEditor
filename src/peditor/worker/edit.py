@@ -37,8 +37,7 @@ class _OpEdit:
     """一個文字顯示運算子的改寫。
 
     mode：replace＝替換字形 [g0, g1)（保留其間原有位移，可附補償）；
-    insert＝插在字形 g0−1 之後（取代它與字形 g0 之間原有的位移），
-    number 為把字形 g0 放回原位的絕對位移；
+    insert＝緊接在字形 g0−1 之後插入（其後原有位移保留）；
     head＝自 g0 起到運算子結尾全部移除後放入新字碼；all＝全部移除；
     tail＝移除開頭到字形 g1 之前（g1 為字形數時保留結尾位移），開頭放入補償；
     split_b／head_b＝模式 B：拆成「前段、換字型畫新字、換回原字型、（後段）」。
@@ -155,7 +154,7 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
     old_codes = [g.code for p, r in zip(change.pieces, runs, strict=True)
                  for g in r.glyphs[p.g0 : p.g1]]  # fmt: skip
     # 純插入且前後都有字形：錨定在前一個字形之後（ADR-0018 §1），不是下一個字形的原點；
-    # 兩者之間原有的位移（例如先前刪字留下的空白）由新字填入，不讓新字疊在後面的字上
+    # 兩者之間原有的位移（字距、空白）保留在新字之後，後面的字一起往後推（ADR-0028）
     inserting = len(runs) == 1 and piece.g0 == piece.g1 and 0 < piece.g0 < len(run.glyphs)
     start = _after_glyph(run, piece.g0 - 1) if inserting else _start_origin(run, piece.g0)
     a, b = run.matrix[0], run.matrix[1]
@@ -170,11 +169,11 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
     # 模式 A 單段替換保留被換字形之間原有的位移，後段移動量只是新舊字寬差
     kept = mode == "A" and len(runs) == 1 and not inserting
     replaced = sum(run.advance(c) for c in old_codes) if kept else None
-    line = _line_shift(document, selection, change, runs, start, end, inserting, replaced)
+    line = _line_shift(document, selection, change, runs, start, end, replaced)
     if line is None:
         plan.unsupported_reasons.append("UNSUPPORTED_LAYOUT")
         return _store(document, plan, None)
-    shift, old_far, new_far, chain = line
+    shift, old_far, new_far, chain, tail = line
 
     geom = analyzer.page_geometry(document.pike.pages[selection.page_index])
     to_page = geom.pdf_to_page()
@@ -189,21 +188,25 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
         "pdfium_width_residual_pt": _truncation_residual(run, old_codes, codes or []),
     }
     box = tuple(region)
-    fits = all(contains(box, *p, tol=POSITION_TOL) for p in (page_start, page_end))
-    if params["editable_region"] is not None and contains(box, *page_old_far, tol=POSITION_TOL):
-        # 被推的字原本就在指定的可改動區域（儲存格等）內：不得被推出區域（ADR-0028 §3）
-        fits = fits and contains(box, *page_far, tol=POSITION_TOL)
-    elif params["editable_region"] is None:  # 未指定：新字可延伸到右邊界（ADR-0028 §2）
-        fits = _within_page(geom, (page_start, page_end, page_far), region)
-    band = _selection_box(selection) if params["editable_region"] is not None else region
-    fits = fits and _within_page(geom, (page_far,), band) and not _hits_other_content(
-        document, selection, chain, band, page_old_far, page_far)  # fmt: skip
+    if params["editable_region"] is None:  # 未指定：可延伸到頁面邊緣（ADR-0028 §2）
+        fits = _within_page(geom, (page_start, page_end, page_far))
+    else:
+        fits = all(contains(box, *p, tol=POSITION_TOL) for p in (page_start, page_end))
+        if contains(box, *page_old_far, tol=POSITION_TOL):
+            # 被推的字原本就在指定的可改動區域（儲存格等）內：不得被推出區域（ADR-0028 §3）
+            fits = fits and contains(box, *page_far, tol=POSITION_TOL)
+        fits = fits and _within_page(geom, (page_far,))
+    moved = [(_after_glyph(r, i), r.glyphs[i].origin) for r, i in tail]
+    if fits and _collides(document, selection, chain, to_page, start, end, shift, moved):
+        fits = False
     if not fits:
         plan.unsupported_reasons.append("TEXT_OVERFLOW")
         return _store(document, plan, None)
     if shift:  # 被推或往左收的字也在允許改動的範圍內（另存前的影像比對，spec §8.2）
-        far_x = max(page_old_far[0], page_far[0], page_end[0])
-        plan.allowed_change_mask = [min(box[0], page_start[0]), box[1], max(box[2], far_x), box[3]]
+        points = [page_start, page_end, page_old_far, page_far]
+        xs = [box[0], box[2], *(p[0] for p in points)]
+        ys = [box[1], box[3], *(p[1] for p in points)]
+        plan.allowed_change_mask = [min(xs), min(ys), max(xs), max(ys)]
     plan.mode = mode
     font_name = None
     if mode == "B":
@@ -303,7 +306,7 @@ def _between_pieces(document: analyzer.Document, runs: list[TextRun]) -> str | N
     return None
 
 
-def _line_shift(document, selection, change, runs, start, end, inserting, replaced=None):
+def _line_shift(document, selection, change, runs, start, end, replaced=None):
     """新舊寬度差（基線方向，pt）、移動前後的行尾（PDF 空間）、跟著移動的後續運算子（ADR-0028 §1）。
 
     跟著移動的字形：最後一段改動之後的字形，加上同一 BT 內接續、中間沒有重新定位的文字運算子。
@@ -326,8 +329,6 @@ def _line_shift(document, selection, change, runs, start, end, inserting, replac
 
     if replaced is not None:
         old_extent = replaced / first.size * unit if first.size else 0.0
-    elif inserting:  # 前後字形之間原有的位移（空白）由新字填入
-        old_extent = along(last.glyphs[pl.g1].origin)
     elif pl.g1 > pl.g0 or len(runs) > 1:
         old_extent = along(_after_glyph(last, pl.g1 - 1)) if pl.g1 > 0 else 0.0
     else:
@@ -342,7 +343,7 @@ def _line_shift(document, selection, change, runs, start, end, inserting, replac
     old_far = _after_glyph(*tail[-1]) if tail else (
         start[0] + old_extent * ux, start[1] + old_extent * uy)  # fmt: skip
     new_far = (old_far[0] + shift * ux, old_far[1] + shift * uy)
-    return shift, old_far, new_far, chain
+    return shift, old_far, new_far, chain, tail
 
 
 def _following_runs(document, all_runs: list[TextRun], index: int) -> list[int]:
@@ -365,42 +366,87 @@ def _following_runs(document, all_runs: list[TextRun], index: int) -> list[int]:
     return chain
 
 
-def _within_page(geom, points, region) -> bool:
-    """所有點在頁面可見範圍（頁面空間 0..寬、0..高）內，且不低於／高於原本的行（只沿基線延伸）。"""
-    _, y0, _, y1 = region
+def _within_page(geom, points) -> bool:
+    """所有點在頁面可見範圍（頁面空間 0..寬、0..高）內。"""
     return all(
         -POSITION_TOL <= x <= geom.width + POSITION_TOL
-        and y0 - POSITION_TOL <= y <= y1 + POSITION_TOL
+        and -POSITION_TOL <= y <= geom.height + POSITION_TOL
         for x, y in points
     )
 
 
-def _hits_other_content(document, selection, chain, region, old_far, new_far) -> bool:
-    """行尾往右延伸經過的範圍（同一行高度）碰到不跟著移動的文字、圖片或垂直線（ADR-0028 §2）。"""
-    if new_far[0] <= old_far[0] + POSITION_TOL:
-        return False  # 沒有往右延伸
-    _, y0, _, y1 = region
-    swept = (old_far[0], y0, new_far[0], y1)
+def _collides(document, selection, chain, to_page, start, end, shift, moved) -> bool:
+    """新字與每個被移動的字形，移動後蓋到（或越過）不跟著移動的文字、圖片或垂直於基線的線
+    （ADR-0028 §2）。
+
+    以頁面空間的基線方向（along）與法線方向（across）判定：只看與這一行高度範圍重疊的障礙；
+    原本就重疊的（例如文字壓在底色框上）不算。moved：[(字形結尾, 字形原點)]（PDF 空間）。
+    """
+    o = apply(to_page, *start)
+    d = apply(to_page, start[0] + (end[0] - start[0] or 1.0), start[1] + (end[1] - start[1]))
+    if end == start:  # 純刪除：以第一個被移動字形的方向
+        if not moved:
+            return False
+        d = apply(to_page, *moved[0][0])
+        o = apply(to_page, *moved[0][1])
+    du = (d[0] - o[0], d[1] - o[1])
+    norm = math.hypot(*du)
+    if norm == 0:
+        return False
+    ux, uy = du[0] / norm, du[1] / norm
+
+    def along(p) -> float:
+        return p[0] * ux + p[1] * uy
+
+    def across(p) -> float:
+        return -p[0] * uy + p[1] * ux
+
+    def span(box, f):
+        values = [f((x, y)) for x in (box[0], box[2]) for y in (box[1], box[3])]
+        return min(values), max(values)
+
+    target = _selection_box(selection)
+    band = span(target, across)
     page = analyzer.inspect_page(document, selection.page_index)
     _, index = document.runs[selection.page_index]
     moving = {p.run_index for p in selection.pieces} | set(chain)
     boxes = [t["bbox"] for t in page["text_targets"]
              if t["bbox"] and index.get(t["target_id"]) not in moving]  # fmt: skip
     boxes += [t["bbox"] for t in page["image_targets"] if t.get("bbox")]
-    # 行內影像（BI…EI）只有數量、沒有位置，無法判定（ADR-0028 §2 限制，已知缺陷）
-    if any(_overlap(swept, b) for b in boxes):
-        return True
+    # 行內影像（BI…EI）只有數量、沒有位置，無法判定（ADR-0028 §2 限制，已知缺陷 F12）
+    obstacles = []
+    for box in boxes:
+        lo, hi = span(box, across)
+        if min(hi, band[1]) - max(lo, band[0]) > POSITION_TOL:
+            obstacles.append(span(box, along))
     tables = document.tables.get(selection.page_index)
-    if tables is not None:
-        vertical = [o for o in tables[0].obstacles if not o.horizontal]
-        if table.crosses(swept, vertical, region):
-            return True
+    for line in tables[0].obstacles if tables is not None else []:
+        half = line.width / 2
+        box = ((line.a, line.pos - half, line.b, line.pos + half) if line.horizontal
+               else (line.pos - half, line.a, line.pos + half, line.b))  # fmt: skip
+        lo, hi = span(box, along)
+        if hi - lo > line.width + 2 * POSITION_TOL:
+            continue  # 與基線平行的線（底線、框的上下邊）不擋左右延伸
+        a_lo, a_hi = span(box, across)
+        if min(a_hi, band[1]) - max(a_lo, band[0]) > POSITION_TOL:
+            obstacles.append((lo, hi))
+    if not obstacles:
+        return False
+    # 新字：原本佔的範圍取選取文字外框（原本就重疊的不算）；頁面空間與 PDF 空間等長，移動量即 shift
+    new0, new1 = sorted((along(apply(to_page, *start)), along(apply(to_page, *end))))
+    segments = [(span(target, along), (new0, new1))]
+    for after, origin in moved:
+        a0, a1 = sorted((along(apply(to_page, *origin)), along(apply(to_page, *after))))
+        segments.append(((a0, a1), (a0 + shift, a1 + shift)))
+    for (b0, b1), (f0, f1) in segments:
+        for lo, hi in obstacles:
+            before = min(b1, hi) - max(b0, lo) > POSITION_TOL
+            after = min(f1, hi) - max(f0, lo) > POSITION_TOL
+            crossed = (b1 <= lo + POSITION_TOL and f0 >= hi - POSITION_TOL) or (
+                b0 >= hi - POSITION_TOL and f1 <= lo + POSITION_TOL)  # fmt: skip
+            if (after and not before) or crossed:
+                return True
     return False
-
-
-def _overlap(a, b) -> bool:
-    return (min(a[2], b[2]) - max(a[0], b[0]) > POSITION_TOL
-            and min(a[3], b[3]) - max(a[1], b[1]) > POSITION_TOL)  # fmt: skip
 
 
 def _position_edits(change, runs, codes, mode: str) -> list[_OpEdit]:
@@ -668,8 +714,9 @@ def _rewrite_op(inst, edit: _OpEdit, b_codes: list[int], font_name: str | None) 
         kept = [t for t in tokens[lo:hi] if t[0] == "n"]  # 被替換字形之間原有的位移
         # TJ 數值 n 使位置移動 -n/1000×字級；n＝(新寬−舊寬)×1000/字級 抵銷字寬差
         tokens[lo:hi] = glyphs + kept + number
-    elif edit.mode == "insert":  # 前一個字形與字形 g0 之間原有的位移由新字與 number 取代
-        tokens[positions[edit.g0 - 1] + 1 : positions[edit.g0]] = glyphs + number
+    elif edit.mode == "insert":  # 緊接在前一個字形之後；其後原有的位移保留
+        at = positions[edit.g0 - 1] + 1
+        tokens[at:at] = glyphs + number
     elif edit.mode == "head":
         tokens[positions[edit.g0] :] = glyphs
     elif edit.mode == "all":
@@ -684,10 +731,10 @@ def _rewrite_op(inst, edit: _OpEdit, b_codes: list[int], font_name: str | None) 
             suffix = []
         elif edit.g1 > edit.g0:  # 被改字形之後的原有位移保留，後段接在新字之後
             suffix = number + tokens[positions[edit.g1 - 1] + 1 :]
-        else:  # 純插入：前後都有字形時插在前一個字形之後，其間原有位移由 number 取代
+        else:  # 純插入：前後都有字形時插在前一個字形之後，其後原有位移保留
             if 0 < edit.g0 < len(positions):
                 lo = positions[edit.g0 - 1] + 1
-            suffix = number + tokens[positions[edit.g0] if edit.g0 < len(positions) else lo :]
+            suffix = number + tokens[lo:]
         sequence = [_tj(tokens[:lo], run.font.two_byte)] if tokens[:lo] else []
         sequence += [
             pikepdf.ContentStreamInstruction(
