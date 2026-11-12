@@ -108,7 +108,7 @@ def _adr0019_pdfium(original, result, plan, region, mask):
 
 
 def _line_mask(original: bytes, result: bytes, region: list[float]) -> list[float]:
-    """region 與原檔、結果中和 region 垂直重疊的文字行外框之聯集（頁面座標）。"""
+    """region 與原檔、結果中和 region 重疊的文字行（目標所在行）外框之聯集（頁面座標）。"""
     import pymupdf
 
     boxes = [region]
@@ -117,7 +117,11 @@ def _line_mask(original: bytes, result: bytes, region: list[float]) -> list[floa
             for block in doc[0].get_text("dict")["blocks"]:
                 for line in block.get("lines", []):
                     x0, y0, x1, y1 = line["bbox"]
-                    if min(y1, region[3]) - max(y0, region[1]) > 0 and x1 > region[0]:
+                    if (
+                        min(y1, region[3]) - max(y0, region[1]) > 0
+                        and x0 < region[2]
+                        and x1 > region[0]
+                    ):
                         boxes.append([x0, y0, x1, y1])
     return [min(b[0] for b in boxes), min(b[1] for b in boxes),
             max(b[2] for b in boxes), max(b[3] for b in boxes)]  # fmt: skip

@@ -118,3 +118,20 @@ def test_explicit_region_keeps_inner_text(tmp_path, region, ok):
         assert plan["ready"] is ok, plan["unsupported_reasons"]
     finally:
         document.close()
+
+
+def test_new_text_into_other_text_inside_tj_gap(tmp_path):
+    """獨立核對樣本：另一個 BT 的字落在本運算子 TJ 位移跳過的空白裡；新字蓋到它即拒絕
+    （新字的原本範圍是被換字形本身，不是整段外框）。"""
+    content = (b"BT /F1 24 Tf 72 100 Td [(AB) -6000 (CD)] TJ ET "
+               b"BT /F1 24 Tf 190 100 Td (XY) Tj ET")  # fmt: skip
+    document, plan = _apply(tmp_path, content, "AB", "AB" + "B" * 6)  # 新字 104–200，蓋到 190 的 X
+    try:
+        assert plan["unsupported_reasons"] == ["TEXT_OVERFLOW"], plan["unsupported_reasons"]
+    finally:
+        document.close()
+    document, plan = _apply(tmp_path, content, "AB", "AB" + "B" * 3)  # 新字結尾 152，碰不到 X
+    try:
+        assert plan["ready"], plan["unsupported_reasons"]
+    finally:
+        document.close()

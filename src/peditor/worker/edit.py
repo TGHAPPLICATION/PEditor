@@ -173,7 +173,7 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
     if line is None:
         plan.unsupported_reasons.append("UNSUPPORTED_LAYOUT")
         return _store(document, plan, None)
-    shift, old_far, new_far, chain, tail = line
+    shift, old_far, new_far, chain, tail, old_extent = line
 
     geom = analyzer.page_geometry(document.pike.pages[selection.page_index])
     to_page = geom.pdf_to_page()
@@ -197,7 +197,10 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
             fits = fits and contains(box, *page_far, tol=POSITION_TOL)
         fits = fits and _within_page(geom, (page_far,))
     moved = [(_after_glyph(r, i), r.glyphs[i].origin) for r, i in tail]
-    if fits and _collides(document, selection, chain, to_page, start, end, shift, moved):
+    u = (run.matrix[0], run.matrix[1])
+    scale = math.hypot(*u) or 1.0
+    old_end = (start[0] + old_extent * u[0] / scale, start[1] + old_extent * u[1] / scale)
+    if fits and _collides(document, selection, chain, to_page, (start, old_end, end), shift, moved):
         fits = False
     if not fits:
         plan.unsupported_reasons.append("TEXT_OVERFLOW")
@@ -343,7 +346,7 @@ def _line_shift(document, selection, change, runs, start, end, replaced=None):
     old_far = _after_glyph(*tail[-1]) if tail else (
         start[0] + old_extent * ux, start[1] + old_extent * uy)  # fmt: skip
     new_far = (old_far[0] + shift * ux, old_far[1] + shift * uy)
-    return shift, old_far, new_far, chain, tail
+    return shift, old_far, new_far, chain, tail, old_extent
 
 
 def _following_runs(document, all_runs: list[TextRun], index: int) -> list[int]:
@@ -375,13 +378,15 @@ def _within_page(geom, points) -> bool:
     )
 
 
-def _collides(document, selection, chain, to_page, start, end, shift, moved) -> bool:
+def _collides(document, selection, chain, to_page, ends, shift, moved) -> bool:
     """新字與每個被移動的字形，移動後蓋到（或越過）不跟著移動的文字、圖片或垂直於基線的線
     （ADR-0028 §2）。
 
     以頁面空間的基線方向（along）與法線方向（across）判定：只看與這一行高度範圍重疊的障礙；
-    原本就重疊的（例如文字壓在底色框上）不算。moved：[(字形結尾, 字形原點)]（PDF 空間）。
+    原本就重疊的（例如文字壓在底色框上）不算。ends：(起點, 被換字形的原結尾, 新字結尾)；
+    moved：[(字形結尾, 字形原點)]（PDF 空間）。
     """
+    start, old_end, end = ends
     o = apply(to_page, *start)
     d = apply(to_page, start[0] + (end[0] - start[0] or 1.0), start[1] + (end[1] - start[1]))
     if end == start:  # 純刪除：以第一個被移動字形的方向
@@ -432,12 +437,19 @@ def _collides(document, selection, chain, to_page, start, end, shift, moved) -> 
             obstacles.append((lo, hi))
     if not obstacles:
         return False
-    # 新字：原本佔的範圍取選取文字外框（原本就重疊的不算）；頁面空間與 PDF 空間等長，移動量即 shift
-    new0, new1 = sorted((along(apply(to_page, *start)), along(apply(to_page, *end))))
-    segments = [(span(target, along), (new0, new1))]
+    # 新字：原本佔的範圍是被換字形的實際範圍（不是整段外框，TJ 位移跳過的空白不算）；
+    # 頁面空間與 PDF 空間等長，移動量即 shift
+    base = along(apply(to_page, *start))
+    old0, old1 = sorted((base, along(apply(to_page, *old_end))))
+    new0, new1 = sorted((base, along(apply(to_page, *end))))
+    segments = [((old0, old1), (new0, new1))]
     for after, origin in moved:
         a0, a1 = sorted((along(apply(to_page, *origin)), along(apply(to_page, *after))))
         segments.append(((a0, a1), (a0 + shift, a1 + shift)))
+    # 只看移動範圍內的障礙（迴圈量為移動字形數 × 範圍內障礙數）
+    reach0 = min(min(b0, f0) for (b0, _), (f0, _) in segments) - POSITION_TOL
+    reach1 = max(max(b1, f1) for (_, b1), (_, f1) in segments) + POSITION_TOL
+    obstacles = [(lo, hi) for lo, hi in obstacles if hi > reach0 and lo < reach1]
     for (b0, b1), (f0, f1) in segments:
         for lo, hi in obstacles:
             before = min(b1, hi) - max(b0, lo) > POSITION_TOL
