@@ -1,7 +1,7 @@
 # P8 授權核對（ADR-0002）— 核對結果與待決事項
 
 - 核對日期：2026-11-12；核對版本：`main` @ `c4e0e2b`
-- 核對者：Claude（自動核對與文件整理）；**簽核：待負責人**
+- 核對者：Claude（自動核對與文件整理）；F1–F5 已修正（第 5 節）；**簽核：待負責人**
 - 依據：ADR-0002、`LICENSE`、`THIRD_PARTY_NOTICES.md`、`packaging/sbom/sbom-runtime.cdx.json`、`uv.lock`、
   各套件 wheel 內的 `dist-info` 授權檔、`packaging/build_release.py`、`packaging/windows/peditor.iss`
 - 方法：讀取已安裝套件的授權中繼資料與授權檔；在本工作環境（Linux）以 `build_release.build()` 產生 onedir，檢查實際打包內容。
@@ -62,7 +62,25 @@
 3. **libiconv（LGPL-2.1）的處理方式**（F6）：接受「指向 lxml 公開原始碼」的做法，或請法務確認。
 4. **PyMuPDF 走 AGPL 路線**：ADR-0002 已決定；確認機關對外散布 AGPL 軟體沒有內部規定上的障礙。
 
-## 5. 修正後的簽核清單（給負責人）
+## 5. 工程師決定與修正（2026-11-12）
+
+- 著作權人：**開發者個人**；目前以「TGH.ai」寫入（`NOTICE`、README、「關於」畫面、`src/peditor/ui/app.py` 的 `COPYRIGHT`），
+  如需改為本名，只需改這幾處。**請負責人確認名稱。**
+- 散布管道：**GitHub Releases 為主**；轉載處須附原始碼連結（`docs/release/install.md`）。
+- 已修正（`p8-license` 分支）：
+  - F1：`packaging/build_release.py::collect_licenses` 於建置時把隨包套件 `dist-info` 授權檔、PyInstaller 授權與
+    `packaging/licenses/`（Qt 的 LGPL-3.0／GPL-3.0、MuPDF 1.28.2 子模組授權、CPython PSF-2.0）收進安裝目錄 `licenses/`；
+    缺少必要檔案時建置失敗。`THIRD_PARTY_NOTICES.md` 改為正式版並列出原生函式庫與全文位置。
+    測試：`tests/unit/test_release_licenses.py`。
+  - F2、F3：新增「說明 → 關於 PEditor」（版本、建置 commit、著作權、AGPL-3.0、無擔保、該版原始碼網址、第三方授權位置；
+    純文字，不開啟網路）。測試：`tests/gui/test_about.py`。安裝說明新增「授權與原始碼」。
+  - F4：新增 `NOTICE`；README 加著作權與無擔保聲明。
+  - F5：`THIRD_PARTY_NOTICES.md` 註明 MSVC 執行階段屬系統元件例外，條款檔在 `licenses/pikepdf/third-party-licenses/`。
+- 未修正：F6（libiconv，待負責人或法務確認做法）、F7（QtNetwork，另案）、F8（可接受）。
+- MuPDF 第三方授權檔是 2026-11-12 從 ArtifexSoftware 倉庫預設分支取得，不是逐一對應 MuPDF 1.28.2 子模組的 commit；
+  授權條款長期不變，但嚴格來說屬推定。
+
+## 6. 修正後的簽核清單（給負責人）
 
 - [ ] F1：安裝目錄 `licenses/` 含上表所有元件的授權全文；`THIRD_PARTY_NOTICES.md` 由「草稿」改為正式版
 - [ ] F2：「關於」畫面顯示著作權、無擔保、AGPL-3.0、原始碼網址、第三方授權位置

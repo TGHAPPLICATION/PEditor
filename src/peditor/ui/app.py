@@ -212,6 +212,27 @@ class PageView(QGraphicsView):
 BUILD_FILE = Path(__file__).resolve().parents[1] / "resources" / "BUILD"
 
 
+COPYRIGHT = "Copyright (C) 2026 TGH.ai"
+SOURCE_URL = "https://github.com/TGHAPPLICATION/PEditor"
+
+
+def about_text(commit: str = "") -> str:
+    """AGPL-3.0 §5(d) 的適當法律聲明（P8 授權核對 F2、F3）；純文字、不開啟網路連結（離線產品）。"""
+    source = f"{SOURCE_URL}/tree/{commit}" if commit else SOURCE_URL
+    return "\n".join([
+        f"PEditor {__version__}" + (f"（建置 {commit}）" if commit else ""),
+        COPYRIGHT,
+        "",
+        "本程式為自由軟體，依 GNU Affero 通用公共授權條款第 3 版（AGPL-3.0-only）散布；",
+        "您可以依該授權重新散布或修改本程式。",
+        "本程式不提供任何擔保，亦無適售性或特定目的適用性之默示擔保。",
+        "詳見授權全文（安裝目錄的 LICENSE）。",
+        "",
+        f"對應原始碼：{source}",
+        "第三方元件與授權：安裝目錄的 THIRD_PARTY_NOTICES.md 與 licenses 資料夾。",
+    ])  # fmt: skip
+
+
 def _build_suffix(path: Path = BUILD_FILE) -> str:
     """打包時寫入的建置 commit（P8 實機驗收辨認安裝包）；開發環境沒有此檔則不顯示。"""
     try:
@@ -449,6 +470,7 @@ class MainWindow(QMainWindow):
             ("fit_width", "符合寬度", QKeySequence(), self.view.fit_width),
             ("find", "尋找…", QKeySequence.StandardKey.Find, self.show_find),
             ("cancel", "取消", QKeySequence(Qt.Key.Key_Escape), self.cancel),
+            ("about", "關於 PEditor", QKeySequence(), self.show_about),
         ):
             action = QAction(text, self)
             if isinstance(
@@ -461,7 +483,7 @@ class MainWindow(QMainWindow):
                             for s in action.shortcuts() if not s.isEmpty())  # fmt: skip
             action.setToolTip(f"{text}（{keys}）" if keys else text)  # 工具列提示顯示快捷鍵（U12）
             action.triggered.connect(slot)
-            if name != "find":  # 尋找只放在選單（Ctrl+F；P8 工程師要求）
+            if name not in ("find", "about"):  # 尋找、關於只放在選單（Ctrl+F；P8 工程師要求）
                 toolbar.addAction(action)
             self.actions[name] = action
         panel_action = self.panel_dock.toggleViewAction()
@@ -471,6 +493,7 @@ class MainWindow(QMainWindow):
             ("檔案", ["open", "save"]),
             ("編輯", ["undo", "redo", None, "find", "manual_cell", "cancel"]),
             ("檢視", ["zoom_in", "zoom_out", "zoom_reset", "fit_width", None, "panel"]),
+            ("說明", ["about"]),
         )
         for title, names in menus:
             menu = self.menuBar().addMenu(title)
@@ -956,6 +979,10 @@ class MainWindow(QMainWindow):
     def _dialog_image(self) -> str | None:
         path, _ = QFileDialog.getOpenFileName(self, "選擇新圖片", "", "圖片 (*.png *.jpg *.jpeg)")
         return path or None
+
+    def show_about(self) -> None:
+        commit = _build_suffix().strip("（）")
+        QMessageBox.about(self, "關於 PEditor", about_text(commit))
 
     def _dialog_unsaved(self) -> str:
         """回傳 "save"、"discard" 或 "cancel"（ADR-0027）；不顯示路徑。"""

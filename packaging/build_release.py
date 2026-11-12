@@ -6,6 +6,8 @@
 - 自我檢查（打包結果，不用開發環境的 Python）：`--smoke` 啟動主視窗；`edit-text` 以 T01（模式 A）
   與 F02（模式 B，需要打包進去的字型）改字並另存——兩者都經由打包後的 worker 子命令與 Job Object。
 - 輸出 `build/release/SHA256SUMS.txt`（安裝包與 onedir 內每個檔案的 SHA-256）。
+- 安裝目錄附 `licenses/`：各執行期套件 wheel 內的授權檔、PyInstaller bootloader 授權、
+  `packaging/licenses/`（Qt 的 LGPL／GPL 全文、MuPDF 第三方、CPython）（P8 授權核對 F1）。
 
 用法：uv run python packaging/build_release.py [--no-installer]
 先執行 `uv run python scripts/fetch_fonts.py`（字型不入庫，ADR-0008）。
@@ -14,6 +16,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
 import os
 import shutil
@@ -28,7 +31,26 @@ FONTS = ROOT / "tests" / "fixtures" / "fonts"
 FIXTURES = ROOT / "tests" / "fixtures" / "files"
 FONT = "NotoSansTC-Regular.otf"
 FONT_LICENSE = "LICENSE-NotoSansCJK.txt"
-DOCS = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+DOCS = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
+# 隨安裝包散布的套件（uv export --no-dev）與 PyInstaller（bootloader 編入執行檔）
+LICENSED = ["pymupdf", "pikepdf", "pyside6-essentials", "shiboken6", "pillow", "lxml", "packaging",
+            "fonttools", "pyinstaller"]  # fmt: skip
+EXTRA_LICENSES = ROOT / "packaging" / "licenses"
+# 安裝包必須附上的授權檔（自我檢查；相對 licenses/）
+REQUIRED_LICENSES = [
+    "qt/LGPL-3.0-only.txt",
+    "qt/GPL-3.0-only.txt",
+    "python/PSF-2.0.txt",
+    "mupdf-thirdparty/freetype--FTL.TXT",
+    "mupdf-thirdparty/libjpeg--README",
+    "pikepdf/LICENSE.txt",
+    "pikepdf/third-party-licenses/openssl.txt",
+    "pikepdf/third-party-licenses/libjpeg-turbo-README.ijg.txt",
+    "pillow/LICENSE",
+    "lxml/LICENSES.txt",
+    "pyinstaller/COPYING.txt",
+    "pymupdf/COPYING",
+]
 MARKER = "PEDITOR_SMOKE_OK"
 BUNDLE_ID = "io.github.tghapplication.peditor"
 
@@ -56,6 +78,42 @@ def _sha256(path: Path) -> str:
         while chunk := fh.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def collect_licenses(dest: Path) -> list[str]:
+    """把隨包元件的授權檔複製到 dest（P8 授權核對 F1）；回傳相對路徑清單（排序）。
+
+    wheel 的授權檔在 dist-info 的 `licenses/` 下（PEP 639），舊式 wheel 則是 dist-info 內的
+    LICENSE／COPYING／NOTICE 檔；PyInstaller 打包時不會帶入這些檔案。
+    """
+    dest.mkdir(parents=True, exist_ok=True)
+    for name in LICENSED:
+        dist = importlib.metadata.distribution(name)
+        for item in dist.files or []:
+            parts = item.parts
+            if not parts or not parts[0].endswith(".dist-info"):
+                continue
+            if "licenses" in parts:
+                rel = Path(*parts[parts.index("licenses") + 1 :])
+            elif parts[-1].upper().startswith(("LICENSE", "COPYING", "NOTICE")):
+                rel = Path(parts[-1])
+            else:
+                continue
+            target = dest / name / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(item.locate(), target)
+    shutil.copytree(EXTRA_LICENSES, dest, dirs_exist_ok=True)
+    version = f"python{sys.version_info[0]}.{sys.version_info[1]}"
+    base = Path(sys.base_prefix)
+    for candidate in (base / "LICENSE.txt", base / "lib" / version / "LICENSE.txt"):
+        if candidate.is_file():  # CPython 完整授權（含其內嵌元件）；找不到時只有 PSF-2.0 全文
+            shutil.copy2(candidate, dest / "python" / "LICENSE.txt")
+            break
+    found = sorted(p.relative_to(dest).as_posix() for p in dest.rglob("*") if p.is_file())
+    missing = [r for r in REQUIRED_LICENSES if r not in found]
+    if missing:
+        raise SystemExit(f"缺少授權檔：{missing}")
+    return found
 
 
 def build() -> Path:
@@ -92,6 +150,7 @@ def build() -> Path:
         docs_dir = DIST / "PEditor"
     for name in DOCS:
         shutil.copy2(ROOT / name, docs_dir / name)
+    collect_licenses(docs_dir / "licenses")
     return exe
 
 
