@@ -12,7 +12,7 @@ REASONS = {
         "含不支援的功能（例如 /ActualText、XFA、PDF/A、跨標記內容），或不支援的圖片格式"
     ),
     "GLYPH_MISSING": "原字型與內建字型（Noto Sans TC）都缺少部分新字",
-    "TEXT_OVERFLOW": "新文字會超出可改動區域；不會自動縮小字級",
+    "TEXT_OVERFLOW": "新文字或被推的字會超出頁面、蓋到其他內容或超出可改動區域；不會縮小字級",
     "SHARED_RESOURCE_UNSAFE": "這段內容被多處共用，修改會連帶改動其他位置",
     "SIGNED_DOCUMENT": "文件含數位簽章，修改會使簽章失效，不提供編輯",
     "ENCRYPTED_DOCUMENT": "文件已加密，不提供編輯",
