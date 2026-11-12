@@ -392,3 +392,31 @@ def test_chained_edit_e01_through_worker():
         texts = [t["text"] for t in svc.inspect_page(did, 0, expected_revision=2)["text_targets"]]
         assert any("衛生局" in t for t in texts) and not any("測試局" in t for t in texts)
     assert hashlib.sha256(path.read_bytes()).hexdigest() == digest  # 原檔不變
+
+
+@pytest.mark.parametrize(("again", "mode"), [("各", "A"), ("每", "B")])
+def test_insert_into_gap_after_deletion(again, mode):
+    """P8 實機回報：先刪字留下空白（ADR-0018 §2），再在同處補字時，
+    新字錨定在前一個字形之後（ADR-0018 §1）填入空白，不疊在後面的字上；後面的字形原點不變。"""
+    document = analyzer.open_document(str(FILES / "T05.pdf"))
+    try:
+        before = {(o[1], o[2]): o[3] for o in _origins(document)}
+        deleted = _plan(document, "請各單位", "請單位", "0,0,999,999")
+        assert deleted["mode"] == "A"
+        edit.apply_edit(document, deleted["plan_id"], 0)
+        plan = _plan(document, "請單位", f"請{again}單位", "0,0,999,999")
+        assert plan["mode"] == mode and not plan["unsupported_reasons"]
+        edit.apply_edit(document, plan["plan_id"], 1)
+        glyphs = [(g.unicode, g.origin) for r in interpret(document.pike.pages[0]).runs
+                  for g in r.glyphs]  # fmt: skip
+        text = "".join(u for u, _ in glyphs)
+        at = text.index(f"請{again}單位")
+        (_, please), (_, new), (_, unit) = glyphs[at : at + 3]
+        line = [o for (i, u), o in before.items() if u == "請"][0][1]
+        old_ge = [o for (i, u), o in before.items() if u == "各" and abs(o[1] - line) < 0.1][0]
+        old_unit = [o for (i, u), o in before.items() if u == "單" and abs(o[1] - line) < 0.1][0]
+        assert abs(new[0] - old_ge[0]) <= ORIGIN_TOL  # 新字在原「各」的位置（前一個字形之後）
+        assert abs(unit[0] - old_unit[0]) <= ORIGIN_TOL and abs(unit[1] - old_unit[1]) <= ORIGIN_TOL
+        assert please[0] < new[0] < unit[0]  # 不重疊
+    finally:
+        document.close()

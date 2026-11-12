@@ -37,6 +37,8 @@ class _OpEdit:
     """一個文字顯示運算子的改寫。
 
     mode：replace＝替換字形 [g0, g1)（保留其間原有位移，可附補償）；
+    insert＝插在字形 g0−1 之後（取代它與字形 g0 之間原有的位移），
+    number 為把字形 g0 放回原位的絕對位移；
     head＝自 g0 起到運算子結尾全部移除後放入新字碼；all＝全部移除；
     tail＝移除開頭到字形 g1 之前（g1 為字形數時保留結尾位移），開頭放入補償；
     split_b／head_b＝模式 B：拆成「前段、換字型畫新字、換回原字型、（後段）」。
@@ -152,10 +154,22 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
 
     old_codes = [g.code for p, r in zip(change.pieces, runs, strict=True)
                  for g in r.glyphs[p.g0 : p.g1]]  # fmt: skip
-    start = _start_origin(run, piece.g0)
+    # 純插入且前後都有字形：錨定在前一個字形之後（ADR-0018 §1），不是下一個字形的原點；
+    # 兩者之間原有的位移（例如先前刪字留下的空白）由新字填入，不讓新字疊在後面的字上
+    inserting = len(runs) == 1 and piece.g0 == piece.g1 and 0 < piece.g0 < len(run.glyphs)
+    start = _after_glyph(run, piece.g0 - 1) if inserting else _start_origin(run, piece.g0)
     a, b = run.matrix[0], run.matrix[1]
     end = (start[0] + new_adv / run.size * a, start[1] + new_adv / run.size * b)
-    if mode == "A" and len(runs) == 1:
+    if mode == "A" and inserting:
+        number = _tail_number(piece, run, run, start, end)
+        if number is None:
+            plan.unsupported_reasons.append("UNSUPPORTED_LAYOUT")
+            return _store(document, plan, None)
+        if number and run.operator in ("'", '"'):
+            plan.unsupported_reasons.append("UNSUPPORTED_LAYOUT")  # 換行顯示運算子無法以 TJ 補償
+            return _store(document, plan, None)
+        edits = [_OpEdit(run, "insert", piece.g0, piece.g1, codes, number)]
+    elif mode == "A" and len(runs) == 1:
         old_adv = sum(run.advance(c) for c in old_codes)
         compensation = (new_adv - old_adv) * 1000.0 / run.size if run.size else 0.0
         if abs(compensation) < 1e-6:
@@ -353,9 +367,14 @@ def _start_origin(run: TextRun, g0: int) -> tuple[float, float]:
     """改動起點（PDF 空間基線點）：第 g0 個字形原點；插在最後時為最後字形之後。"""
     if g0 < len(run.glyphs):
         return run.glyphs[g0].origin
-    last = run.glyphs[g0 - 1]
-    step = run.advance(last.code) / run.size
-    return (last.origin[0] + step * run.matrix[0], last.origin[1] + step * run.matrix[1])
+    return _after_glyph(run, g0 - 1)
+
+
+def _after_glyph(run: TextRun, index: int) -> tuple[float, float]:
+    """第 index 個字形畫完後的位置（PDF 空間基線點；不含其後的 TJ 位移）。"""
+    glyph = run.glyphs[index]
+    step = run.advance(glyph.code) / run.size
+    return (glyph.origin[0] + step * run.matrix[0], glyph.origin[1] + step * run.matrix[1])
 
 
 def _shared_stream(document: analyzer.Document, run: TextRun) -> bool:
@@ -567,6 +586,8 @@ def _rewrite_op(inst, edit: _OpEdit, b_codes: list[int], font_name: str | None) 
         kept = [t for t in tokens[lo:hi] if t[0] == "n"]  # 被替換字形之間原有的位移
         # TJ 數值 n 使位置移動 -n/1000×字級；n＝(新寬−舊寬)×1000/字級 抵銷字寬差
         tokens[lo:hi] = glyphs + kept + number
+    elif edit.mode == "insert":  # 前一個字形與字形 g0 之間原有的位移由新字與 number 取代
+        tokens[positions[edit.g0 - 1] + 1 : positions[edit.g0]] = glyphs + number
     elif edit.mode == "head":
         tokens[positions[edit.g0] :] = glyphs
     elif edit.mode == "all":
@@ -582,8 +603,10 @@ def _rewrite_op(inst, edit: _OpEdit, b_codes: list[int], font_name: str | None) 
         elif edit.g1 > edit.g0:
             hi = positions[edit.g1] if edit.g1 < len(positions) else end_of_glyphs
             suffix = number + tokens[hi:]  # 被改字形與後段之間的原有位移已含在補償中
-        else:  # 純插入
-            suffix = number + tokens[lo:]
+        else:  # 純插入：前後都有字形時插在前一個字形之後，其間原有位移由 number 取代
+            if 0 < edit.g0 < len(positions):
+                lo = positions[edit.g0 - 1] + 1
+            suffix = number + tokens[positions[edit.g0] if edit.g0 < len(positions) else lo :]
         sequence = [_tj(tokens[:lo], run.font.two_byte)] if tokens[:lo] else []
         sequence += [
             pikepdf.ContentStreamInstruction(
