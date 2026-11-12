@@ -31,9 +31,9 @@
 
 | 需求 ID | test ID／證據 | 環境 | 結果 |
 | --- | --- | --- | --- |
-| G8-01 乾淨環境、無 Python、無網路可安裝並完成核心流程 | 實機驗收清單 S01–S15（Windows Sandbox，`scripts/p8_sandbox.ps1`）；打包結果自我檢查（`packaging/build_release.py`：`--smoke`、T01 模式 A、F02 模式 B 經打包後 worker） | CI 自我檢查；實機 | 自我檢查 CI 雙平台 PASS；**Windows 實機 PASS**（S01–S11、S13、S13b、S14、S15；S12 NOT RUN；S06、S13、S13b、S14 於 11/12 以 ADR-0027 新版重測；S04c、S05 在 `c06e5aa` 上測，新版面板未重看，U6）；macOS 實機 NOT RUN |
+| G8-01 乾淨環境、無 Python、無網路可安裝並完成核心流程 | 實機驗收清單 S01–S15（Windows Sandbox，`scripts/p8_sandbox.ps1`）；打包結果自我檢查（`packaging/build_release.py`：`--smoke`、T01 模式 A、F02 模式 B 經打包後 worker） | CI 自我檢查；實機 | 自我檢查 CI 雙平台 PASS；**Windows 實機 PASS**（S01–S11、S13、S13b、S14、S15；S12 NOT RUN；S06、S13、S13b 於 11/12 以 ADR-0027 新版重測，S14 新版重測僅口頭回報；S04c、S05 在 `c06e5aa` 上測；S05 的預覽擁擠工程師口頭確認新版已改善，U6）；macOS 實機 NOT RUN |
 | G8-02 兩種 PDF 閱讀器正常開啟 | 實機驗收清單 R01–R03（Acrobat Reader、Edge） | 實機（主機） | **PASS**（R01–R03，2026-11-11） |
-| G8-03 支援矩陣 100%；fixture 與盲測 | `tests/integration/test_release_matrix.py`（49 份 available 經 worker 完整判定＋1 項涵蓋檢查）；盲測 `peditor blind-run`（`tests/integration/test_cli_blind.py`：輸出不含文件內容） | 本機 | 矩陣 PASS（49／49）；**盲測 11 份 NOT RUN（工程師 2026-11-11 決定本輪略過）**；U06 無法製作（ADR-0012） |
+| G8-03 支援矩陣 100%；fixture 與盲測 | `tests/integration/test_release_matrix.py`（49 份 available 經 worker 完整判定＋1 項涵蓋檢查）；盲測 `peditor blind-run`（`tests/integration/test_cli_blind.py`：輸出不含文件內容） | 本機 | 矩陣 PASS（49／49）；**盲測 11 份 NOT RUN（工程師 2026-11-11 決定附條件發布，日後補測）**；U06 無法製作（ADR-0012） |
 | G8-04 已知缺陷、SBOM、LICENSE、相依、卸載／草稿清理 | `docs/release/known-issues.md`、`packaging/sbom/sbom-runtime.cdx.json`、`LICENSE`、`THIRD_PARTY_NOTICES.md`、`docs/release/dependencies.md`、`docs/release/install.md` | 文件 | 文件完成；**授權核對待負責人**（ADR-0002） |
 | G8-05 macOS 最低支援版本 | ADR-0025 §3：15.0、Apple Silicon（pikepdf 10.14.0 只有 `macosx_15_0_arm64` wheel） | 文件 | 完成 |
 | G8-06 實機 S10：編輯面板「套用」不被擠出畫面 | `tests/gui/test_layout.py::test_apply_button_visible_on_short_panel`、`::test_floating_panel_kept_above_taskbar`、`::test_build_id_in_title` | 本機 offscreen、CI；實機 | 自動測試 PASS；實機 S10 PASS（安裝包推定 `57ab13a`，U7） |
@@ -62,9 +62,10 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
 - **ADR-0027 關閉前提醒（2026-11-11，工程師決定並確認設計）**：`MainWindow` 記錄開檔與另存成功時的版本，不同即視為未另存；
   關閉或開啟另一份檔案前詢問「另存…／不儲存／取消」；另存成功才繼續；復原草稿後視為未另存；工作進行中關閉不詢問（P4 U11）。
   測試 `tests/gui/test_unsaved.py`（9 項）；`tests/gui/conftest.py` 的 `make_window` 預設回答「不儲存」，避免既有測試被對話框擋住。
-  反向驗證：關閉不詢問、換檔不詢問、另存後不更新已存版本、「不儲存」不生效、復原草稿視為已存，都被抓到。
+  反向驗證（本工作環境逐一手動改壞程式後跑 `tests/gui/test_unsaved.py`，未留存 log）：關閉不詢問、換檔不詢問、另存後不更新已存版本、「不儲存」不生效、復原草稿視為已存，各有至少 1 項失敗。
+  獨立核對後補：`tests/gui/test_drafts_ui.py::test_close_window_while_busy` 加斷言「工作進行中關閉不詢問」。
   本工作環境全套：ruff 通過；pytest 622 passed、4 skipped、1 failed（同上 fixture 位元重現，環境差異）。
-  CI run [42997750865](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42997750865)（`d702e29`）test 與 release 雙平台 success；實機重測用此版安裝包（標題 `PEditor 0.0.1（d702e29）`）。
+  CI run [42997750865](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42997750865)（`d702e29`）test 與 release 雙平台 success；11/12 實機重測推定用此版（或程式相同的 `8f88e25`）安裝包，工程師未記錄標題（U7）。
 - **實機驗收（2026-11-10～11-11）**：清單與結果見 `reports/P8/acceptance.md`。
   - CI run [42766515136](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42766515136)（`0b821ff`）、
     [42773024799](https://github.com/TGHAPPLICATION/PEditor/actions/runs/42773024799)（`57ab13a`）test 與 release 雙平台 success。
@@ -105,9 +106,9 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
   CI 的 Windows release 已改以原始碼重建同版 PyInstaller（log：`Building pyinstaller==6.22.3`、`PYINSTALLER_COMPILE_BOOTLOADER=1`；
   log 中沒有直接看到 bootloader 編譯輸出，是否確實重新編譯無法確認）。實機清單 A01（2026-11-06）：下載 CI 安裝包時防毒沒有攔截，PASS；
   只代表製作機的防毒，不代表其他機關電腦。
-- **Windows 實機**：A01–A03、S01–S11、S13、S13b、S14、S15、R01–R03、P01 PASS；**S12（P4 U14）NOT RUN**（套用太快來不及按 Esc，只有 offscreen 證據）。
+- **Windows 實機**：A01–A03、S01–S11、S13、S13b、S14、S15、R01–R03、P01 PASS（S14 的新版重測只有工程師口頭回報，見下）；**S12（P4 U14）NOT RUN**（套用太快來不及按 Esc，只有 offscreen 證據）。
 - **ADR-0027 新版重測（2026-11-12，台北時間 15:05–15:08）**：S06（依新步驟用 T05）、S13（強制結束後詢問草稿）、S13b（關閉前提醒：取消不關、另存後自動關閉、換檔詢問並可不儲存）PASS；
-  S14 工程師回報「測試都通過了」，但頁面紀錄未更新（仍為 11/11 舊版的 PASS，重按會取消勾選），依工程師口頭回報記為重測通過。
+  S14：頁面紀錄仍為 11/11 舊版的 PASS（重按會取消勾選），新版重測**只有工程師在對話中口頭回報「測試都通過了」，沒有頁面紀錄**。
 - **實機發現（S10，2026-11-10）**：圖片替換預覽後，前後對照圖把「套用」擠出畫面（浮動面板高 720 px，加上預覽後內容更高，超出沙箱螢幕）。
   `0b821ff`：面板內容改捲動、「套用」固定底部、前後對照圖限高 160 px、首次顯示依螢幕縮短面板；工程師回報仍被遮後
   `57ab13a`：面板每次顯示或叫回都依所在螢幕可用範圍縮短，並在安裝包視窗標題顯示建置 commit（工程師無法分辨裝的是哪一版）。
@@ -115,7 +116,7 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
 - **清單步驟錯誤（S13，2026-11-11）**：原步驟「改一處不另存、關閉視窗，重開應詢問草稿」與 ADR-0020 §5（正常關閉刪除草稿，P4 W31 已實測）矛盾，
   首測 FAIL。程式未改；步驟改為 `taskkill /IM PEditor.exe /F` 模擬當機。第二次仍未出現詢問，查證：工作管理員「結束工作」或不加 `/F` 會先送關閉訊息，
   走正常關閉並刪除草稿；本工作環境以 SIGKILL 結束後草稿保留可列出。工程師以 `/F` 重測，草稿檔在強制結束前後都存在，重開出現詢問，PASS。
-- **盲測 11 份**：NOT RUN。工程師 2026-11-11 決定本輪略過（保管人未執行）；G8「12 盲測結果」（ADR-0012 為 11 份）未滿足。
+- **盲測 11 份**：NOT RUN（保管人未執行）。工程師 2026-11-11 決定**附條件發布**，日後補測；G8「12 盲測結果」（ADR-0012 為 11 份）未滿足。
 - **macOS 實機**：NOT RUN（ADR-0003）；DMG 只在 CI 建置與自我檢查。
 - **授權核對**（ADR-0002）：待負責人。
 - 安裝包未簽署；SmartScreen／Gatekeeper 會警告（ADR-0025）。
@@ -134,11 +135,11 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
 | U3 | macOS 實機 NOT RUN | G8 的 macOS 部分 | 待工程師決定（附條件） |
 | U4 | ADR-0026：沒有 ToUnicode 的 CID 字集字型是否納入編輯 | 這類政府表格不能修改 | **維持拒絕（B0），B2 另段評估**（工程師 2026-11-06「照建議」）；使用者確認的整行替換 **B3 列下一版**、整份統一換字型不採用（工程師同日決定） |
 | U5 | 改了沒存就按 ✕，或直接開啟另一份檔案：依 ADR-0020 §5 草稿被刪，修改消失且沒有提醒 | 使用者可能遺失修改 | ADR-0027 已接受並實作；**Windows 實機 S13b PASS**（11/12）；剩「工作進行中關閉不詢問」列 F11 |
-| U6 | S05 備註「預覽時字數太多，很擁擠看不到預覽」（`c06e5aa`） | 預覽可讀性 | 工程師 2026-11-11 確認新版（`0b821ff` 起限制前後對照圖高度、面板可捲動）已改善；未另做實機項目 |
+| U6 | S05 備註「預覽時字數太多，很擁擠看不到預覽」（`c06e5aa`） | 預覽可讀性 | 工程師 2026-11-11 確認新版（`0b821ff` 起限制前後對照圖高度、面板可捲動）已改善；未另做實機項目（工程師 2026-11-11 在對話中口頭確認） |
 | U7 | 實機項目用的安裝包版本未逐項以視窗標題記錄 | 證據對應版本 | 11/10 下午～11/11：推定 `57ab13a`（工程師「不確定，應該是」）；11/12 重測：工程師依指示安裝 run 42997750865（`d702e29`）或最新 run（`8f88e25`，程式相同），備註未寫標題，**仍屬推定** |
 | U8 | P01 輪詢平均 0.53 秒，較設計 100 ms 稀疏 | 極短連線嘗試可能漏看 | 由自動測試補足；照實記錄 |
 | U9 | S06 的 PASS（11/10 10:40）早於清單 10:50 修訂（S04–S07 改用 T05） | S06 證據 | 工程師 11/11 確認不是用 T05；**11/12 以新安裝包依新步驟重測 PASS** |
-| U10 | 工程師 11/11 在對話中回報主機上找不到 R01–R03 要開的輸出檔，R01–R03 的 PASS 紀錄在 11/11 15:45–15:53 | R01–R03 證據是否來自本輪輸出 | 工程師 2026-11-11 確認：R01–R03 是用重新另存的輸出檢查；找不到檔案是在那之前 |
+| U10 | 工程師 11/11 在對話中回報主機上找不到 R01–R03 要開的輸出檔，R01–R03 的 PASS 紀錄在 11/11 15:45–15:53 | R01–R03 證據是否來自本輪輸出 | 工程師 2026-11-11 確認：R01–R03 是用重新另存的輸出檢查；找不到檔案是在那之前（工程師 2026-11-11 在對話中口頭確認） |
 
 ## 10. 關卡結果
 
@@ -154,3 +155,8 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
   指出 4 類問題，已於下一個 commit 修正：§4 過時的「實機驗收以此版為準（之後只改文件）」；頁面縮放實機項目狀態（S04b）未回填；
   S10、P01 的版本對應未標「推定」、G8-01 未附註 S04c／S05 在舊版測；F11 漏了「開啟另一份檔案」也會遺失修改；另補 P01 執行與填寫時間差。
   無法查證：本工作環境的測試數（核對者未重跑）、安裝包 SHA-256（未取回）、工程師自填的實機結果（無截圖）、驗收頁面原始檔（不在 repo）。
+- 2026-11-12，另一個未參與實作的子代理人（只讀）核對 `5f9fa70..90f7580`：ADR-0027 決策與 `app.py` 實作一致；`test_unsaved.py` 涵蓋 ADR「後果」各情境；
+  CI run 42997750865 四個 job success；acceptance 27 項（PASS 25、NOT RUN 2）與逐列相符。指出並已修正：G8-03／§7 盲測仍寫「本輪略過」→ 附條件發布；
+  G8-01 的 S05 敘述與 U6 矛盾；11/12 重測安裝包寫成確定 → 推定；S14 新版重測只有口頭回報卻寫成重測 PASS → 標明口頭回報；U6、U10 註明來源為對話；
+  acceptance 取回日期；ADR「選單」關閉（實際無此選單）；缺「工作進行中關閉不詢問」的測試 → 補在 `test_close_window_while_busy`。
+  無法查證：反向驗證過程（未留存 log）。
