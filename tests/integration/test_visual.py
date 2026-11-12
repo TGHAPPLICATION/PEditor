@@ -74,6 +74,7 @@ def _pdfium_chars(data: bytes):
 def _adr0019_pdfium(original, result, plan, region, mask):
     """ADR-0019：PDFium 以位置驗證取代改動區外像素門檻（行外像素仍須為 0）。"""
     residual = abs(plan["geometry"]["pdfium_width_residual_pt"])
+    shift = plan["geometry"]["shift_pt"]
     before, after = _pdfium_chars(original), _pdfium_chars(result)
     with pikepdf.open(io.BytesIO(original)) as pdf:
         geom = analyzer.page_geometry(pdf.pages[0])
@@ -86,7 +87,11 @@ def _adr0019_pdfium(original, result, plan, region, mask):
             _, x1, y1 = after[block.b + k]
             same_line = abs(y0 - baseline_pdf_y) < plan["geometry"]["font_size"] / 2
             limit = residual + ORIGIN_TOL if same_line else ORIGIN_TOL
-            assert abs(x1 - x0) <= limit and abs(y1 - y0) <= ORIGIN_TOL, (x0, x1, y0, y1)
+            # ADR-0028：同一行改動起點之後的字可移動 shift_pt（被推或往左收）
+            start_x = geom.cropbox[0] + plan["geometry"]["baseline_start"][0]
+            after_start = same_line and x0 >= start_x
+            moved = min(abs(x1 - x0), abs(x1 - x0 - shift)) if after_start else abs(x1 - x0)
+            assert moved <= limit and abs(y1 - y0) <= ORIGIN_TOL, (x0, x1, y0, y1)
     # 行外不得有任何超標像素：遮去改動區與目標所在行（垂直方向 ±2 pt）後必須為 0
     a, b = visual.render("pdfium", original), visual.render("pdfium", result)
     peak = ImageChops.difference(a, b).convert("RGB")
@@ -104,10 +109,11 @@ def _adr0019_pdfium(original, result, plan, region, mask):
 
 @pytest.mark.parametrize(("fid", "old", "new", "region"), _cases())
 def test_changed_page_outside_mask_threshold(fid, old, new, region):
-    """G2-11：改動區 +2 pt 外每通道差 >8/255 的像素 ≤0.01%（同引擎原／新比對）。"""
+    """G2-11：改動區 +2 pt 外每通道差 >8/255 的像素 ≤0.01%（同引擎原／新比對）。
+    改動區為計畫的 allowed_change_mask（ADR-0028：含同一行被推或往左收的字）。"""
     original, result, plan = visual.apply_manifest_edit(fid, old, new, _region(region))
     assert result is not None, plan["unsupported_reasons"]
-    mask = visual.mask_pixels(original, 0, _region(region))
+    mask = visual.mask_pixels(original, 0, plan["allowed_change_mask"])
     residual = plan["geometry"]["pdfium_width_residual_pt"]
     for engine in visual.engines(fid):
         if engine == "pdfium" and residual and fid not in visual.MUPDF_BLANK:

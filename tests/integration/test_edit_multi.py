@@ -72,13 +72,16 @@ def test_multi_operator_change(tmp_path, content, old, new, tail, pieces, expect
         edit.apply_edit(document, plan["plan_id"], 0)
         result = document.working_bytes()
         tail_after = _origins(document, tail)
+        shift = plan["geometry"]["shift_pt"]
         for (x0, y0), (x1, y1) in zip(tail_before, tail_after, strict=True):
-            assert abs(x0 - x1) <= ORIGIN_TOL and abs(y0 - y1) <= ORIGIN_TOL  # G2-19
+            # G2-19（ADR-0028）：後續文字移動新舊字寬差，緊接在新字之後
+            assert abs(x0 + shift - x1) <= ORIGIN_TOL and abs(y0 - y1) <= ORIGIN_TOL
     finally:
         document.close()
-    # 改動區：計畫的新字起點到「新字終點、原改動終點（後續文字起點）」較遠者；頁面座標 y 向下
+    # 改動區：新字起點到「移動後行尾、原行尾」較遠者（ADR-0028：被推的字也在改動區）
+    # 頁面座標 y 向下；原行尾取最後一字原點＋字級
     start_x = plan["geometry"]["baseline_start"][0]
-    end_x = max(plan["geometry"]["baseline_end"][0], tail_before[0][0])
+    end_x = max(plan["geometry"]["line_end"][0], tail_before[-1][0] + 24)
     region = [start_x, 100 - 24, end_x, 100 + 8]
     mask = visual.mask_pixels(original, 0, region)
     for engine in ("mupdf", "pdfium"):

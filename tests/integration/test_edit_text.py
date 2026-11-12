@@ -232,31 +232,48 @@ def _origins(document):
 
 
 @pytest.mark.parametrize(("fid", "old", "new"), [
-    ("F04", "Hello", "Hi"),  # E03：較短，後續「 World」不得移動
+    ("F04", "Hello", "Hi"),  # E03：較短，後續「 World」往左收
     ("F04", "World", "Earth"),
     ("T02", "10 月 31 日", "11 月 5 日"),
     ("T01", "衛生局", "測試局"),
+    ("T05", "請各單位", "請各各單位"),  # 較寬：後面的字往右推，不疊字
 ])  # fmt: skip
-def test_following_glyphs_unmoved(fid, old, new):
-    """G2-19：字寬不同時以 TJ 位移補償，目標之後的字形原點不變（ADR-0018 §2）。"""
+def test_following_glyphs_shift(fid, old, new):
+    """G2-19（ADR-0028 §1 取代 ADR-0018 §2）：同一運算子中目標之後的字形移動「新舊字寬差」
+    （geometry.shift_pt），緊接在新字之後、不重疊；其他行的字形原點不變（同一行接續的運算子可跟著移動）。"""
     document = analyzer.open_document(str(FILES / f"{fid}.pdf"))
     try:
         sel = span.resolve(document, span.find(document, 0, old))
         change = span.change(sel, new)
         piece = change.pieces[0]
-        run = sel.runs[piece.run_index]
-        op = _stream_key(document, run)
-        before = [o for o in _origins(document) if o[0] != op or o[1] >= piece.g1]
+        runs = interpret(document.pike.pages[0]).runs
+        first = sum(len(r.glyphs) for r in runs[: piece.run_index]) + piece.g0
+        same_op_tail = len(sel.runs[piece.run_index].glyphs) - piece.g1
+        line_y = sel.runs[piece.run_index].glyphs[0].origin[1]
+        before = [(g.unicode, g.origin) for r in runs for g in r.glyphs]
+        removed = piece.g1 - piece.g0
         plan = _plan(document, old, new, "0,0,999,999")
+        assert not plan["unsupported_reasons"], plan["unsupported_reasons"]
+        moved = plan["geometry"]["shift_pt"]
         edit.apply_edit(document, plan["plan_id"], 0)
-        shift = len(change.new_text) - (piece.g1 - piece.g0)
-        after = {(o[0], o[1] - shift if o[0] == op else o[1]): o for o in _origins(document)}
-        for op_index, index, uni, (x, y) in before:
-            if op_index == op and index < piece.g0:
-                continue
-            _, _, uni2, (x2, y2) = after[(op_index, index)]
-            assert uni == uni2
-            assert abs(x - x2) <= ORIGIN_TOL and abs(y - y2) <= ORIGIN_TOL, (uni, x, x2)
+        after = [(g.unicode, g.origin) for r in interpret(document.pike.pages[0]).runs
+                 for g in r.glyphs]  # fmt: skip
+        added = len(after) - len(before) + removed
+        kept_before = before[:first] + before[first + removed :]
+        kept_after = after[:first] + after[first + added :]
+        assert len(kept_before) == len(kept_after)
+        for k, ((u, (x, y)), (u2, (x2, y2))) in enumerate(
+            zip(kept_before, kept_after, strict=True)
+        ):
+            assert u == u2 and abs(y - y2) <= ORIGIN_TOL
+            if first <= k < first + same_op_tail:  # 同一運算子的後續字形：移動字寬差
+                assert abs(x2 - (x + moved)) <= ORIGIN_TOL, (u, x, x2, moved)
+            elif k >= first and abs(y - line_y) <= ORIGIN_TOL:  # 同一行其他運算子：不動或一起移動
+                assert min(abs(x2 - x), abs(x2 - (x + moved))) <= ORIGIN_TOL, (u, x, x2, moved)
+            else:
+                assert abs(x2 - x) <= ORIGIN_TOL, (u, x, x2)
+        if same_op_tail and added:  # 後面第一個字在最後一個新字之後，不疊字
+            assert after[first + added][1][0] > after[first + added - 1][1][0] + 1.0
     finally:
         document.close()
 
@@ -418,5 +435,30 @@ def test_insert_into_gap_after_deletion(again, mode):
         assert abs(new[0] - old_ge[0]) <= ORIGIN_TOL  # 新字在原「各」的位置（前一個字形之後）
         assert abs(unit[0] - old_unit[0]) <= ORIGIN_TOL and abs(unit[1] - old_unit[1]) <= ORIGIN_TOL
         assert please[0] < new[0] < unit[0]  # 不重疊
+    finally:
+        document.close()
+
+
+@pytest.mark.parametrize(("fid", "old", "new", "ok"), [
+    ("T05", "請各單位", "請各各單位", True),  # 推到原行尾之外（右邊留白內）
+    ("T05", "請各單位", "請" + "各" * 23 + "單位", False),  # 超出頁面右緣
+    ("B01", "項目", "項目" * 5, True),  # 推到表格線之前
+    ("B01", "項目", "項目" * 8, False),  # 撞到垂直表格線與右邊格子的「數量」
+])  # fmt: skip
+def test_push_extends_to_right_limit(fid, old, new, ok):
+    """ADR-0028 §2：未指定可改動區域時，行尾可延伸到頁面右緣、同一行其他內容或垂直線之前；
+    超過回 TEXT_OVERFLOW。"""
+    document = analyzer.open_document(str(FILES / f"{fid}.pdf"))
+    try:
+        params = {"target_id": span.find(document, 0, old).span_id, "new_text": new,
+                  "policy": "prefer_a", "editable_region": None}  # fmt: skip
+        plan = edit.plan_text_edit(document, params)
+        assert (plan["unsupported_reasons"] == []) is ok, plan["unsupported_reasons"]
+        if not ok:
+            assert plan["unsupported_reasons"] == ["TEXT_OVERFLOW"]
+            with pytest.raises(ProtocolError):
+                edit.apply_edit(document, plan["plan_id"], 0)
+        else:
+            assert plan["geometry"]["shift_pt"] > 0
     finally:
         document.close()
