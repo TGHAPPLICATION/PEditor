@@ -1,6 +1,7 @@
 # 第三方元件授權清單（草稿）
 
-> 草稿，版本取自 P0 的 `uv.lock`。正式散布前（P8）以 SBOM 重新產生並由負責人核對（ADR-0002）。
+> 版本取自 `uv.lock`；P8 以 SBOM 重新產生（元件與版本與 P0 相同，見 `docs/release/dependencies.md`）。
+> 正式散布前由負責人核對（ADR-0002）——**核對：待負責人**。
 
 ## 執行期相依（隨產品散布）
 
@@ -21,11 +22,12 @@
 | 字型 | 授權 | 用途 |
 | --- | --- | --- |
 | Droid Sans Fallback（PyMuPDF 內建 `china-t`） | Apache-2.0 | 僅合成 fixture |
-| Noto Sans TC（noto-cjk@f8d1575）／Noto Serif TC（google/fonts@bd8f81d） | OFL-1.1 | fixture；模式 B 重建候選（ADR-0008） |
+| Noto Sans TC Regular（noto-cjk@f8d1575） | OFL-1.1 | **隨安裝包散布**：模式 B 重建字型，授權檔 `peditor/resources/fonts/LICENSE-NotoSansCJK.txt`（ADR-0008、ADR-0025）；fixture |
+| Noto Serif TC（google/fonts@bd8f81d） | OFL-1.1 | 僅 fixture（不散布） |
 
 ## 建置與開發工具（不隨產品散布）
 
-PyInstaller（GPL-2.0-or-later，含 bootloader 例外）、pytest、pytest-qt、ruff、jsonschema、fontTools（MIT）、
+PyInstaller（GPL-2.0-or-later，含 bootloader 例外）、Inno Setup（Inno Setup License）、pytest、pytest-qt、ruff、jsonschema、fontTools（MIT）、
 ReportLab（BSD）、pypdfium2（Apache-2.0／BSD-3-Clause，含 PDFium）。
 
 SBOM 草案（僅執行期相依）：`packaging/sbom/sbom-runtime.cdx.json`。

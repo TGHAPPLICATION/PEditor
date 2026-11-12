@@ -427,6 +427,9 @@ def _chars(mu_page: pymupdf.Page) -> dict[tuple[int, int], list[dict]]:
     return grid
 
 
+UNKNOWN_CHAR = "\ufffd"  # 對應不到 Unicode、MuPDF 也沒有擷取到的字
+
+
 def _match(grid, x: float, y: float, unicode: str | None) -> tuple[dict | None, bool]:
     """回傳（位置吻合的字元, Unicode 是否一致）。"""
     best, best_d = None, LOCATE_TOL
@@ -506,9 +509,11 @@ def _analyze_page(document: Document, page_index: int) -> dict:
             continue
         reasons = list(doc_reasons)
         glyphs, mismatch, unlocated = [], False, False
+        shown: list[str] = []  # 顯示用：對應不到的字改用 MuPDF 在同一位置擷取的字（不影響判定）
         for g in run.glyphs:
             x, y = apply(to_page, *g.origin)
             ch, same = _match(grid, x, y, g.unicode)
+            shown.append(g.unicode if g.unicode is not None else (ch["c"] if ch else UNKNOWN_CHAR))
             if g.unicode is not None and g.unicode.isspace():
                 continue
             if ch is None:
@@ -549,6 +554,9 @@ def _analyze_page(document: Document, page_index: int) -> dict:
             "glyphs": glyphs,
             "capability": _capability(reasons),
         })  # fmt: skip
+        if any(g.unicode is None for g in run.glyphs):
+            # 只供介面顯示（P8 實機：字型沒有 ToUnicode 時面板看得懂）；判定與定位一律用 text
+            text_targets[-1]["display_text"] = "".join(shown)
         run_index[text_targets[-1]["target_id"]] = i
     document.runs[page_index] = (content.runs, run_index)
 

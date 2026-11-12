@@ -14,13 +14,15 @@ import json
 import os
 import sys
 from collections.abc import Callable
+from pathlib import Path
 
 from PySide6.QtCore import QDateTime, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPen, QPixmap
+from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPainter, QPen, QPixmap, QTransform
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
+    QDockWidget,
     QFileDialog,
     QGraphicsPixmapItem,
     QGraphicsRectItem,
@@ -32,8 +34,10 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMessageBox,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -41,14 +45,17 @@ from PySide6.QtWidgets import (
 
 from peditor import __version__
 from peditor.core.geometry import PageGeometry, bbox_of
+from peditor.core.limits import MAX_RENDER_DPI
 from peditor.core.service import DocumentService, ServiceError
 from peditor.ui.jobs import JobRunner
 from peditor.ui.messages import NOTICES, reason_text, reasons_text
 
 SMOKE_MARKER = "PEDITOR_SMOKE_OK"
 PAGE_DPI = 100
+ZOOM_MIN, ZOOM_MAX, ZOOM_STEP = 0.25, 4.0, 1.25  # 頁面縮放（P8 工程師要求）
 THUMB_DPI = 24
 MAX_THUMBS = 200
+PREVIEW_MAX_H = 160  # 前後對照圖最大高度（px）
 
 
 def _pixmap(rendered: dict) -> QPixmap:
@@ -64,9 +71,14 @@ class PageView(QGraphicsView):
     target_clicked = Signal(dict)
     box_selected = Signal(list)  # 手動選格：拉出的範圍（頁面空間 pt）
 
+    zoom_changed = Signal(float)
+
     def __init__(self) -> None:
         super().__init__()
         self.setScene(QGraphicsScene(self))
+        self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        self.zoom = 1.0  # 檢視縮放；場景座標固定為 PAGE_DPI，點選判定不受影響
+        self._pixmap_item: QGraphicsPixmapItem | None = None
         self._geometry: PageGeometry | None = None
         self._targets: list[dict] = []
         self._selected: QGraphicsRectItem | None = None
@@ -79,7 +91,8 @@ class PageView(QGraphicsView):
         scene.clear()
         self._selected = None
         self._drag_item = None
-        scene.addItem(QGraphicsPixmapItem(_pixmap(rendered)))
+        self._pixmap_item = QGraphicsPixmapItem(_pixmap(rendered))
+        scene.addItem(self._pixmap_item)
         geom = page["page_geometry"]
         self._geometry = PageGeometry(tuple(geom["cropbox"]), geom["rotation"])
         self._targets = [{**t, "kind": "text"} for t in page["text_targets"] if t.get("bbox")]
@@ -96,9 +109,40 @@ class PageView(QGraphicsView):
             item.setData(0, target["target_id"])
         scene.setSceneRect(QRectF(0, 0, rendered["width"], rendered["height"]))
 
+    def set_zoom(self, zoom: float) -> None:
+        """檢視縮放（25%–400%）：只改檢視轉換，場景與目標框座標不變。"""
+        zoom = min(ZOOM_MAX, max(ZOOM_MIN, zoom))
+        if abs(zoom - self.zoom) < 1e-6:
+            return
+        self.zoom = zoom
+        self.setTransform(QTransform.fromScale(zoom, zoom))
+        self.zoom_changed.emit(zoom)
+
+    def fit_width(self) -> None:
+        if self._pixmap_item is not None:
+            width = self.scene().sceneRect().width()
+            if width > 0:
+                self.set_zoom((self.viewport().width() - 4) / width)
+
+    def set_sharper(self, rendered: dict, dpi: int) -> None:
+        """放大時以較高 DPI 重新渲染的頁面圖取代原圖（縮回場景的 PAGE_DPI 大小），字不糊。"""
+        if self._pixmap_item is not None:
+            self._pixmap_item.setPixmap(_pixmap(rendered))
+            self._pixmap_item.setScale(PAGE_DPI / dpi)
+            self._pixmap_item.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
+
+    def wheelEvent(self, event) -> None:  # noqa: N802 — Qt 介面
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:  # Ctrl＋滾輪縮放
+            step = ZOOM_STEP if event.angleDelta().y() > 0 else 1 / ZOOM_STEP
+            self.set_zoom(self.zoom * step)
+            event.accept()
+            return
+        super().wheelEvent(event)
+
     def clear(self) -> None:
         """清空頁面與目標框（開啟沒有頁面的文件時，不留下前一份文件；P4 U13）。"""
         self.scene().clear()
+        self._pixmap_item = None
         self._selected = None
         self._drag_item = None
         self._geometry = None
@@ -165,6 +209,18 @@ class PageView(QGraphicsView):
         super().mouseReleaseEvent(event)
 
 
+BUILD_FILE = Path(__file__).resolve().parents[1] / "resources" / "BUILD"
+
+
+def _build_suffix(path: Path = BUILD_FILE) -> str:
+    """打包時寫入的建置 commit（P8 實機驗收辨認安裝包）；開發環境沒有此檔則不顯示。"""
+    try:
+        commit = path.read_text(encoding="ascii").strip()
+    except (OSError, UnicodeDecodeError):
+        return ""
+    return f"（{commit}）" if commit.isalnum() and len(commit) <= 12 else ""
+
+
 class TextInput(QLineEdit):
     """記錄是否在 IME 組字中：Qt 不保證組字中按 Enter 不發出 returnPressed（P4 U7）。"""
 
@@ -177,11 +233,19 @@ class TextInput(QLineEdit):
 
 class EditPanel(QWidget):
     """側欄：選取內容、新文字輸入、計畫資訊、前後對照。
-    只在按「預覽」或 Enter 時規劃（IME 組字中不送出）。"""
+    只在按「預覽」或 Enter 時規劃（IME 組字中不送出）。
+    內容放在捲動區；「套用」固定在底部，螢幕較矮或預覽圖較高時不被擠出畫面（P8 S10）。"""
 
     def __init__(self) -> None:
         super().__init__()
-        layout = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        self.scroll = QScrollArea()
+        self.scroll.setObjectName("panel_scroll")
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        content = QWidget()
+        layout = QVBoxLayout(content)
         self.selected = QLabel("尚未選取文字")
         self.selected.setObjectName("selected")
         self.selected.setWordWrap(True)
@@ -199,11 +263,6 @@ class EditPanel(QWidget):
         self.before.setObjectName("before")
         self.after = QLabel()
         self.after.setObjectName("after")
-        self.find_text = QLineEdit()
-        self.find_text.setObjectName("find_text")
-        self.find_text.setPlaceholderText("尋找文字（可跨段落選取）")
-        self.find_button = QPushButton("尋找")
-        self.find_button.setObjectName("find")
         self.image_button = QPushButton("選擇新圖片…")
         self.image_button.setObjectName("replace_image")
         self.line_choice = QComboBox()  # 儲存格的第幾行（ADR-0023：一次改一行）
@@ -212,10 +271,33 @@ class EditPanel(QWidget):
         for widget in (QLabel("選取的內容"), self.selected, self.line_choice, QLabel("新文字"),
                        self.new_text,
                        self.preview_button, self.image_button, self.info, QLabel("修改前"),
-                       self.before, QLabel("修改後"), self.after, self.apply_button,
-                       self.find_text, self.find_button):  # fmt: skip
+                       self.before, QLabel("修改後"), self.after):  # fmt: skip
             layout.addWidget(widget)
         layout.addStretch(1)
+        self.scroll.setWidget(content)
+        outer.addWidget(self.scroll, 1)
+        bottom = QVBoxLayout()
+        bottom.setContentsMargins(9, 0, 9, 9)
+        bottom.addWidget(self.apply_button)
+        outer.addLayout(bottom)
+
+
+class FindBar(QDialog):
+    """尋找（Ctrl+F，選單「編輯 → 尋找…」）：小型浮動視窗，不擋住頁面；Enter 或「尋找」送出。"""
+
+    def __init__(self, parent: QWidget) -> None:
+        super().__init__(parent, Qt.WindowType.Tool)
+        self.setWindowTitle("尋找")
+        layout = QHBoxLayout(self)
+        self.find_text = QLineEdit()
+        self.find_text.setObjectName("find_text")
+        self.find_text.setPlaceholderText("尋找文字（可跨段落選取）")
+        self.find_text.setMinimumWidth(260)
+        self.find_button = QPushButton("尋找")
+        self.find_button.setObjectName("find")
+        self.find_button.setDefault(True)
+        layout.addWidget(self.find_text)
+        layout.addWidget(self.find_button)
 
 
 class DraftDialog(QDialog):
@@ -268,9 +350,10 @@ class MainWindow(QMainWindow):
         ask_save: Callable[[], str | None] | None = None,
         ask_draft: Callable[[list[dict]], tuple[str, str] | None] | None = None,
         ask_image: Callable[[], str | None] | None = None,
+        ask_unsaved: Callable[[], str] | None = None,
     ) -> None:
         super().__init__()
-        self.setWindowTitle(f"PEditor {__version__}")
+        self.setWindowTitle(f"PEditor {__version__}{_build_suffix()}")
         self.resize(1280, 860)
         self.service = service
         self.jobs = JobRunner()
@@ -278,6 +361,8 @@ class MainWindow(QMainWindow):
         self._ask_save = ask_save or self._dialog_save
         self._ask_draft = ask_draft or self._dialog_draft
         self._ask_image = ask_image or self._dialog_image
+        self._ask_unsaved = ask_unsaved or self._dialog_unsaved
+        self.saved_revision: int | None = None  # 開檔或最後一次另存成功時的版本（ADR-0027）
         self.document_id: str | None = None
         self.revision = 0
         self.page_count = 0
@@ -302,10 +387,26 @@ class MainWindow(QMainWindow):
         self.panel.preview_button.clicked.connect(self.request_preview)
         self.panel.new_text.returnPressed.connect(self.request_preview)
         self.panel.apply_button.clicked.connect(self.apply_plan)
-        self.panel.find_button.clicked.connect(self.find)
+        self.find_bar = FindBar(self)
+        self.find_bar.find_button.clicked.connect(self.find)
+        self.find_bar.find_text.returnPressed.connect(self.find)
+        # 編輯面板浮動（P8 工程師要求）：可拖動、貼回邊緣或關閉；「檢視 → 編輯面板」叫回
+        self.panel_dock = QDockWidget("編輯", self)
+        self.panel_dock.setObjectName("edit_dock")
+        self.panel_dock.setWidget(self.panel)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.panel_dock)
+        self.panel_dock.setFloating(True)
+        self.panel_dock.resize(360, 720)
+        self._dock_placed = False
         self.panel.image_button.clicked.connect(self.replace_image_dialog)
         self.panel.line_choice.currentIndexChanged.connect(self._line_chosen)
         self.view.box_selected.connect(self.select_box)
+        self.view.zoom_changed.connect(self._zoomed)
+        self._sharp_timer = QTimer(self)
+        self._sharp_timer.setSingleShot(True)
+        self._sharp_timer.setInterval(300)
+        self._sharp_timer.timeout.connect(self._render_sharper)
+        self._sharp_dpi = PAGE_DPI
         self.notice = QLabel("")
         self.notice.setObjectName("notice")
         self.notice.setWordWrap(True)
@@ -314,7 +415,7 @@ class MainWindow(QMainWindow):
         center_layout.addWidget(self.notice)
         center_layout.addWidget(self.view)
         splitter = QSplitter()
-        for widget in (self.thumbs, center, self.panel):
+        for widget in (self.thumbs, center):
             splitter.addWidget(widget)
         self.setCentralWidget(splitter)
 
@@ -332,13 +433,52 @@ class MainWindow(QMainWindow):
             ("undo", "復原", QKeySequence.StandardKey.Undo, self.undo),
             ("redo", "重做", QKeySequence.StandardKey.Redo, self.redo),
             ("manual_cell", "手動選格", QKeySequence(), self._toggle_box_mode),
+            (
+                "zoom_out",
+                "縮小",
+                QKeySequence.StandardKey.ZoomOut,
+                lambda: self.view.set_zoom(self.view.zoom / ZOOM_STEP),
+            ),
+            (
+                "zoom_in",
+                "放大",
+                QKeySequence.StandardKey.ZoomIn,
+                lambda: self.view.set_zoom(self.view.zoom * ZOOM_STEP),
+            ),
+            ("zoom_reset", "實際大小", QKeySequence("Ctrl+0"), lambda: self.view.set_zoom(1.0)),
+            ("fit_width", "符合寬度", QKeySequence(), self.view.fit_width),
+            ("find", "尋找…", QKeySequence.StandardKey.Find, self.show_find),
             ("cancel", "取消", QKeySequence(Qt.Key.Key_Escape), self.cancel),
         ):
             action = QAction(text, self)
-            action.setShortcut(QKeySequence(key))
+            if isinstance(
+                key, QKeySequence.StandardKey
+            ):  # 平台的全部標準鍵（重做另有 Ctrl+Shift+Z；P4 U12）
+                action.setShortcuts(QKeySequence.keyBindings(key))
+            else:
+                action.setShortcut(key)
+            keys = "、".join(s.toString(QKeySequence.SequenceFormat.NativeText)
+                            for s in action.shortcuts() if not s.isEmpty())  # fmt: skip
+            action.setToolTip(f"{text}（{keys}）" if keys else text)  # 工具列提示顯示快捷鍵（U12）
             action.triggered.connect(slot)
-            toolbar.addAction(action)
+            if name != "find":  # 尋找只放在選單（Ctrl+F；P8 工程師要求）
+                toolbar.addAction(action)
             self.actions[name] = action
+        panel_action = self.panel_dock.toggleViewAction()
+        panel_action.setText("編輯面板")
+        self.actions["panel"] = panel_action
+        menus = (
+            ("檔案", ["open", "save"]),
+            ("編輯", ["undo", "redo", None, "find", "manual_cell", "cancel"]),
+            ("檢視", ["zoom_in", "zoom_out", "zoom_reset", "fit_width", None, "panel"]),
+        )
+        for title, names in menus:
+            menu = self.menuBar().addMenu(title)
+            for name in names:
+                if name is None:
+                    menu.addSeparator()
+                else:
+                    menu.addAction(self.actions[name])
         self._refresh_actions()
 
     # --- 狀態 ----------------------------------------------------------
@@ -369,7 +509,8 @@ class MainWindow(QMainWindow):
         self.panel.image_button.setEnabled(editable and is_image)
         self.panel.apply_button.setEnabled(editable and self.plan is not None
                                            and self.plan.get("ready", False))  # fmt: skip
-        self.panel.find_button.setEnabled(opened and not busy)
+        self.find_bar.find_button.setEnabled(opened and not busy)
+        self.actions["find"].setEnabled(opened)
 
     def _status(self, text: str) -> None:
         self.statusBar().showMessage(text)
@@ -391,7 +532,28 @@ class MainWindow(QMainWindow):
         if path:
             self.open_path(path)
 
+    @property
+    def unsaved(self) -> bool:
+        """有尚未另存的修改（ADR-0027）：版本與開檔或上次另存時不同；改了又全部復原也算。"""
+        return self.document_id is not None and self.revision != self.saved_revision
+
+    def _confirm_leave(self, then: Callable[[], None]) -> bool:
+        """關閉或換檔前詢問「另存／不儲存／取消」（ADR-0027）。回傳 True 表示可以立即繼續；
+        選另存時另存成功後才呼叫 then，取消、另存對話框取消或另存失敗則停在原文件。"""
+        if not self.unsaved or self.busy:
+            return True
+        answer = self._ask_unsaved()
+        if answer == "discard":
+            return True
+        if answer == "save":
+            path = self._ask_save()
+            if path:
+                self.save_as(path, then)
+        return False
+
     def open_path(self, path: str) -> None:
+        if not self._confirm_leave(lambda: self.open_path(path)):
+            return
         if self.document_id is not None:
             old, self.document_id = self.document_id, None
             self._run(lambda: self.service.close_document(old), lambda _: None)
@@ -401,6 +563,7 @@ class MainWindow(QMainWindow):
     def _opened(self, result: dict) -> None:
         self.document_id = result["document_id"]
         self.revision = result["revision"]
+        self.saved_revision = result["revision"]
         self.page_count = result["page_count"]
         flags = result["document_flags"]
         self.thumbs.clear()
@@ -446,6 +609,9 @@ class MainWindow(QMainWindow):
             for target_id in line["target_ids"]
         }
         self.view.show_page(rendered, page)
+        self._sharp_dpi = PAGE_DPI
+        if self.view.zoom > 1:
+            self._sharp_timer.start()
         notes = [NOTICES[n] for n in page.get("notices", []) if n in NOTICES]
         reasons = page["capabilities"]["reasons"]
         if reasons:
@@ -469,6 +635,8 @@ class MainWindow(QMainWindow):
     def select_target(self, target: dict) -> None:
         if self.busy:
             return
+        self.panel_dock.show()  # 面板被關閉時，選取內容後叫回
+        self._fit_dock()
         kind = target.get("kind", "text")
         if kind == "text" and target["target_id"] in self.cells_by_target:
             cell, line_index = self.cells_by_target[target["target_id"]]
@@ -485,8 +653,10 @@ class MainWindow(QMainWindow):
             self.panel.selected.setText(f"圖片（{x1 - x0:.0f} × {y1 - y0:.0f} pt）")
             self.panel.new_text.clear()
         else:
-            self.panel.selected.setText(text)
-            self.panel.new_text.setText(text)
+            self.panel.selected.setText(_shown(target.get("display_text", text), text))
+            # 不能改的目標不預填（對應不到 Unicode 的字不能當新文字的起點；P8 實機發現）
+            supported = target["capability"]["status"] == "support"
+            self.panel.new_text.setText(text if supported else "")
         if target["capability"]["status"] == "support":
             self.panel.info.setText("")
         else:
@@ -497,28 +667,36 @@ class MainWindow(QMainWindow):
 
     def _select_cell(self, cell: dict, line_index: int, kind: str, highlight: str | None) -> None:
         """儲存格選取（ADR-0023）：顯示格位置與行；能力判定不支援時顯示原因、不能預覽。"""
+        self.panel_dock.show()
+        self._fit_dock()
         lines = cell["lines"]
         text = lines[line_index]["text"] if lines else ""
+        # 格本身支援時，以所選這一行的判定為準（行內文字無法對應 Unicode 等；P8 實機發現）
+        capability = cell["capability"]
+        if capability["status"] == "support" and lines:
+            capability = lines[line_index]["capability"]
         self.selection = {"target_id": cell.get("cell_id"), "text": text, "kind": kind,
-                          "capability": cell["capability"], "cell": cell,
+                          "capability": capability, "cell": cell,
                           "line_index": line_index}  # fmt: skip
         self.plan = None
         self.view.highlight(highlight)
         where = ("手動選格" if kind == "manual_cell"
                  else f"表格第 {cell['row'] + 1} 列第 {cell['col'] + 1} 欄")  # fmt: skip
-        self.panel.selected.setText(f"{where}：{text}" if text else where)
+        shown = _shown(lines[line_index].get("display_text", text), text) if lines else ""
+        self.panel.selected.setText(f"{where}：{shown}" if text else where)
         choice = self.panel.line_choice
         choice.blockSignals(True)
         choice.clear()
-        choice.addItems([f"第 {i + 1} 行：{line['text']}" for i, line in enumerate(lines)])
+        choice.addItems([f"第 {i + 1} 行：{_shown(line.get('display_text', line['text']))}"
+                         for i, line in enumerate(lines)])  # fmt: skip
         choice.setCurrentIndex(line_index if lines else -1)
         choice.blockSignals(False)
         choice.setVisible(len(lines) > 1)
-        self.panel.new_text.setText(text)
-        if cell["capability"]["status"] == "support":
+        self.panel.new_text.setText(text if capability["status"] == "support" else "")
+        if capability["status"] == "support":
             self.panel.info.setText("")
         else:
-            self.panel.info.setText("無法編輯：" + reasons_text(cell["capability"]["reasons"]))
+            self.panel.info.setText("無法編輯：" + reasons_text(capability["reasons"]))
         self.panel.before.clear()
         self.panel.after.clear()
         self._refresh_actions()
@@ -526,6 +704,26 @@ class MainWindow(QMainWindow):
     def _line_chosen(self, index: int) -> None:
         if self.selection is not None and "cell" in self.selection and index >= 0:
             self._select_cell(self.selection["cell"], index, self.selection["kind"], None)
+
+    def _zoomed(self, zoom: float) -> None:
+        self._status(f"縮放 {zoom:.0%}")
+        self._sharp_timer.start()  # 停止縮放 300 ms 後才重新渲染
+
+    def _render_sharper(self) -> None:
+        """放大後以較高 DPI 重新渲染目前頁（上限 MAX_RENDER_DPI）；換頁或文件已變時丟棄結果。"""
+        if self.document_id is None or self.page is None or self.busy:
+            return
+        dpi = min(MAX_RENDER_DPI, round(PAGE_DPI * self.view.zoom))
+        if dpi <= self._sharp_dpi:
+            return
+        doc, index, revision = self.document_id, self.page_index, self.revision
+
+        def done(rendered: dict) -> None:
+            if (doc, index, revision) == (self.document_id, self.page_index, self.revision):
+                self.view.set_sharper(rendered, dpi)
+                self._sharp_dpi = dpi
+
+        self._run(lambda: self.service.render_page(doc, index, dpi), done)
 
     def _toggle_box_mode(self) -> None:
         self.view.box_mode = self.actions["manual_cell"].isChecked()
@@ -544,8 +742,38 @@ class MainWindow(QMainWindow):
 
         self._run(lambda: self.service.assess_cell_box(doc, index, box, revision), done)
 
+    def show_find(self) -> None:
+        self.find_bar.show()
+        self.find_bar.raise_()
+        self.find_bar.activateWindow()
+        self.find_bar.find_text.setFocus()
+        self.find_bar.find_text.selectAll()
+
+    def showEvent(self, event) -> None:  # noqa: N802 — Qt 介面
+        """第一次顯示時把浮動的編輯面板放在視窗右側內緣。"""
+        super().showEvent(event)
+        if not self._dock_placed and self.panel_dock.isFloating():
+            geo = self.geometry()
+            self.panel_dock.move(geo.right() - self.panel_dock.width() - 24, geo.top() + 96)
+            self._dock_placed = True
+        self._fit_dock()
+
+    def _fit_dock(self) -> None:
+        """浮動面板底部不超出所在螢幕的可用範圍（工作列以上）；超出時縮短，內容改捲動（P8 S10）。"""
+        dock = self.panel_dock
+        if not dock.isFloating():
+            return
+        screen = (dock.screen() or self.screen()).availableGeometry()
+        frame = dock.frameGeometry()
+        if frame.bottom() <= screen.bottom():
+            return
+        deco = frame.height() - dock.height()  # 標題列與邊框
+        top = max(screen.top(), min(frame.top(), screen.bottom() - deco - 320))
+        dock.move(frame.left(), top)
+        dock.resize(dock.width(), max(320, screen.bottom() - top - deco))
+
     def find(self) -> None:
-        text = self.panel.find_text.text()
+        text = self.find_bar.find_text.text()
         if not text or self.document_id is None:
             return
         doc, index = self.document_id, self.page_index
@@ -621,7 +849,13 @@ class MainWindow(QMainWindow):
             m = 12  # 改動區域外留邊，看得到鄰近內容
             for label, key in ((self.panel.before, "before"), (self.panel.after, "after")):
                 pix = _pixmap(preview[key]).copy(x0 - m, y0 - m, x1 - x0 + 2 * m, y1 - y0 + 2 * m)
-                label.setPixmap(pix.scaledToWidth(min(340, max(1, pix.width()))))
+                fit = pix.scaled(  # 限高，前後兩張與「套用」在矮螢幕上也放得下
+                    min(320, max(1, pix.width())),
+                    min(PREVIEW_MAX_H, max(1, pix.height())),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                label.setPixmap(fit)
             self._status("預覽完成，按「套用」提交")
         self._refresh_actions()
 
@@ -637,6 +871,7 @@ class MainWindow(QMainWindow):
         warnings = result.get("warnings") or []
         self._status("；".join(["已更新", *warnings]))
         self.load_page(self.page_index)
+        self.view.setFocus()  # 焦點回到頁面：之後的 Ctrl+Z 是文件復原，不是輸入欄的復原（P4 U12）
 
     def undo(self) -> None:
         if self.document_id is not None and not self.busy:
@@ -659,7 +894,8 @@ class MainWindow(QMainWindow):
         if path:
             self.save_as(path)
 
-    def save_as(self, path: str) -> None:
+    def save_as(self, path: str, then: Callable[[], None] | None = None) -> None:
+        """另存；then：另存成功後要繼續的動作（關閉或換檔，ADR-0027）。"""
         if self.document_id is None or self.busy:
             return
         doc, revision = self.document_id, self.revision
@@ -668,10 +904,17 @@ class MainWindow(QMainWindow):
             token = self.service.destination_token(path, overwrite=os.path.exists(path))
             return self.service.export_document(doc, token, revision)
 
-        self._status("另存中…")
-        self._run(work, self._saved)
+        def done(result: dict) -> None:
+            self._saved(result, doc, revision)
+            if then is not None:
+                then()
 
-    def _saved(self, result: dict) -> None:
+        self._status("另存中…")
+        self._run(work, done)
+
+    def _saved(self, result: dict, doc: str, revision: int) -> None:
+        if doc == self.document_id:
+            self.saved_revision = revision
         warnings = result.get("warnings") or []
         self._status("；".join(["已另存", *warnings]))
 
@@ -699,6 +942,7 @@ class MainWindow(QMainWindow):
     def _recovered(self, result: dict) -> None:
         flags = result.get("document_flags") or {"status": "support", "reasons": []}
         self._opened({**result, "document_flags": flags})
+        self.saved_revision = None  # 復原的修改尚未另存（ADR-0027）
 
     # --- 對話框（測試以參數替換） -------------------------------------------
     def _dialog_open(self) -> str | None:
@@ -713,6 +957,21 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, "選擇新圖片", "", "圖片 (*.png *.jpg *.jpeg)")
         return path or None
 
+    def _dialog_unsaved(self) -> str:
+        """回傳 "save"、"discard" 或 "cancel"（ADR-0027）；不顯示路徑。"""
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle("尚未另存")
+        box.setText("這份文件有尚未另存的修改，要先另存嗎？")
+        save = box.addButton("另存…", QMessageBox.ButtonRole.AcceptRole)
+        discard = box.addButton("不儲存", QMessageBox.ButtonRole.DestructiveRole)
+        cancel = box.addButton("取消", QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(save)
+        box.setEscapeButton(cancel)
+        box.exec()
+        clicked = box.clickedButton()
+        return "save" if clicked is save else "discard" if clicked is discard else "cancel"
+
     def _dialog_draft(self, drafts: list[dict]) -> tuple[str, str] | None:
         dialog = DraftDialog(drafts, self)
         dialog.exec()
@@ -720,7 +979,11 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:  # noqa: N802 — Qt 介面
         """正常關閉：取消進行中的請求、收下已完成的結果，再關閉文件並刪除草稿
-        （ADR-0020 §5，P4 U11）。"""
+        （ADR-0020 §5，P4 U11）。有未另存的修改時先詢問（ADR-0027）；
+        進行中的工作照 P4 U11 處理，不詢問。"""
+        if not self._confirm_leave(self.close):
+            event.ignore()
+            return
         service = self.service
         self.jobs.shutdown(service.cancel if service is not None else None,
                            service.close if service is not None else None)  # fmt: skip
@@ -728,6 +991,14 @@ class MainWindow(QMainWindow):
             self.service.close_document(self.document_id)
             self.document_id = None
         super().closeEvent(event)
+
+
+def _shown(text: str, original: str | None = None) -> str:
+    """顯示用：對應不到 Unicode 的字（worker 以 U+FFFD 表示）改為「□」，不顯示成亂碼。
+    給 original 且 text 與它不同時，text 是 MuPDF 擷取的顯示文字，加註僅供參考。"""
+    if original is not None and text != original:
+        return text.replace("\ufffd", "□") + "（MuPDF 擷取，僅供參考）"
+    return text.replace("\ufffd", "□")
 
 
 def prepare_storage():

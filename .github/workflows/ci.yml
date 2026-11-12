@@ -60,3 +60,56 @@ jobs:
         if: failure()
         shell: bash
         run: cat build/p0-check/log.txt || true
+
+  # P8 發布建置（ADR-0025）：onedir＋模式 B 字型、打包結果自我檢查、Windows 安裝程式／macOS DMG。
+  # 產物未簽署，只供測試（spec P8：不得標成正式部署完成）。
+  release:
+    name: release (${{ matrix.os }})
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.11.32"
+          enable-cache: true
+      - name: Install (locked)
+        run: uv sync --locked --all-groups
+      - name: Fonts cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            tests/fixtures/fonts/*.otf
+            tests/fixtures/fonts/*.ttf
+          key: fonts-${{ hashFiles('tests/fixtures/fonts/fonts.json') }}
+      - name: Fetch fonts (pinned commit + SHA-256)
+        run: uv run python scripts/fetch_fonts.py
+      - name: Inno Setup (pinned, ADR-0025)
+        if: runner.os == 'Windows'
+        run: choco install innosetup --version=6.7.1 -y --no-progress --allow-downgrade
+      # 同一版 PyInstaller 改由原始碼編譯 bootloader（預編譯的 bootloader 常被防毒啟發式規則誤判；ADR-0025）
+      - name: PyInstaller bootloader from source (Windows, same version)
+        if: runner.os == 'Windows'
+        env:
+          PYINSTALLER_COMPILE_BOOTLOADER: "1"
+        run: uv pip install --reinstall --no-binary pyinstaller "pyinstaller==6.22.3"
+      - name: Build release and self-check
+        run: uv run --no-sync python packaging/build_release.py
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: peditor-${{ runner.os }}
+          path: |
+            build/release/*.exe
+            build/release/*.dmg
+            build/release/SHA256SUMS.txt
+            build/release/release.json
+          if-no-files-found: error
+          retention-days: 30

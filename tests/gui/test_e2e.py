@@ -39,8 +39,9 @@ def click_target(qtbot, window, text):
 
 
 def find(qtbot, window, text):
-    window.panel.find_text.setText(text)
-    qtbot.mouseClick(window.panel.find_button, Qt.MouseButton.LeftButton)
+    window.actions["find"].trigger()  # 選單「編輯 → 尋找…」（Ctrl+F）
+    window.find_bar.find_text.setText(text)
+    qtbot.mouseClick(window.find_bar.find_button, Qt.MouseButton.LeftButton)
     wait(qtbot, window)
     assert window.selection is not None and window.selection["text"] == text
 
@@ -163,8 +164,9 @@ def test_flow_overflow_explained_and_not_applicable(qtbot, make_window):
 def test_flow_find_text_selects_span(qtbot, make_window):
     window = make_window()
     open_file(qtbot, window, FILES / "T01.pdf")
-    window.panel.find_text.setText("衛生局")
-    qtbot.mouseClick(window.panel.find_button, Qt.MouseButton.LeftButton)
+    window.actions["find"].trigger()
+    window.find_bar.find_text.setText("衛生局")
+    qtbot.mouseClick(window.find_bar.find_button, Qt.MouseButton.LeftButton)
     wait(qtbot, window)
     assert window.selection is not None and window.selection["text"] == "衛生局"
     preview(qtbot, window, "測試局")

@@ -90,12 +90,15 @@ def test_close_window_discards_draft(qtbot, make_window, tmp_path):
 
 
 def test_close_window_while_busy(qtbot, make_window, tmp_path, monkeypatch):
-    """U11：長操作進行中關閉視窗，先取消再關閉文件，不等操作完成；草稿刪除。"""
+    """U11：長操作進行中關閉視窗，先取消再關閉文件，不等操作完成；草稿刪除。
+    ADR-0027：工作進行中關閉不詢問未另存的修改。"""
     monkeypatch.setenv("PEDITOR_WORKER_TEST_HOOKS", "1")
     store = drafts.DraftStore(tmp_path / "drafts")
     source = tmp_path / "a.pdf"
     shutil.copyfile(FILES / "F04.pdf", source)
-    window = make_window(DocumentService(drafts=store))
+    asked = []
+    window = make_window(DocumentService(drafts=store),
+                         ask_unsaved=lambda: asked.append(True) or "cancel")  # fmt: skip
     open_file(qtbot, window, source)
     click_target(qtbot, window, "World")
     preview(qtbot, window, "Hello Earth")
@@ -107,6 +110,7 @@ def test_close_window_while_busy(qtbot, make_window, tmp_path, monkeypatch):
     window.close()
     assert time.monotonic() - started < 10
     assert store.list() == [] and window.document_id is None
+    assert asked == []
 
 
 def test_close_window_while_busy_between_calls(qtbot, make_window, monkeypatch):

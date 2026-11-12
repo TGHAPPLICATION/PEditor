@@ -131,3 +131,23 @@ def test_xfa_rejected(service, tmp_path):
     assert opened["document_flags"]["xfa"] is True
     assert opened["document_flags"]["reasons"] == ["UNSUPPORTED_FEATURE"]
     service.close_document(opened["document_id"])
+
+
+def test_display_text_for_unmapped_glyphs():
+    """P8 實機：字型沒有 ToUnicode 時，目標另附 display_text（MuPDF 在同一位置擷取的字），
+    只供介面顯示；
+    text、能力判定不變；能對應的目標沒有這個欄位。"""
+    from peditor.worker import analyzer
+
+    document = analyzer.open_document(str(FILES / "F05.pdf"))
+    try:
+        targets = analyzer.inspect_page(document, 0)["text_targets"]
+    finally:
+        document.close()
+    unmapped = [t for t in targets if any(g["c"] is None for g in t["glyphs"])]
+    assert unmapped
+    for t in unmapped:
+        assert len(t["display_text"]) == len(t["text"])
+        assert t["capability"]["status"] == "reject"
+        assert "UNSUPPORTED_ENCODING" in t["capability"]["reasons"]
+    assert all("display_text" not in t for t in targets if t not in unmapped)

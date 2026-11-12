@@ -24,6 +24,30 @@ def press(qtbot, window, name):
     wait(qtbot, window)
 
 
+def test_all_standard_bindings_tooltips_and_focus(qtbot, make_window):
+    """P4 U12：重做綁定平台的全部標準鍵（Windows 另有 Ctrl+Shift+Z）；工具列提示顯示快捷鍵；
+    套用後焦點回到頁面，Ctrl+Z 由文件復原處理而不是輸入欄。"""
+    window = make_window()
+    for name, key in STANDARD.items():
+        action = window.actions[name]
+        assert action.shortcuts() == QKeySequence.keyBindings(key), name
+        native = action.shortcut().toString(QKeySequence.SequenceFormat.NativeText)
+        assert native in action.toolTip(), (name, action.toolTip())
+    open_file(qtbot, window, FILES / "F04.pdf")
+    click_target(qtbot, window, "World")
+    preview(qtbot, window, "Hello Earth")
+    apply(qtbot, window)
+    assert window.focusWidget() is window.view
+    window.activateWindow()
+    qtbot.waitUntil(window.isActiveWindow)
+    press(qtbot, window, "undo")
+    assert window.revision == 2
+    redo = window.actions["redo"].shortcuts()[-1]  # 最後一組標準鍵（Windows：Ctrl+Shift+Z）
+    qtbot.keyClick(window, redo[0].key(), redo[0].keyboardModifiers())
+    wait(qtbot, window)
+    assert window.revision == 3
+
+
 def test_platform_shortcuts(qtbot, make_window):
     window = make_window()
     for name, key in STANDARD.items():

@@ -25,6 +25,8 @@ def make_window(qtbot):
     def make(service=None, **kwargs):
         service = service or DocumentService()
         services.append(service)
+        # 未另存提醒（ADR-0027）的預設對話框會擋住測試；需要測它的測試自行傳入 ask_unsaved
+        kwargs.setdefault("ask_unsaved", lambda: "discard")
         window = MainWindow(service, **kwargs)
         qtbot.addWidget(window)
         window.show()
