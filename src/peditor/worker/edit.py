@@ -1,8 +1,8 @@
 """文字編輯計畫與套用（spec §3、§7；ADR-0001、ADR-0018；只在 worker 使用）。
 
 模式 A：只改寫目標文字顯示運算子中被替換字形的字碼，原字型、座標、其他運算子不動；
-新舊字寬差以 TJ 位移補償，目標之後的字形位置不變（ADR-0018 §2）。
-改動跨同一 BT 內相鄰的多段運算子時，新字碼放入第一段，最後一段以開頭位移把剩餘字形放回原位。
+目標之後同一行的字形跟著新字移動（ADR-0028：較寬往右推、較窄往左收），可延伸到右邊界。
+改動跨同一 BT 內相鄰的多段運算子時，新字碼放入第一段，最後一段移除被改的字形，其餘字形接在新字之後。
 模式 B：原字型缺字時移除舊字形，在同一 BT 內換用 Noto Sans TC 子集字型畫新字，
 再換回原字型（ADR-0018 §4）。
 """
@@ -37,6 +37,7 @@ class _OpEdit:
     """一個文字顯示運算子的改寫。
 
     mode：replace＝替換字形 [g0, g1)（保留其間原有位移，可附補償）；
+    insert＝緊接在字形 g0−1 之後插入（其後原有位移保留）；
     head＝自 g0 起到運算子結尾全部移除後放入新字碼；all＝全部移除；
     tail＝移除開頭到字形 g1 之前（g1 為字形數時保留結尾位移），開頭放入補償；
     split_b／head_b＝模式 B：拆成「前段、換字型畫新字、換回原字型、（後段）」。
@@ -152,35 +153,63 @@ def plan_text_edit(document: analyzer.Document, params: dict) -> dict:
 
     old_codes = [g.code for p, r in zip(change.pieces, runs, strict=True)
                  for g in r.glyphs[p.g0 : p.g1]]  # fmt: skip
-    start = _start_origin(run, piece.g0)
+    # 純插入且前後都有字形：錨定在前一個字形之後（ADR-0018 §1），不是下一個字形的原點；
+    # 兩者之間原有的位移（字距、空白）保留在新字之後，後面的字一起往後推（ADR-0028）
+    inserting = len(runs) == 1 and piece.g0 == piece.g1 and 0 < piece.g0 < len(run.glyphs)
+    start = _after_glyph(run, piece.g0 - 1) if inserting else _start_origin(run, piece.g0)
     a, b = run.matrix[0], run.matrix[1]
     end = (start[0] + new_adv / run.size * a, start[1] + new_adv / run.size * b)
-    if mode == "A" and len(runs) == 1:
-        old_adv = sum(run.advance(c) for c in old_codes)
-        compensation = (new_adv - old_adv) * 1000.0 / run.size if run.size else 0.0
-        if abs(compensation) < 1e-6:
-            compensation = 0.0
-        if compensation and run.operator in ("'", '"'):
-            plan.unsupported_reasons.append("UNSUPPORTED_LAYOUT")  # 換行顯示運算子無法以 TJ 補償
-            return _store(document, plan, None)
-        edits = [_OpEdit(run, "replace", piece.g0, piece.g1, codes, compensation)]
+    # 後面的字形直接接在新字之後（ADR-0028），不再以 TJ 位移放回原位
+    if mode == "A" and inserting:
+        edits = [_OpEdit(run, "insert", piece.g0, piece.g1, codes, 0.0)]
+    elif mode == "A" and len(runs) == 1:
+        edits = [_OpEdit(run, "replace", piece.g0, piece.g1, codes, 0.0)]
     else:
-        edits = _position_edits(change, runs, codes, start, end, mode)
-        if edits is None:
-            plan.unsupported_reasons.append("UNSUPPORTED_LAYOUT")
-            return _store(document, plan, None)
+        edits = _position_edits(change, runs, codes, mode)
+    # 模式 A 單段替換保留被換字形之間原有的位移，後段移動量只是新舊字寬差
+    kept = mode == "A" and len(runs) == 1 and not inserting
+    replaced = sum(run.advance(c) for c in old_codes) if kept else None
+    line = _line_shift(document, selection, change, runs, start, end, replaced)
+    if line is None:
+        plan.unsupported_reasons.append("UNSUPPORTED_LAYOUT")
+        return _store(document, plan, None)
+    shift, old_far, new_far, chain, tail, old_extent = line
 
-    to_page = analyzer.page_geometry(document.pike.pages[selection.page_index]).pdf_to_page()
+    geom = analyzer.page_geometry(document.pike.pages[selection.page_index])
+    to_page = geom.pdf_to_page()
     page_start, page_end = apply(to_page, *start), apply(to_page, *end)
+    page_old_far, page_far = apply(to_page, *old_far), apply(to_page, *new_far)
     plan.geometry = {
         "baseline_start": [round(v, 3) for v in page_start],
         "baseline_end": [round(v, 3) for v in page_end],
+        "shift_pt": round(shift, 3),
+        "line_end": [round(v, 3) for v in page_far],
         "font_size": run.size,
         "pdfium_width_residual_pt": _truncation_residual(run, old_codes, codes or []),
     }
-    if not all(contains(tuple(region), *p, tol=POSITION_TOL) for p in (page_start, page_end)):
+    box = tuple(region)
+    if params["editable_region"] is None:  # 未指定：可延伸到頁面邊緣（ADR-0028 §2）
+        fits = _within_page(geom, (page_start, page_end, page_far))
+    else:
+        fits = all(contains(box, *p, tol=POSITION_TOL) for p in (page_start, page_end))
+        if contains(box, *page_old_far, tol=POSITION_TOL):
+            # 被推的字原本就在指定的可改動區域（儲存格等）內：不得被推出區域（ADR-0028 §3）
+            fits = fits and contains(box, *page_far, tol=POSITION_TOL)
+        fits = fits and _within_page(geom, (page_far,))
+    moved = [(_after_glyph(r, i), r.glyphs[i].origin) for r, i in tail]
+    u = (run.matrix[0], run.matrix[1])
+    scale = math.hypot(*u) or 1.0
+    old_end = (start[0] + old_extent * u[0] / scale, start[1] + old_extent * u[1] / scale)
+    if fits and _collides(document, selection, chain, to_page, (start, old_end, end), shift, moved):
+        fits = False
+    if not fits:
         plan.unsupported_reasons.append("TEXT_OVERFLOW")
         return _store(document, plan, None)
+    if shift:  # 被推或往左收的字也在允許改動的範圍內（另存前的影像比對，spec §8.2）
+        points = [page_start, page_end, page_old_far, page_far]
+        xs = [box[0], box[2], *(p[0] for p in points)]
+        ys = [box[1], box[3], *(p[1] for p in points)]
+        plan.allowed_change_mask = [min(xs), min(ys), max(xs), max(ys)]
     plan.mode = mode
     font_name = None
     if mode == "B":
@@ -280,44 +309,169 @@ def _between_pieces(document: analyzer.Document, runs: list[TextRun]) -> str | N
     return None
 
 
-def _tail_number(piece_last, first: TextRun, last: TextRun, start, end) -> float | None:
-    """把改動之後的字形放回原位所需的 TJ 位移（千分之一字級）。
+def _line_shift(document, selection, change, runs, start, end, replaced=None):
+    """新舊寬度差（基線方向，pt）、移動前後的行尾（PDF 空間）、跟著移動的後續運算子（ADR-0028 §1）。
 
-    以基線方向上的實際位置計算（含原有 TJ 位移），不累加字寬；不在同一基線回 None。
+    跟著移動的字形：最後一段改動之後的字形，加上同一 BT 內接續、中間沒有重新定位的文字運算子。
+    replaced：模式 A 單段替換時被換字形的字寬和（文字空間），移動量＝新舊字寬差。
+    不在同一基線回 None。
     """
+    first, last = runs[0], runs[-1]
+    pl = change.pieces[-1]
     ux, uy = first.matrix[0], first.matrix[1]
     unit = math.hypot(ux, uy)
     if unit == 0:
         return None
     ux, uy = ux / unit, uy / unit
-    if piece_last.g1 < len(last.glyphs):
-        target = last.glyphs[piece_last.g1].origin
+
+    def along(p) -> float:
+        return (p[0] - start[0]) * ux + (p[1] - start[1]) * uy
+
+    def across(p) -> float:
+        return -(p[0] - start[0]) * uy + (p[1] - start[1]) * ux
+
+    if replaced is not None:
+        old_extent = replaced / first.size * unit if first.size else 0.0
+    elif pl.g1 > pl.g0 or len(runs) > 1:
+        old_extent = along(_after_glyph(last, pl.g1 - 1)) if pl.g1 > 0 else 0.0
     else:
-        tail = last.glyphs[-1]
-        step = last.advance(tail.code) / last.size
-        target = (tail.origin[0] + step * last.matrix[0], tail.origin[1] + step * last.matrix[1])
-    # 剩餘字形應在的位置 − 新字之後的位置（基線方向，PDF 空間）
-    gap = (target[0] - end[0]) * ux + (target[1] - end[1]) * uy
-    if abs(-(target[0] - start[0]) * uy + (target[1] - start[1]) * ux) > POSITION_TOL:
+        old_extent = 0.0
+    shift = along(end) - old_extent
+    all_runs, _ = document.runs[selection.page_index]
+    chain = _following_runs(document, all_runs, change.pieces[-1].run_index)
+    tail = [(last, i) for i in range(pl.g1, len(last.glyphs))]
+    tail += [(r, i) for r in (all_runs[k] for k in chain) for i in range(len(r.glyphs))]
+    if any(abs(across(r.glyphs[i].origin)) > POSITION_TOL for r, i in tail):
         return None
-    number = -gap * 1000.0 / math.hypot(last.matrix[0], last.matrix[1])
-    return number if abs(number) > 1e-6 else 0.0
+    old_far = _after_glyph(*tail[-1]) if tail else (
+        start[0] + old_extent * ux, start[1] + old_extent * uy)  # fmt: skip
+    new_far = (old_far[0] + shift * ux, old_far[1] + shift * uy)
+    return shift, old_far, new_far, chain, tail, old_extent
 
 
-def _position_edits(change, runs, codes, start, end, mode: str) -> list[_OpEdit] | None:
+def _following_runs(document, all_runs: list[TextRun], index: int) -> list[int]:
+    """index 之後、同一 BT 內接續在同一行的文字運算子（中間只有狀態或標記運算子，不重新定位）。"""
+    run = all_runs[index]
+    instructions = list(streams.parse(document.pike.get_object(run.stream)))
+    chain: list[int] = []
+    previous = run
+    for k in range(index + 1, len(all_runs)):
+        nxt = all_runs[k]
+        if nxt.stream != run.stream or nxt.form_path != run.form_path or nxt.operator in ("'", '"'):
+            break
+        between = instructions[previous.op_index + 1 : nxt.op_index]
+        if not all(isinstance(i, pikepdf.ContentStreamInstruction)
+                   and (str(i.operator) in _STATE_OPS or str(i.operator) in _MARKED_OPS)
+                   for i in between):  # fmt: skip
+            break
+        chain.append(k)
+        previous = nxt
+    return chain
+
+
+def _within_page(geom, points) -> bool:
+    """所有點在頁面可見範圍（頁面空間 0..寬、0..高）內。"""
+    return all(
+        -POSITION_TOL <= x <= geom.width + POSITION_TOL
+        and -POSITION_TOL <= y <= geom.height + POSITION_TOL
+        for x, y in points
+    )
+
+
+def _collides(document, selection, chain, to_page, ends, shift, moved) -> bool:
+    """新字與每個被移動的字形，移動後蓋到（或越過）不跟著移動的文字、圖片或垂直於基線的線
+    （ADR-0028 §2）。
+
+    以頁面空間的基線方向（along）與法線方向（across）判定：只看與這一行高度範圍重疊的障礙；
+    原本就重疊的（例如文字壓在底色框上）不算。ends：(起點, 被換字形的原結尾, 新字結尾)；
+    moved：[(字形結尾, 字形原點)]（PDF 空間）。
+    """
+    start, old_end, end = ends
+    o = apply(to_page, *start)
+    d = apply(to_page, start[0] + (end[0] - start[0] or 1.0), start[1] + (end[1] - start[1]))
+    if end == start:  # 純刪除：以第一個被移動字形的方向
+        if not moved:
+            return False
+        d = apply(to_page, *moved[0][0])
+        o = apply(to_page, *moved[0][1])
+    du = (d[0] - o[0], d[1] - o[1])
+    norm = math.hypot(*du)
+    if norm == 0:
+        return False
+    ux, uy = du[0] / norm, du[1] / norm
+
+    def along(p) -> float:
+        return p[0] * ux + p[1] * uy
+
+    def across(p) -> float:
+        return -p[0] * uy + p[1] * ux
+
+    def span(box, f):
+        values = [f((x, y)) for x in (box[0], box[2]) for y in (box[1], box[3])]
+        return min(values), max(values)
+
+    target = _selection_box(selection)
+    band = span(target, across)
+    page = analyzer.inspect_page(document, selection.page_index)
+    _, index = document.runs[selection.page_index]
+    moving = {p.run_index for p in selection.pieces} | set(chain)
+    boxes = [t["bbox"] for t in page["text_targets"]
+             if t["bbox"] and index.get(t["target_id"]) not in moving]  # fmt: skip
+    boxes += [t["bbox"] for t in page["image_targets"] if t.get("bbox")]
+    # 行內影像（BI…EI）只有數量、沒有位置，無法判定（ADR-0028 §2 限制，已知缺陷 F12）
+    obstacles = []
+    for box in boxes:
+        lo, hi = span(box, across)
+        if min(hi, band[1]) - max(lo, band[0]) > POSITION_TOL:
+            obstacles.append(span(box, along))
+    tables = document.tables.get(selection.page_index)
+    for line in tables[0].obstacles if tables is not None else []:
+        half = line.width / 2
+        box = ((line.a, line.pos - half, line.b, line.pos + half) if line.horizontal
+               else (line.pos - half, line.a, line.pos + half, line.b))  # fmt: skip
+        lo, hi = span(box, along)
+        if hi - lo > line.width + 2 * POSITION_TOL:
+            continue  # 與基線平行的線（底線、框的上下邊）不擋左右延伸
+        a_lo, a_hi = span(box, across)
+        if min(a_hi, band[1]) - max(a_lo, band[0]) > POSITION_TOL:
+            obstacles.append((lo, hi))
+    if not obstacles:
+        return False
+    # 新字：原本佔的範圍是被換字形的實際範圍（不是整段外框，TJ 位移跳過的空白不算）；
+    # 頁面空間與 PDF 空間等長，移動量即 shift
+    base = along(apply(to_page, *start))
+    old0, old1 = sorted((base, along(apply(to_page, *old_end))))
+    new0, new1 = sorted((base, along(apply(to_page, *end))))
+    segments = [((old0, old1), (new0, new1))]
+    for after, origin in moved:
+        a0, a1 = sorted((along(apply(to_page, *origin)), along(apply(to_page, *after))))
+        segments.append(((a0, a1), (a0 + shift, a1 + shift)))
+    # 只看移動範圍內的障礙（迴圈量為移動字形數 × 範圍內障礙數）
+    reach0 = min(min(b0, f0) for (b0, _), (f0, _) in segments) - POSITION_TOL
+    reach1 = max(max(b1, f1) for (_, b1), (_, f1) in segments) + POSITION_TOL
+    obstacles = [(lo, hi) for lo, hi in obstacles if hi > reach0 and lo < reach1]
+    for (b0, b1), (f0, f1) in segments:
+        for lo, hi in obstacles:
+            before = min(b1, hi) - max(b0, lo) > POSITION_TOL
+            after = min(f1, hi) - max(f0, lo) > POSITION_TOL
+            crossed = (b1 <= lo + POSITION_TOL and f0 >= hi - POSITION_TOL) or (
+                b0 >= hi - POSITION_TOL and f1 <= lo + POSITION_TOL)  # fmt: skip
+            if (after and not before) or crossed:
+                return True
+    return False
+
+
+def _position_edits(change, runs, codes, mode: str) -> list[_OpEdit]:
     """模式 A 多段，或模式 B（單段／多段）：新字放在第一段的改動起點；中間段清空；
-    最後一段（單段時即同一段）以位移把改動之後的字形放回原位。"""
+    最後一段（單段時即同一段）移除被改的字形，其餘字形接在新字之後（ADR-0028）。"""
     first, last = runs[0], runs[-1]
     p0, pl = change.pieces[0], change.pieces[-1]
-    number = _tail_number(pl, first, last, start, end)
-    if number is None:
-        return None
     if len(runs) == 1:  # 只有模式 B 會走到單段
-        return [_OpEdit(first, "split_b", p0.g0, p0.g1, [], number)]
+        return [_OpEdit(first, "split_b", p0.g0, p0.g1, [], 0.0)]
     head = "head" if mode == "A" else "head_b"
     edits = [_OpEdit(first, head, p0.g0, len(first.glyphs), codes or [], 0.0)]
     edits += [_OpEdit(r, "all", 0, len(r.glyphs), [], 0.0) for r in runs[1:-1]]
-    edits.append(_OpEdit(last, "tail", 0, pl.g1, [], number))
+    edits.append(_OpEdit(last, "tail", 0, pl.g1, [], 0.0))
     return edits
 
 
@@ -353,9 +507,14 @@ def _start_origin(run: TextRun, g0: int) -> tuple[float, float]:
     """改動起點（PDF 空間基線點）：第 g0 個字形原點；插在最後時為最後字形之後。"""
     if g0 < len(run.glyphs):
         return run.glyphs[g0].origin
-    last = run.glyphs[g0 - 1]
-    step = run.advance(last.code) / run.size
-    return (last.origin[0] + step * run.matrix[0], last.origin[1] + step * run.matrix[1])
+    return _after_glyph(run, g0 - 1)
+
+
+def _after_glyph(run: TextRun, index: int) -> tuple[float, float]:
+    """第 index 個字形畫完後的位置（PDF 空間基線點；不含其後的 TJ 位移）。"""
+    glyph = run.glyphs[index]
+    step = run.advance(glyph.code) / run.size
+    return (glyph.origin[0] + step * run.matrix[0], glyph.origin[1] + step * run.matrix[1])
 
 
 def _shared_stream(document: analyzer.Document, run: TextRun) -> bool:
@@ -567,22 +726,26 @@ def _rewrite_op(inst, edit: _OpEdit, b_codes: list[int], font_name: str | None) 
         kept = [t for t in tokens[lo:hi] if t[0] == "n"]  # 被替換字形之間原有的位移
         # TJ 數值 n 使位置移動 -n/1000×字級；n＝(新寬−舊寬)×1000/字級 抵銷字寬差
         tokens[lo:hi] = glyphs + kept + number
+    elif edit.mode == "insert":  # 緊接在前一個字形之後；其後原有的位移保留
+        at = positions[edit.g0 - 1] + 1
+        tokens[at:at] = glyphs + number
     elif edit.mode == "head":
         tokens[positions[edit.g0] :] = glyphs
     elif edit.mode == "all":
         tokens = []
-    elif edit.mode == "tail":
-        hi = positions[edit.g1] if edit.g1 < len(positions) else positions[-1] + 1
+    elif edit.mode == "tail":  # 移除開頭到字形 g1 之前；其後原有位移保留，其餘字形接在新字之後
+        hi = positions[edit.g1 - 1] + 1 if edit.g1 > 0 else 0
         tokens[:hi] = number
     elif edit.mode in ("split_b", "head_b"):
         end_of_glyphs = positions[-1] + 1 if positions else len(tokens)
         lo = positions[edit.g0] if edit.g0 < len(positions) else end_of_glyphs
         if edit.mode == "head_b":
             suffix = []
-        elif edit.g1 > edit.g0:
-            hi = positions[edit.g1] if edit.g1 < len(positions) else end_of_glyphs
-            suffix = number + tokens[hi:]  # 被改字形與後段之間的原有位移已含在補償中
-        else:  # 純插入
+        elif edit.g1 > edit.g0:  # 被改字形之後的原有位移保留，後段接在新字之後
+            suffix = number + tokens[positions[edit.g1 - 1] + 1 :]
+        else:  # 純插入：前後都有字形時插在前一個字形之後，其後原有位移保留
+            if 0 < edit.g0 < len(positions):
+                lo = positions[edit.g0 - 1] + 1
             suffix = number + tokens[lo:]
         sequence = [_tj(tokens[:lo], run.font.two_byte)] if tokens[:lo] else []
         sequence += [
