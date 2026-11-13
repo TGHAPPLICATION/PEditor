@@ -131,3 +131,22 @@ def test_probe_reports_reasons(make_window, tmp_path):
     assert window.probe(a) == Source(a, 1)
     with pytest.raises(ValueError, match="無法使用"):
         window.probe(str(tmp_path / "s.pdf"))
+
+
+def test_saved_choice_uses_saved_file(qtbot, make_window, tmp_path):
+    """獨立核對：未另存時選「另存」，頁面工具讀剛另存的新檔（含修改），不是原檔。"""
+    from test_e2e import FILES
+
+    saved = tmp_path / "saved.pdf"
+    seen = []
+    window = make_window(ask_unsaved=lambda: "save", ask_save=lambda: str(saved),
+                         ask_page_tool=lambda current: seen.append(current))  # fmt: skip
+    open_file(qtbot, window, FILES / "F04.pdf")
+    click_target(qtbot, window, "World")
+    preview(qtbot, window, "Earth")
+    apply(qtbot, window)
+    window.page_tools()
+    qtbot.waitUntil(lambda: bool(seen), timeout=30000)
+    assert seen[0].path == str(saved)
+    window.page_tools()  # 之後沒有再改：仍用另存的新檔
+    assert seen[1].path == str(saved)

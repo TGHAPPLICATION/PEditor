@@ -407,6 +407,7 @@ class MainWindow(QMainWindow):
         self._ask_unsaved = ask_unsaved or self._dialog_unsaved
         self._ask_page_tool = ask_page_tool or self._dialog_page_tool
         self.saved_revision: int | None = None  # 開檔或最後一次另存成功時的版本（ADR-0027）
+        self._saved_path: str | None = None  # 最後一次另存的檔案（頁面工具讀它，ADR-0029）
         self.document_id: str | None = None
         self.revision = 0
         self.page_count = 0
@@ -636,6 +637,7 @@ class MainWindow(QMainWindow):
         self.document_id = result["document_id"]
         self.revision = result["revision"]
         self.saved_revision = result["revision"]
+        self._saved_path: str | None = None
         self.page_count = result["page_count"]
         flags = result["document_flags"]
         self.thumbs.clear()
@@ -977,16 +979,17 @@ class MainWindow(QMainWindow):
             return self.service.export_document(doc, token, revision)
 
         def done(result: dict) -> None:
-            self._saved(result, doc, revision)
+            self._saved(result, doc, revision, path)
             if then is not None:
                 then()
 
         self._status("另存中…")
         self._run(work, done)
 
-    def _saved(self, result: dict, doc: str, revision: int) -> None:
+    def _saved(self, result: dict, doc: str, revision: int, path: str | None = None) -> None:
         if doc == self.document_id:
             self.saved_revision = revision
+            self._saved_path = path
         warnings = result.get("warnings") or []
         self._status("；".join(["已另存", *warnings]))
 
@@ -999,7 +1002,10 @@ class MainWindow(QMainWindow):
             return
         current = None
         if self.document_id is not None:
-            current = Source(self.service.document_path(self.document_id), self.page_count)
+            # 剛另存且之後沒再改：用另存的新檔（含修改）；否則用磁碟上的原檔（未另存的修改不含在內）
+            path = (self._saved_path if self._saved_path and self.saved_revision == self.revision
+                    else self.service.document_path(self.document_id))  # fmt: skip
+            current = Source(path, self.page_count)
         request = self._ask_page_tool(current)
         if request is not None:
             self.run_page_tool(request)

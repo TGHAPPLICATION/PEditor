@@ -148,9 +148,12 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | G8-08 | P8 實機回報（2026-11-12）、ADR-0018 §1 | 同一運算子中間的純插入緊接在前一個字形之後，其後原有的位移（字距、舊版刪字留下的空白）保留在新字之後，新字不疊在後面的字上；模式 A、B 皆同 | `tests/integration/test_edit_push.py::test_insert_keeps_following_spacing`、`::test_insert_into_existing_gap_does_not_overlap` | 合成樣本 | PASS（本機 Linux）；Windows 實機 PASS（2026-11-12，清單 S05b、S05c；安裝包推定 dd119a7，標題未記錄） |
 | G8-09 | ADR-0028、P8 實機回報 | 新字較寬時同一行後面的字往右推（較窄往左收），可延伸到頁面右緣、同一行其他內容或垂直線之前；指定區域內的字不被推出區域；影像比對以擴大後的改動區為準；每個被移動的字形都檢查，往左收也檢查 | `tests/integration/test_edit_text.py::test_following_glyphs_shift`（G2-19 改寫）、`::test_push_extends_to_right_limit`、`tests/integration/test_edit_push.py`（13 項）、`tests/integration/test_edit_multi.py::test_multi_operator_change`、`tests/integration/test_visual.py::test_changed_page_outside_mask_threshold` | T05、B01、F04、T02、T01 | PASS（本機 Linux）；Windows 實機 PASS（2026-11-12，清單 S05b、S05c；安裝包推定 dd119a7，標題未記錄） |
 | P9-01 | ADR-0029 | 頁碼範圍解析（1 起、全形分隔、去重、越界與格式錯誤訊息） | `tests/unit/test_page_ranges.py::test_parse_ranges*` | — | PASS（本機 Linux） |
-| P9-02～P9-05 | ADR-0029 | worker `compose_pages`：刪除／保留／合併／插入；拒絕表單、加密等；計畫越界拒絕；輸出比對頁數與內容；不保留書籤、移除註解 /P；不覆寫來源 | `tests/unit/test_page_ranges.py`、`tests/integration/test_compose_pages.py` | 合成樣本 | PASS（本機 Linux）；Windows 實機待驗 |
-| P9-06、P9-07 | ADR-0029、ADR-0027 | 「工具 → 頁面工具…」對話框；有未另存修改先詢問；完成後開啟新檔 | `tests/gui/test_page_tools.py` | 合成樣本、F04 | PASS（本機 Linux offscreen）；Windows 實機待驗 |
+| P9-02～P9-05 | ADR-0029 | worker `compose_pages`：刪除／保留／合併／插入；拒絕表單、加密等；計畫越界拒絕；輸出比對頁數與內容；不保留書籤、移除註解 /P；不覆寫來源 | `tests/unit/test_page_ranges.py`、`tests/unit/test_compose_worker.py`、`tests/integration/test_compose_pages.py`（含繼承屬性、解壓炸彈不解壓、簽章與主動內容、目的檔等於來源） | 合成樣本、S06、U04 | PASS（本機 Linux）；Windows 實機待驗 |
+| P9-06、P9-07 | ADR-0029、ADR-0027 | 「工具 → 頁面工具…」對話框；有未另存修改先詢問（選另存則讀新檔）；完成後開啟新檔 | `tests/gui/test_page_tools.py` | 合成樣本、F04 | PASS（本機 Linux offscreen）；Windows 實機待驗 |
 | P9-08 | ADR-0029 §7 | 介面視覺改版：配色 token（WCAG 4.5:1）、QSS、工具列分組與自繪圖示、編輯面板底部按鈕 | `tests/gui/test_theme.py` | — | PASS（本機 Linux offscreen）；視覺稿工程師已確認；Windows 實機待驗 |
+| P9-09 | ADR-0029 | 打包：主題與圖示內嵌於程式碼，無新增資料檔 | CI release job 建置與 `--self-check` | — | CI run 43390191795 雙平台 release success |
+| P9-10 | ADR-0029 | 文件：spec §4／§6、THREAT_MODEL T16、已知限制 F13 | 文件審查（獨立核對） | — | 完成 |
+| P9-11 | ADR-0029 | Windows 沙箱實機（清單 P9a～P9e） | 驗收頁面 | T05、合成樣本 | 待工程師 |
 | G8-05 | P8 | 標明 macOS 最低支援版本 | ADR-0025 §3（15.0、Apple Silicon） | — | 完成 |
 
 ## 共通（§8）

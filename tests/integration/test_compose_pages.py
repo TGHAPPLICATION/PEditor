@@ -110,3 +110,74 @@ def test_rejects_out_of_range_plan(service, tmp_path, plan):
 def test_probe_document(service, tmp_path):
     a = _sample(tmp_path / "a.pdf", "A", 3)
     assert service.probe_document(a) == {"page_count": 3, "reasons": []}
+
+
+def test_inherited_page_attributes_kept(service, tmp_path):
+    """/Pages 上繼承的 MediaBox、Rotate、Resources 帶到新檔（獨立核對建議）。"""
+    a = _sample(tmp_path / "a.pdf", "A", 2)
+    inherited = tmp_path / "inherited.pdf"
+    with pikepdf.open(a) as pdf:
+        pdf.Root.Pages.MediaBox = pikepdf.Array([0, 0, 400, 250])
+        pdf.Root.Pages.Rotate = 90
+        for page in pdf.pages:
+            for key in ("/MediaBox", "/Rotate"):
+                if key in page.obj:
+                    del page.obj[key]
+        pdf.save(inherited)
+    _, out = _compose(service, tmp_path, [str(inherited)], pages.keep_plan(2, [1]))
+    with pymupdf.open(out) as doc:
+        assert doc[0].rotation == 90 and tuple(doc[0].mediabox) == (0, 0, 400, 250)
+        assert doc[0].get_text().strip() == "A2"
+
+
+def test_compressed_stream_bomb_not_decoded(service, tmp_path):
+    """驗證只比對原始位元組，不解壓（MAX_STREAM_BYTES；獨立核對：原本會解壓到記憶體）。"""
+    import time
+    import zlib
+
+    a = _sample(tmp_path / "a.pdf", "A", 1)
+    bomb = tmp_path / "bomb.pdf"
+    with pikepdf.open(a) as pdf:
+        payload = zlib.compress(b"q Q\n" * (40 * 1024 * 1024), 9)  # 解壓後 160 MB
+        stream = pikepdf.Stream(pdf, payload)
+        stream.Filter = pikepdf.Name.FlateDecode
+        pdf.pages[0].obj.Contents = pdf.make_indirect(stream)
+        pdf.save(bomb)
+    started = time.monotonic()
+    _, out = _compose(service, tmp_path, [str(bomb)], [(0, 0)])
+    assert time.monotonic() - started < 15
+    with pikepdf.open(out) as pdf, pikepdf.open(bomb) as src:
+        assert _raw(pdf.pages[0]) == _raw(src.pages[0])  # 原樣複製，未重壓
+
+
+def _raw(page):
+    contents = page.obj.Contents
+    items = list(contents) if isinstance(contents, pikepdf.Array) else [contents]
+    return [s.read_raw_bytes() for s in items]
+
+
+@pytest.mark.parametrize(("fid", "code"), [("S06", "ACTIVE_CONTENT"), ("U04", "SIGNED_DOCUMENT")])
+def test_rejects_signed_and_active_content(service, tmp_path, fid, code):
+    from pathlib import Path
+
+    fixture = Path(__file__).resolve().parents[1] / "fixtures" / "files" / f"{fid}.pdf"
+    a = _sample(tmp_path / "a.pdf", "A", 1)
+    token = service.destination_token(tmp_path / "out.pdf")
+    with pytest.raises(ServiceError) as info:
+        service.compose_pages([a, str(fixture)], [(0, 0), (1, 0)], token)
+    assert info.value.code == code
+    assert not (tmp_path / "out.pdf").exists()
+
+
+def test_destination_cannot_be_any_source_or_open_document(service, tmp_path):
+    a = _sample(tmp_path / "a.pdf", "A", 1)
+    b = _sample(tmp_path / "b.pdf", "B", 1)
+    opened = service.open_document(_sample(tmp_path / "c.pdf", "C", 1))
+    try:
+        for target in ("b.pdf", "C.PDF" if __import__("os").name == "nt" else "c.pdf"):
+            token = service.destination_token(tmp_path / target, overwrite=True)
+            with pytest.raises(ServiceError) as info:
+                service.compose_pages([a, b], [(0, 0), (1, 0)], token)
+            assert info.value.code == "INVALID_REQUEST"
+    finally:
+        service.close_document(opened["document_id"])

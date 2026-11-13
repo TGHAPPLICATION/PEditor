@@ -44,7 +44,7 @@ def compose_pages(params: dict) -> dict:
             if total > MAX_COMPOSE_BYTES:
                 raise ProtocolError("RESOURCE_LIMIT", "來源檔合計超過大小上限")
             _check_source(document, len(documents))
-        pages = []
+        pages, seen = [], set()
         for item in plan:
             ints = isinstance(item, list) and all(
                 isinstance(v, int) and not isinstance(v, bool) for v in item
@@ -54,6 +54,9 @@ def compose_pages(params: dict) -> dict:
             source, index = item
             if not 0 <= source < len(documents) or not 0 <= index < documents[source].page_count:
                 raise ProtocolError("INVALID_REQUEST", "頁碼超出範圍")
+            if (source, index) in seen:  # 同一頁兩次會共用註解物件；四種工具都不會重複
+                raise ProtocolError("INVALID_REQUEST", "頁面重複")
+            seen.add((source, index))
             pages.append((source, index))
         data = _compose(documents, pages)
     finally:
@@ -86,7 +89,14 @@ def _compose(documents: list[analyzer.Document], pages: list[tuple[int, int]]) -
                     if key in annot:
                         del annot[key]
     buffer = io.BytesIO()
-    out.save(buffer, deterministic_id=True)
+    # 串流原樣複製、不解壓也不重壓：輸出比對只看原始位元組，不受解壓炸彈影響
+    out.save(
+        buffer,
+        deterministic_id=True,
+        compress_streams=False,
+        stream_decode_level=pikepdf.StreamDecodeLevel.none,
+        recompress_flate=False,
+    )
     data = buffer.getvalue()
     if len(data) > MAX_FILE_BYTES:
         raise ProtocolError("RESOURCE_LIMIT", "輸出檔超過大小上限")
@@ -95,11 +105,13 @@ def _compose(documents: list[analyzer.Document], pages: list[tuple[int, int]]) -
 
 
 def _verify(documents, pages, data: bytes) -> None:
-    """重新開啟：無修復警告、頁數相同、每頁內容串流與來源頁相同（spec §8.1 真內容，不是重繪）。"""
-    problems = export.qpdf_problems(data)
-    if problems is None:
-        raise ProtocolError("VALIDATION_FAILED", "輸出驗證失敗：無法重新開啟")
-    with pikepdf.open(io.BytesIO(data)) as pdf:
+    """重新開啟：無修復警告、頁數相同、每頁內容串流的原始位元組與篩選器和來源頁相同
+    （spec §8.1 真內容，不是重繪）。不用 qpdf 語法檢查：它會解壓所有串流，特製檔可耗盡資源。"""
+    try:
+        pdf = pikepdf.open(io.BytesIO(data))
+    except pikepdf.PdfError as exc:
+        raise ProtocolError("VALIDATION_FAILED", "輸出驗證失敗：無法重新開啟") from exc
+    with pdf:
         if pdf.get_warnings() or len(pdf.pages) != len(pages):
             raise ProtocolError("VALIDATION_FAILED", "輸出驗證失敗：頁數不符或需要修復")
         for page, (source, index) in zip(pdf.pages, pages, strict=True):
@@ -108,8 +120,9 @@ def _verify(documents, pages, data: bytes) -> None:
                 raise ProtocolError("VALIDATION_FAILED", "輸出驗證失敗：頁面內容不符")
 
 
-def _content(page: pikepdf.Page) -> list[bytes]:
-    return [s.read_bytes() for s in export._streams(page)]
+def _content(page: pikepdf.Page) -> list[tuple[bytes, str, str]]:
+    return [(s.read_raw_bytes(), repr(s.get("/Filter")), repr(s.get("/DecodeParms")))
+            for s in export._streams(page)]  # fmt: skip
 
 
 def _write(destination: str, data: bytes) -> None:
