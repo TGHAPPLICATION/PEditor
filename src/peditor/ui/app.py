@@ -38,7 +38,9 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSplitter,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -47,8 +49,10 @@ from peditor import __version__
 from peditor.core.geometry import PageGeometry, bbox_of
 from peditor.core.limits import MAX_RENDER_DPI
 from peditor.core.service import DocumentService, ServiceError
+from peditor.ui import theme
 from peditor.ui.jobs import JobRunner
 from peditor.ui.messages import NOTICES, reason_text, reasons_text
+from peditor.ui.page_tools import PageToolsDialog, Request, Source, probe_error_text
 
 SMOKE_MARKER = "PEDITOR_SMOKE_OK"
 PAGE_DPI = 100
@@ -289,18 +293,35 @@ class EditPanel(QWidget):
         self.line_choice = QComboBox()  # 儲存格的第幾行（ADR-0023：一次改一行）
         self.line_choice.setObjectName("cell_line")
         self.line_choice.setVisible(False)
-        for widget in (QLabel("選取的內容"), self.selected, self.line_choice, QLabel("新文字"),
-                       self.new_text,
-                       self.preview_button, self.image_button, self.info, QLabel("修改前"),
-                       self.before, QLabel("修改後"), self.after):  # fmt: skip
+        captions = [_caption(t) for t in ("選取的內容", "新文字", "修改前", "修改後")]
+        for widget in (captions[0], self.selected, self.line_choice, captions[1],
+                       self.new_text, self.image_button, self.info, captions[2],
+                       self.before, captions[3], self.after):  # fmt: skip
             layout.addWidget(widget)
         layout.addStretch(1)
         self.scroll.setWidget(content)
         outer.addWidget(self.scroll, 1)
-        bottom = QVBoxLayout()
+        # 「預覽」「套用」固定在底部（P8 S10；P9 視覺稿）
+        bottom = QHBoxLayout()
         bottom.setContentsMargins(9, 0, 9, 9)
+        self.apply_button.setObjectName("primary")
+        bottom.addWidget(self.preview_button)
         bottom.addWidget(self.apply_button)
         outer.addLayout(bottom)
+
+
+def _caption(text: str) -> QLabel:
+    label = QLabel(text)
+    label.setObjectName("caption")
+    return label
+
+
+class NoticeLabel(QLabel):
+    """頁面上方的提示列；沒有內容時隱藏（P9 視覺稿）。"""
+
+    def setText(self, text: str) -> None:  # noqa: N802 — Qt 命名
+        super().setText(text)
+        self.setVisible(bool(text))
 
 
 class FindBar(QDialog):
@@ -372,6 +393,7 @@ class MainWindow(QMainWindow):
         ask_draft: Callable[[list[dict]], tuple[str, str] | None] | None = None,
         ask_image: Callable[[], str | None] | None = None,
         ask_unsaved: Callable[[], str] | None = None,
+        ask_page_tool: Callable[[Source | None], Request | None] | None = None,
     ) -> None:
         super().__init__()
         self.setWindowTitle(f"PEditor {__version__}{_build_suffix()}")
@@ -383,6 +405,7 @@ class MainWindow(QMainWindow):
         self._ask_draft = ask_draft or self._dialog_draft
         self._ask_image = ask_image or self._dialog_image
         self._ask_unsaved = ask_unsaved or self._dialog_unsaved
+        self._ask_page_tool = ask_page_tool or self._dialog_page_tool
         self.saved_revision: int | None = None  # 開檔或最後一次另存成功時的版本（ADR-0027）
         self.document_id: str | None = None
         self.revision = 0
@@ -405,6 +428,7 @@ class MainWindow(QMainWindow):
         self.view.target_clicked.connect(self.select_target)
         self.panel = EditPanel()
         self.panel.setMaximumWidth(380)
+        self.panel.setMinimumWidth(320)  # 貼回視窗邊緣時不被擠窄、內容不被裁掉（P9 視覺稿）
         self.panel.preview_button.clicked.connect(self.request_preview)
         self.panel.new_text.returnPressed.connect(self.request_preview)
         self.panel.apply_button.clicked.connect(self.apply_plan)
@@ -428,9 +452,10 @@ class MainWindow(QMainWindow):
         self._sharp_timer.setInterval(300)
         self._sharp_timer.timeout.connect(self._render_sharper)
         self._sharp_dpi = PAGE_DPI
-        self.notice = QLabel("")
+        self.notice = NoticeLabel("")
         self.notice.setObjectName("notice")
         self.notice.setWordWrap(True)
+        self.notice.setVisible(False)
         center = QWidget()
         center_layout = QVBoxLayout(center)
         center_layout.addWidget(self.notice)
@@ -471,6 +496,7 @@ class MainWindow(QMainWindow):
             ("find", "尋找…", QKeySequence.StandardKey.Find, self.show_find),
             ("cancel", "取消", QKeySequence(Qt.Key.Key_Escape), self.cancel),
             ("about", "關於 PEditor", QKeySequence(), self.show_about),
+            ("page_tools", "頁面工具…", QKeySequence(), self.page_tools),
         ):
             action = QAction(text, self)
             if isinstance(
@@ -483,9 +509,30 @@ class MainWindow(QMainWindow):
                             for s in action.shortcuts() if not s.isEmpty())  # fmt: skip
             action.setToolTip(f"{text}（{keys}）" if keys else text)  # 工具列提示顯示快捷鍵（U12）
             action.triggered.connect(slot)
-            if name not in ("find", "about"):  # 尋找、關於只放在選單（Ctrl+F；P8 工程師要求）
-                toolbar.addAction(action)
+            action.setIcon(theme.icon(name))
             self.actions[name] = action
+        # 工具列分組（P9 視覺稿）：檔案｜編輯｜檢視 … 頁面工具；尋找、關於只放在選單
+        toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        toolbar.setMovable(False)
+        groups = (["open", "save"], ["undo", "redo", "manual_cell"],
+                  ["zoom_out", "zoom_in", "zoom_reset", "fit_width", "cancel"])  # fmt: skip
+        for index, names in enumerate(groups):
+            if index:
+                toolbar.addSeparator()
+            for name in names:
+                toolbar.addAction(self.actions[name])
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        toolbar.addWidget(spacer)
+        toolbar.addAction(self.actions["page_tools"])
+        for name, style in (("save", "primary"), ("page_tools", "outline")):
+            button = toolbar.widgetForAction(self.actions[name])
+            if isinstance(button, QToolButton):
+                button.setObjectName(style)
+        for name in ("undo", "redo", "zoom_out", "zoom_in"):  # 只顯示圖示，提示含快捷鍵（U12）
+            button = toolbar.widgetForAction(self.actions[name])
+            if isinstance(button, QToolButton):
+                button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         panel_action = self.panel_dock.toggleViewAction()
         panel_action.setText("編輯面板")
         self.actions["panel"] = panel_action
@@ -493,6 +540,7 @@ class MainWindow(QMainWindow):
             ("檔案", ["open", "save"]),
             ("編輯", ["undo", "redo", None, "find", "manual_cell", "cancel"]),
             ("檢視", ["zoom_in", "zoom_out", "zoom_reset", "fit_width", None, "panel"]),
+            ("工具", ["page_tools"]),
             ("說明", ["about"]),
         )
         for title, names in menus:
@@ -533,6 +581,7 @@ class MainWindow(QMainWindow):
         self.panel.apply_button.setEnabled(editable and self.plan is not None
                                            and self.plan.get("ready", False))  # fmt: skip
         self.find_bar.find_button.setEnabled(opened and not busy)
+        self.actions["page_tools"].setEnabled(not busy and self.service is not None)
         self.actions["find"].setEnabled(opened)
 
     def _status(self, text: str) -> None:
@@ -941,6 +990,59 @@ class MainWindow(QMainWindow):
         warnings = result.get("warnings") or []
         self._status("；".join(["已另存", *warnings]))
 
+    # --- 頁面工具（ADR-0029） ------------------------------------------------
+    def page_tools(self) -> None:
+        """讀磁碟上的檔案：目前文件有未另存修改時先詢問（ADR-0027）。"""
+        if self.busy or self.service is None:
+            return
+        if not self._confirm_leave(self.page_tools):
+            return
+        current = None
+        if self.document_id is not None:
+            current = Source(self.service.document_path(self.document_id), self.page_count)
+        request = self._ask_page_tool(current)
+        if request is not None:
+            self.run_page_tool(request)
+
+    def run_page_tool(self, request: Request) -> None:
+        path = self._ask_save()
+        if not path or self.busy:
+            return
+
+        def work():
+            token = self.service.destination_token(path, overwrite=os.path.exists(path))
+            return self.service.compose_pages(request.sources, request.plan, token)
+
+        def done(result: dict) -> None:
+            warnings = result.get("warnings") or []
+            self._status("；".join([f"已另存新檔（{len(request.plan)} 頁）", *warnings]))
+            if request.open_after:
+                self.open_path(path)
+
+        self._status("處理頁面中…")
+        self._run(work, done)
+
+    def probe(self, path: str) -> Source:
+        """頁面工具選檔：取頁數與能力判定（UI 執行緒同步呼叫；對話框開啟時沒有其他工作）。"""
+        try:
+            result = self.service.probe_document(path)
+        except ServiceError as exc:
+            raise ValueError(reason_text(exc.code)) from None
+        if result["reasons"]:
+            raise ValueError(probe_error_text(result["reasons"]))
+        return Source(path, result["page_count"])
+
+    def _dialog_page_tool(self, current: Source | None) -> Request | None:
+        dialog = PageToolsDialog(current, self.probe, self._dialog_open_many, self._dialog_open,
+                                 self)  # fmt: skip
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            return dialog.request
+        return None
+
+    def _dialog_open_many(self) -> list[str]:
+        paths, _ = QFileDialog.getOpenFileNames(self, "加入 PDF", "", "PDF (*.pdf)")
+        return list(paths)
+
     # --- 復原草稿 ----------------------------------------------------------
     def offer_drafts(self) -> None:
         """使用者選擇後才復原（ADR-0020 §5）。視窗關閉中不再詢問（P4 U11）。"""
@@ -1046,6 +1148,7 @@ def prepare_storage():
 def run(*, smoke: bool = False, versions: dict[str, str] | None = None) -> int:
     app = QApplication.instance() or QApplication(sys.argv[:1])
     app.setApplicationName("PEditor")
+    theme.apply(app)
     if smoke:
         window = MainWindow()
         window.show()

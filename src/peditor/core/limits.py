@@ -39,3 +39,8 @@ MAX_RULE_PAIRS = 1_000_000  # 水平線數×垂直線數（交會判定的工作
 
 class LimitExceeded(Exception):
     """解析工作量超過上限；呼叫端應回報 RESOURCE_LIMIT，不得繼續以部分結果判定可編輯。"""
+
+
+# 頁面工具（ADR-0029）：輸入檔數、所有輸入合計的位元組數（同時載入記憶體）
+MAX_COMPOSE_SOURCES = 20
+MAX_COMPOSE_BYTES = MAX_FILE_BYTES
