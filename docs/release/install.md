@@ -22,6 +22,16 @@ Get-FileHash -Algorithm SHA256 PEditor-<版本>-windows-x64-setup.exe
 shasum -a 256 PEditor-<版本>-macos-arm64.dmg
 ```
 
+## 授權與原始碼
+
+PEditor 依 AGPL-3.0-only 散布（`LICENSE`、`NOTICE`），不提供任何擔保。
+
+- **對應原始碼**：https://github.com/TGHAPPLICATION/PEditor 。每個安裝包由視窗標題括號內的 commit 建置，
+  該版原始碼在 `https://github.com/TGHAPPLICATION/PEditor/tree/<commit>`；程式內「說明 → 關於 PEditor」也會顯示。
+- **散布**：以 GitHub Releases 為主，原始碼與安裝包在同一處。若另行轉載安裝包（例如機關內部網站），
+  轉載處須附上述原始碼連結（AGPL-3.0 §6）。
+- **第三方授權**：安裝目錄的 `THIRD_PARTY_NOTICES.md` 與 `licenses/` 資料夾。
+
 ## Windows
 
 1. 執行 `PEditor-<版本>-windows-x64-setup.exe`。安裝在 `%LOCALAPPDATA%\Programs\PEditor`，不需系統管理權限。

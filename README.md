@@ -49,4 +49,5 @@ Linux 開發機若出現 `libEGL.so.1` 找不到，需安裝 `libegl1 libgl1 lib
 
 ## 授權
 
-AGPL-3.0-only（見 `LICENSE`）。第三方元件見 `THIRD_PARTY_NOTICES.md`。
+Copyright (C) 2026 Mipaliw。AGPL-3.0-only（見 `LICENSE`、`NOTICE`）；本程式不提供任何擔保。
+第三方元件見 `THIRD_PARTY_NOTICES.md`；安裝包的 `licenses/` 資料夾附各元件授權全文。

@@ -34,7 +34,7 @@
 | G8-01 乾淨環境、無 Python、無網路可安裝並完成核心流程 | 實機驗收清單 S01–S15（Windows Sandbox，`scripts/p8_sandbox.ps1`）；打包結果自我檢查（`packaging/build_release.py`：`--smoke`、T01 模式 A、F02 模式 B 經打包後 worker） | CI 自我檢查；實機 | 自我檢查 CI 雙平台 PASS；**Windows 實機 PASS**（S01–S11、S13、S13b、S14、S15；S12 NOT RUN；S06、S13、S13b 於 11/12 以 ADR-0027 新版重測，S14 新版重測僅口頭回報；S04c、S05 在 `c06e5aa` 上測；S05 的預覽擁擠工程師口頭確認新版已改善，U6）；macOS 實機 NOT RUN |
 | G8-02 兩種 PDF 閱讀器正常開啟 | 實機驗收清單 R01–R03（Acrobat Reader、Edge） | 實機（主機） | **PASS**（R01–R03，2026-11-11） |
 | G8-03 支援矩陣 100%；fixture 與盲測 | `tests/integration/test_release_matrix.py`（49 份 available 經 worker 完整判定＋1 項涵蓋檢查）；盲測 `peditor blind-run`（`tests/integration/test_cli_blind.py`：輸出不含文件內容） | 本機 | 矩陣 PASS（49／49）；**盲測 11 份 NOT RUN（工程師 2026-11-11 決定附條件發布，日後補測）**；U06 無法製作（ADR-0012） |
-| G8-04 已知缺陷、SBOM、LICENSE、相依、卸載／草稿清理 | `docs/release/known-issues.md`、`packaging/sbom/sbom-runtime.cdx.json`、`LICENSE`、`THIRD_PARTY_NOTICES.md`、`docs/release/dependencies.md`、`docs/release/install.md` | 文件 | 文件完成；**授權核對待負責人**（ADR-0002） |
+| G8-04 已知缺陷、SBOM、LICENSE、相依、卸載／草稿清理 | `docs/release/known-issues.md`、`packaging/sbom/sbom-runtime.cdx.json`、`LICENSE`、`THIRD_PARTY_NOTICES.md`、`docs/release/dependencies.md`、`docs/release/install.md` | 文件、實機 | 文件完成；授權核對 F1–F5 已修正，實機 L01、L02 PASS；**負責人簽核 2026-11-13**（`reports/P8/license-review.md`） |
 | G8-05 macOS 最低支援版本 | ADR-0025 §3：15.0、Apple Silicon（pikepdf 10.14.0 只有 `macosx_15_0_arm64` wheel） | 文件 | 完成 |
 | G8-06 實機 S10：編輯面板「套用」不被擠出畫面 | `tests/gui/test_layout.py::test_apply_button_visible_on_short_panel`、`::test_floating_panel_kept_above_taskbar`、`::test_build_id_in_title` | 本機 offscreen、CI；實機 | 自動測試 PASS；實機 S10 PASS（安裝包推定 `57ab13a`，U7） |
 | P4 U12 | `tests/gui/test_shortcuts.py::test_all_standard_bindings_tooltips_and_focus` | 本機；實機 | PASS；實機 S08、S09 PASS |
@@ -118,7 +118,9 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
   走正常關閉並刪除草稿；本工作環境以 SIGKILL 結束後草稿保留可列出。工程師以 `/F` 重測，草稿檔在強制結束前後都存在，重開出現詢問，PASS。
 - **盲測 11 份**：NOT RUN（保管人未執行）。工程師 2026-11-11 決定**附條件發布**，日後補測；G8「12 盲測結果」（ADR-0012 為 11 份）未滿足。
 - **macOS 實機**：NOT RUN（ADR-0003）；DMG 只在 CI 建置與自我檢查。
-- **授權核對**（ADR-0002）：待負責人。
+- **授權核對**（ADR-0002，2026-11-12～13）：相依授權與 AGPL 相容；散布義務缺漏 F1–F5 已修正（安裝包附 `licenses/`、`NOTICE`、「說明 → 關於」、原始碼位置、著作權人署名 Mipaliw），
+  實機 L01、L02 PASS；F6（lxml 內含 libiconv，LGPL-2.1）負責人接受指向公開原始碼；負責人（即工程師）2026-11-13 於對話中簽核、由 Claude 代為寫入。
+  詳見 `reports/P8/license-review.md`。
 - 安裝包未簽署；SmartScreen／Gatekeeper 會警告（ADR-0025）。
 
 ## 8. 安全審查
@@ -131,7 +133,7 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
 | # | 內容 | 影響 | 處理 |
 | --- | --- | --- | --- |
 | U1 | 防毒誤判未簽署的執行檔；原始碼編譯 bootloader 的效果未知 | 機關電腦可能無法安裝 | A01 PASS（製作機下載 CI 安裝包未被攔）；先前被移除的本機建置之偵測名稱仍待工程師；正式散布前提為簽章（ADR-0025 §4） |
-| U2 | 盲測、授權核對需人工；Windows 實機驗收已完成（S12 NOT RUN） | G8 要求盲測 | **盲測：附條件發布**（工程師 2026-11-11 決定；保管人日後補測 11 份，結果寫回本報告）；授權：待負責人 |
+| U2 | 盲測、授權核對需人工；Windows 實機驗收已完成（S12 NOT RUN） | G8 要求盲測 | **盲測：附條件發布**（工程師 2026-11-11 決定；保管人日後補測 11 份，結果寫回本報告）；授權：**已簽核**（2026-11-13） |
 | U3 | macOS 實機 NOT RUN | G8 的 macOS 部分 | 待工程師決定（附條件） |
 | U4 | ADR-0026：沒有 ToUnicode 的 CID 字集字型是否納入編輯 | 這類政府表格不能修改 | **維持拒絕（B0），B2 另段評估**（工程師 2026-11-06「照建議」）；使用者確認的整行替換 **B3 列下一版**、整份統一換字型不採用（工程師同日決定） |
 | U5 | 改了沒存就按 ✕，或直接開啟另一份檔案：依 ADR-0020 §5 草稿被刪，修改消失且沒有提醒 | 使用者可能遺失修改 | ADR-0027 已接受並實作；**Windows 實機 S13b PASS**（11/12）；剩「工作進行中關閉不詢問」列 F11 |
@@ -144,8 +146,7 @@ uv run pytest -q tests/integration/test_release_matrix.py → exit 0，50 passed
 ## 10. 關卡結果
 
 - **關卡結果：BLOCKED**。自動化部分與 Windows 實機驗收完成（S12 NOT RUN）、P7 附條件 G7-01／G7-02 Windows 實機 PASS；
-  未滿足：授權核對（ADR-0002，待負責人）；
-  macOS 實機（ADR-0003）。盲測 11 份 NOT RUN，工程師 2026-11-11 決定**附條件發布**（日後補測）。
+  授權核對已簽核（2026-11-13）。未滿足：macOS 實機（ADR-0003）、安裝包簽章（ADR-0025 §4）。盲測 11 份 NOT RUN，工程師 2026-11-11 決定**附條件發布**（日後補測）。
 - **下一段可開始：—**（P8 為最後一段；發布候選待工程師決定）。
 
 ## 11. 獨立核對紀錄
