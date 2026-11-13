@@ -82,10 +82,16 @@
 
 ## 6. 修正後的簽核清單（給負責人）
 
-- [ ] F1：安裝目錄 `licenses/` 含上表所有元件的授權全文；`THIRD_PARTY_NOTICES.md` 由「草稿」改為正式版
-- [ ] F2：「關於」畫面顯示著作權、無擔保、AGPL-3.0、原始碼網址、第三方授權位置
-- [ ] F3：安裝說明與「關於」畫面列出對應原始碼（repo＋commit 或 tag）
-- [ ] F4：著作權人名稱已寫入 README、`NOTICE`、「關於」畫面
-- [ ] F5、F6：已在 `THIRD_PARTY_NOTICES.md` 註明；F6 的處理方式已確認
-- [ ] 以 Windows 安裝包實際檢查 `licenses/` 內容（本次未能檢查 Windows 安裝包）
+證據：CI run 43203066308（`d4b128c`）test 與 release 雙平台 success；Windows 實機驗收 L01、L02 PASS（2026-11-13，驗收頁面紀錄）。
+
+- [x] F1：安裝目錄 `licenses/` 含上表所有元件的授權全文；`THIRD_PARTY_NOTICES.md` 已改為正式版（實機 L02）
+- [x] F2：「關於」畫面顯示著作權、無擔保、AGPL-3.0、原始碼網址、第三方授權位置（實機 L01）
+- [x] F3：安裝說明與「關於」畫面列出對應原始碼（repo＋commit）（實機 L01；`docs/release/install.md`）
+- [x] F4：著作權人署名「Mipaliw」已寫入 README、`NOTICE`、「關於」畫面（實機 L01、L02）
+- [x] F5：已在 `THIRD_PARTY_NOTICES.md` 註明
+- [x] 以 Windows 安裝包實際檢查 `licenses/` 內容（實機 L02）
+- [ ] F6：**負責人決定**接受「指向 lxml 公開原始碼（https://github.com/lxml/lxml）」作為 libiconv（LGPL-2.1）的處理方式，未另請法務（勾選即表示確認）
+- [ ] 以署名「Mipaliw」（非本名）登載著作權人（勾選即表示確認）
 - [ ] 負責人簽核：姓名＿＿＿＿＿＿　日期＿＿＿＿＿＿
+
+簽核方式：負責人以自己的 GitHub 帳號在網頁上編輯本檔，勾選上面三項、填入姓名與日期後 commit；該 commit 的帳號與時間即為簽核紀錄。
