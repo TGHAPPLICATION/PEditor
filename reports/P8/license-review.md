@@ -1,7 +1,7 @@
 # P8 授權核對（ADR-0002）— 核對結果與待決事項
 
 - 核對日期：2026-11-12；核對版本：`main` @ `c4e0e2b`
-- 核對者：Claude（自動核對與文件整理）；F1–F5 已修正（第 5 節）；**簽核：待負責人**
+- 核對者：Claude（自動核對與文件整理）；F1–F5 已修正（第 5 節）；**負責人簽核：2026-11-13（代為寫入，見第 6 節）**
 - 依據：ADR-0002、`LICENSE`、`THIRD_PARTY_NOTICES.md`、`packaging/sbom/sbom-runtime.cdx.json`、`uv.lock`、
   各套件 wheel 內的 `dist-info` 授權檔、`packaging/build_release.py`、`packaging/windows/peditor.iss`
 - 方法：讀取已安裝套件的授權中繼資料與授權檔；在本工作環境（Linux）以 `build_release.build()` 產生 onedir，檢查實際打包內容。
@@ -90,8 +90,8 @@
 - [x] F4：著作權人署名「Mipaliw」已寫入 README、`NOTICE`、「關於」畫面（實機 L01、L02）
 - [x] F5：已在 `THIRD_PARTY_NOTICES.md` 註明
 - [x] 以 Windows 安裝包實際檢查 `licenses/` 內容（實機 L02）
-- [ ] F6：**負責人決定**接受「指向 lxml 公開原始碼（https://github.com/lxml/lxml）」作為 libiconv（LGPL-2.1）的處理方式，未另請法務（勾選即表示確認）
-- [ ] 以署名「Mipaliw」（非本名）登載著作權人（勾選即表示確認）
-- [ ] 負責人簽核：姓名＿＿＿＿＿＿　日期＿＿＿＿＿＿
+- [x] F6：**負責人決定**接受「指向 lxml 公開原始碼（https://github.com/lxml/lxml）」作為 libiconv（LGPL-2.1）的處理方式，未另請法務（勾選即表示確認）
+- [x] 以署名「Mipaliw」（非本名）登載著作權人（勾選即表示確認）
+- [x] 負責人簽核：負責人即工程師本人；2026-11-13 於對話中確認上列各項，並授權 Claude 代為寫入（非本人 commit）
 
-簽核方式：負責人以自己的 GitHub 帳號在網頁上編輯本檔，勾選上面三項、填入姓名與日期後 commit；該 commit 的帳號與時間即為簽核紀錄。
+簽核方式：原建議由負責人以自己的 GitHub 帳號編輯本檔；負責人表示效力不是重點，改由 Claude 依其指示代為寫入。

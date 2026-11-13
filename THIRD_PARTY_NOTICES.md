@@ -1,7 +1,7 @@
 # 第三方元件授權清單
 
 > 版本取自 `uv.lock`；P8 以 SBOM 重新產生（元件與版本與 P0 相同，見 `docs/release/dependencies.md`）。
-> 授權核對結果見 `reports/P8/license-review.md`（ADR-0002）；**負責人簽核：待簽**。
+> 授權核對結果見 `reports/P8/license-review.md`（ADR-0002）；**負責人簽核：2026-11-13**。
 > 各元件授權全文附在安裝目錄的 `licenses/` 資料夾（建置時由 `packaging/build_release.py` 收集）。
 
 ## 執行期相依（隨產品散布）
