@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | 本工作環境 | Linux 容器、Python 3.13、鎖定相依（`uv sync --locked`） | 自動測試；Qt offscreen |
 | CI | GitHub Actions windows-latest、macos-15 | run 43390191795（`8b7d4c0`）test 與 release 雙平台 success；修正後的 run 見 PR |
-| Windows 實機 | — | **NOT RUN**（待工程師，清單 P9a～P9e） |
+| Windows 實機（Windows Sandbox） | 同 P8 | 清單 P9a～P9e 全部 PASS（2026-11-20 09:46～11:54，台北時間；工程師自填、無截圖；安裝包推定 `3ed4441`，標題未記錄） |
 | macOS 實機 | — | NOT RUN（ADR-0003） |
 
 ## 3. 需求 → test ID → fixture／hash → 結果
@@ -24,9 +24,9 @@
 | P9-01 範圍解析 | `tests/unit/test_page_ranges.py` | PASS |
 | P9-02～P9-05 compose_pages | `tests/unit/test_compose_worker.py`、`tests/integration/test_compose_pages.py` | PASS |
 | P9-06、P9-07 對話框與流程 | `tests/gui/test_page_tools.py` | PASS（offscreen） |
-| P9-08 視覺改版 | `tests/gui/test_theme.py`；視覺稿工程師已確認 | PASS（offscreen）；實機待驗 |
+| P9-08 視覺改版 | `tests/gui/test_theme.py`；視覺稿工程師已確認 | PASS（offscreen）；實機 P9e PASS |
 | P9-09 打包 | CI release | PASS（CI）；無新增資料檔 |
-| P9-11 實機 | 驗收清單 P9a～P9e | NOT RUN（待工程師） |
+| P9-11 實機 | 驗收清單 P9a～P9e | PASS（2026-11-20） |
 
 ## 4. 執行命令、exit code、測試數
 
@@ -50,7 +50,7 @@
 - 不保留書籤、文件結構樹、表單；含表單欄位、加密、簽章、主動內容、PDF/A、XFA 的來源一律拒絕（F13）。
 - 不提供壓縮（工程師決定；附件的圖片重壓縮會整頁點陣化）。
 - 選「不儲存」後若勾選「完成後開啟新檔」，開啟結果時會再詢問一次未另存的修改（安全但重複；未修）。
-- Windows 實機、macOS 實機：NOT RUN。
+- macOS 實機：NOT RUN（ADR-0003）。
 - 深色主題：不在本段範圍。
 
 ## 8. 安全審查
@@ -62,13 +62,13 @@
 
 | 編號 | 內容 | 處理 |
 | --- | --- | --- |
-| U1 | 視覺改版只在 Linux offscreen 截圖確認；Windows 字型（Microsoft JhengHei UI）與 DPI 縮放下的實際外觀未看過 | 待實機 P9e |
+| U1 | 視覺改版在 Windows 實機的外觀 | 實機 P9e PASS（工程師確認與視覺稿一致） |
 | U2 | 頁面上註解的非主動動作（例如 URI 連結）照原樣保留 | 列 T16 殘餘 |
 | U3 | 合併大量大檔可能超過 30 秒逾時 | 列 T16 殘餘；實機觀察 |
 
 ## 10. 關卡結果
 
-- **BLOCKED**：自動化部分完成、獨立核對問題已修正；**Windows 實機驗收待工程師**（清單 P9a～P9e）。
+- **PASS（Windows）**：自動化、獨立核對修正與 Windows 實機驗收（P9a～P9e）完成。macOS 實機 NOT RUN（ADR-0003，與 P8 相同）。
 
 ## 11. 獨立核對紀錄
 
