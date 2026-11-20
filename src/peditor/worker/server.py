@@ -40,6 +40,10 @@ class Worker:
                 "page_count": document.page_count,
                 "document_flags": document.flags,
             }
+        if operation == "compose_pages":  # 不屬於任何已開啟文件（ADR-0029）
+            from peditor.worker import pages
+
+            return pages.compose_pages(params)
         document = self._document(message)
         if operation == "inspect_page":
             return self.analyzer.inspect_page(document, params.get("page_index"))

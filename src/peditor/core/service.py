@@ -344,6 +344,52 @@ class DocumentService:
         del self._tokens[destination_token]  # token 只用一次；再存須重新取得（目的檔狀態已改變）
         return result
 
+    # --- 頁面工具（ADR-0029） ------------------------------------------
+    def document_path(self, document_id: str) -> str:
+        """已開啟文件在磁碟上的路徑（主行程內使用，不傳給 worker 以外的地方）。"""
+        return self._require(document_id, None).path
+
+    def probe_document(self, path: str | os.PathLike) -> dict[str, Any]:
+        """頁面工具選檔時：開啟、取頁數與能力判定後立即關閉（不建立編輯工作階段）。"""
+        result = self._call("open_document", params={"path": os.fspath(path)})
+        try:
+            self._call("close_document", document_id=result["document_id"])
+        except ServiceError:
+            pass
+        flags = result["document_flags"]
+        return {"page_count": result["page_count"], "reasons": list(flags.get("reasons", []))}
+
+    def compose_pages(self, sources: list[str], plan: list[tuple[int, int]],
+                      destination_token: str) -> dict:  # fmt: skip
+        """依 [(來源索引, 頁索引)] 組成新檔，交易式另存（ADR-0020 §3）；
+        不覆寫任何來源或已開啟的原檔。"""
+        dest = self._tokens.get(destination_token) if isinstance(destination_token, str) else None
+        if dest is None:
+            raise ServiceError("INVALID_REQUEST", "目的地 token 無效")
+        paths = [os.fspath(s) for s in sources]
+        if not paths:
+            raise ServiceError("INVALID_REQUEST", "沒有來源檔")
+        opened = [d.path for d in self._docs.values()]
+        if any(transaction.is_same_file(dest.path, p) for p in paths + opened):
+            raise ServiceError("INVALID_REQUEST", "不可覆寫來源檔或已開啟文件的原檔")
+        try:
+            source_sha = transaction.sha256_file(paths[0])
+        except OSError:
+            raise ServiceError("INVALID_REQUEST", "無法讀取來源檔") from None
+        params = {"sources": paths, "plan": [[int(s), int(i)] for s, i in plan]}
+
+        def write(temp: str) -> dict:
+            return self._call("compose_pages", params={**params, "destination": temp})
+
+        try:
+            result = transaction.commit(dest, paths[0], source_sha, write)
+        except ProtocolError as exc:
+            raise ServiceError(exc.code, exc.message, exc.retryable) from None
+        except OSError:
+            raise ServiceError("SAVE_FAILED", "另存失敗") from None
+        del self._tokens[destination_token]
+        return result
+
     # --- 復原草稿（ADR-0020 §5） --------------------------------------
     def list_drafts(self) -> list[dict]:
         return self._drafts_call(self.drafts.list) if self.drafts is not None else []

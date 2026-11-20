@@ -56,6 +56,7 @@ OPERATIONS = frozenset(
         "replay",  # undo／redo 與 worker 重啟後還原（ADR-0020 §1）
         "export_document",
         "close_document",
+        "compose_pages",  # 頁面工具（ADR-0029）
     }
 )
 
@@ -115,6 +116,7 @@ RESULT_FIELDS: dict[str, dict[str, type]] = {
     "preview_edit": {"before": dict, "after": dict, "box": list},
     "export_document": {"output_hash": str},
     "close_document": {},
+    "compose_pages": {"output_hash": str, "page_count": int},
 }  # fmt: skip
 MAX_ERROR_MESSAGE = 1000
 
