@@ -553,10 +553,6 @@ class MainWindow(QMainWindow):
                     menu.addSeparator()
                 else:
                     menu.addAction(self.actions[name])
-        # 目前檔名顯示在選單列右側與視窗標題，多個視窗時以資區別（ADR-0030）
-        self.file_label = QLabel("")
-        self.file_label.setObjectName("file_label")
-        self.menuBar().setCornerWidget(self.file_label, Qt.Corner.TopRightCorner)
         self._refresh_actions()
 
     # --- 狀態 ----------------------------------------------------------
@@ -572,16 +568,14 @@ class MainWindow(QMainWindow):
         base = f"PEditor {__version__}{_build_suffix()}"
         if self.document_id is None or self.service is None:
             self.setWindowTitle(base)
-            self.file_label.setText("")
             return
         try:
             name = os.path.basename(self.service.document_path(self.document_id))
         except ServiceError:
             name = ""
         mark = " *" if self.unsaved else ""
+        # 視窗標題顯示目前檔名，多個視窗時（工作列、Alt+Tab）以資區別（ADR-0030）
         self.setWindowTitle(f"{name}{mark} — {base}")
-        self.file_label.setText(name + ("　・　未另存的修改" if self.unsaved else ""))
-        self.file_label.setToolTip(name)
 
     def new_window(self) -> None:
         """另開一個 PEditor（各自一個行程與 worker，ADR-0030）。"""

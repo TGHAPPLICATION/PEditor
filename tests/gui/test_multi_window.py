@@ -1,4 +1,4 @@
-"""ADR-0030：開新視窗、選單列與標題顯示檔名。"""
+"""ADR-0030：開新視窗、視窗標題顯示檔名。"""
 
 import sys
 
@@ -7,19 +7,17 @@ from test_e2e import FILES, apply, click_target, open_file, preview
 from peditor.ui import app as app_module
 
 
-def test_title_and_menu_show_file_name(qtbot, make_window):
+def test_title_shows_file_name(qtbot, make_window):
     window = make_window()
-    assert window.file_label.text() == "" and window.windowTitle().startswith("PEditor")
+    assert window.windowTitle().startswith("PEditor")
     open_file(qtbot, window, FILES / "F04.pdf")
-    assert window.file_label.text() == "F04.pdf"
     assert window.windowTitle().startswith("F04.pdf — PEditor")
-    assert window.menuBar().cornerWidget() is window.file_label
+    assert window.menuBar().cornerWidget() is None  # 檔名只在標題，不在選單列重複
     click_target(qtbot, window, "World")
     preview(qtbot, window, "Earth")
     apply(qtbot, window)
     assert window.windowTitle().startswith("F04.pdf * — ")
-    assert "未另存的修改" in window.file_label.text()
-    assert str(FILES) not in window.file_label.text()  # 只顯示檔名，不顯示完整路徑
+    assert str(FILES) not in window.windowTitle()  # 只顯示檔名，不顯示完整路徑
 
 
 def test_new_window_spawns_process(qtbot, make_window, monkeypatch):

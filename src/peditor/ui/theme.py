@@ -89,7 +89,6 @@ QLabel#notice {{ background: {t["notice_bg"]}; border: 1px solid {t["notice_line
                 color: {t["notice_text"]}; border-radius: 8px; padding: 6px 10px; }}
 QLabel#notice[empty="true"] {{ background: transparent; border: 0; padding: 0; }}
 QLabel#caption {{ color: {t["muted"]}; font-size: 12px; }}
-QLabel#file_label {{ color: {t["text"]}; font-weight: 500; padding: 0 12px; }}
 QLabel#error {{ color: {t["error"]}; }}
 QLabel#limits {{ background: {t["surface"]}; border: 1px solid {t["line"]}; border-radius: 8px;
                 padding: 10px 12px; color: {t["muted"]}; }}
