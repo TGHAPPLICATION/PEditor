@@ -6,8 +6,8 @@
 ; Unsigned test build: not an official deployment (spec P8).
 ; Explorer integration (ADR-0031): per-user (HKCU) right-click verb and an "Open with" entry
 ; for .pdf; the default PDF app is NOT changed. All keys are removed on uninstall.
-; This file is UTF-8 (Inno Setup 6.3+ reads UTF-8 without BOM; CI pins 6.7.1). Only the menu
-; label below is non-ASCII.
+; This file is ASCII-only. Chinese UI strings are built in [Code] from Unicode code points
+; (#$XXXX), so they do not depend on how the script file is decoded (ADR-0031 section 5).
 
 #ifndef AppVersion
   #error AppVersion is required
@@ -56,11 +56,11 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Filename: "{app}\PEditor.exe"; Description: "{cm:LaunchProgram,PEditor}"; Flags: nowait postinstall skipifsilent
 ; Optional, unchecked: open Windows "Default apps" for PEditor so the user picks it for .pdf
 ; (Windows does not let installers set the default themselves; ADR-0031 section 6)
-Filename: "ms-settings:defaultapps?registeredAppUser=PEditor"; Description: "設定 PEditor 為 PDF 預設程式（開啟 Windows 設定）"; Flags: shellexec nowait postinstall skipifsilent unchecked
+Filename: "ms-settings:defaultapps?registeredAppUser=PEditor"; Description: "{code:DefaultAppCaption}"; Flags: shellexec nowait postinstall skipifsilent unchecked
 
 [Registry]
 ; Right-click verb on .pdf (Windows 10 menu; Windows 11 under "Show more options")
-Root: HKCU; Subkey: "Software\Classes\SystemFileAssociations\.pdf\shell\PEditor"; ValueType: string; ValueName: ""; ValueData: "用 PEditor 開啟"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\SystemFileAssociations\.pdf\shell\PEditor"; ValueType: string; ValueName: ""; ValueData: "{code:OpenVerbCaption}"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\SystemFileAssociations\.pdf\shell\PEditor"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\PEditor.exe"",0"
 Root: HKCU; Subkey: "Software\Classes\SystemFileAssociations\.pdf\shell\PEditor\command"; ValueType: string; ValueName: ""; ValueData: """{app}\PEditor.exe"" ""%1"""
 ; "Open with" list (Windows 11 top-level menu); does not become the default app
@@ -74,3 +74,20 @@ Root: HKCU; Subkey: "Software\PEditor\Capabilities"; ValueType: string; ValueNam
 Root: HKCU; Subkey: "Software\PEditor\Capabilities"; ValueType: string; ValueName: "ApplicationDescription"; ValueData: "Offline PDF text editor"
 Root: HKCU; Subkey: "Software\PEditor\Capabilities\FileAssociations"; ValueType: string; ValueName: ".pdf"; ValueData: "PEditor.pdf"
 Root: HKCU; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueName: "PEditor"; ValueData: "Software\PEditor\Capabilities"; Flags: uninsdeletevalue
+
+[LangOptions]
+; The English wizard font may lack CJK glyphs on some systems; this one has them (ADR-0031 section 5)
+DialogFontName=Microsoft JhengHei UI
+
+[Code]
+function DefaultAppCaption(Param: String): String;
+begin
+  // Caption of the optional last-page checkbox
+  Result := #$8A2D + #$5B9A + ' PEditor ' + #$70BA + ' PDF ' + #$9810 + #$8A2D + #$7A0B + #$5F0F + #$FF08 + #$958B + #$555F + ' Windows ' + #$8A2D + #$5B9A + #$FF09;
+end;
+
+function OpenVerbCaption(Param: String): String;
+begin
+  // Right-click menu label for .pdf
+  Result := #$7528 + ' PEditor ' + #$958B + #$555F;
+end;
