@@ -29,6 +29,9 @@ def test_defaults_to_current_page(qtbot):
     assert dialog.range.text() == "3" and calls == [2]
     assert dialog.text.toPlainText() == "—— 第 3 頁 ——\nHello 第三頁"
     assert dialog.text.isReadOnly()
+    # 欄位已預填目前頁，另有說明提示可自行輸入
+    assert dialog.hint.isVisibleTo(dialog) and "可自行輸入頁碼" in dialog.hint.text()
+    assert "1-4" in dialog.hint.text() and dialog.range.toolTip() == dialog.hint.text()
 
 
 def test_range_combines_pages_with_headers_and_notes(qtbot):

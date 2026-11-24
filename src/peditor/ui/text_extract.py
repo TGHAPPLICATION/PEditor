@@ -60,6 +60,12 @@ class TextExtractDialog(QDialog):
 
         self.range = QLineEdit(str(current_page + 1))
         self.range.setPlaceholderText("例如 1-3,5")
+        # 欄位已預填目前頁、看不到 placeholder：另以說明文字提示可自行輸入（工程師 2026-11-24）
+        self.hint = QLabel(f"可自行輸入頁碼，例如「1-3,5」；整份請輸入「1-{page_count}」。"
+                           "輸入後按 Enter 或「擷取」。")  # fmt: skip
+        self.hint.setObjectName("caption")
+        self.hint.setWordWrap(True)
+        self.range.setToolTip(self.hint.text())
         self.extract_button = QPushButton("擷取")
         self.extract_button.setObjectName("primary")
         top = QHBoxLayout()
@@ -93,6 +99,7 @@ class TextExtractDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.addLayout(top)
+        layout.addWidget(self.hint)
         layout.addLayout(search_row)
         layout.addWidget(self.text, 1)
         layout.addLayout(buttons)
