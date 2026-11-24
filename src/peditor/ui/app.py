@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -475,6 +476,7 @@ class MainWindow(QMainWindow):
         toolbar = self.addToolBar("檔案")
         self.actions: dict[str, QAction] = {}
         for name, text, key, slot in (
+            ("new_window", "開新視窗", QKeySequence.StandardKey.New, self.new_window),
             ("open", "開啟", QKeySequence.StandardKey.Open, self.open_dialog),
             ("save", "另存新檔", QKeySequence.StandardKey.SaveAs, self.save_dialog),
             ("undo", "復原", QKeySequence.StandardKey.Undo, self.undo),
@@ -538,7 +540,7 @@ class MainWindow(QMainWindow):
         panel_action.setText("編輯面板")
         self.actions["panel"] = panel_action
         menus = (
-            ("檔案", ["open", "save"]),
+            ("檔案", ["new_window", None, "open", "save"]),
             ("編輯", ["undo", "redo", None, "find", "manual_cell", "cancel"]),
             ("檢視", ["zoom_in", "zoom_out", "zoom_reset", "fit_width", None, "panel"]),
             ("工具", ["page_tools"]),
@@ -562,7 +564,32 @@ class MainWindow(QMainWindow):
         self.progress.setVisible(busy)
         self._refresh_actions()
 
+    def _update_title(self) -> None:
+        base = f"PEditor {__version__}{_build_suffix()}"
+        if self.document_id is None or self.service is None:
+            self.setWindowTitle(base)
+            return
+        # 另存後顯示新檔名（實機回報：另存後標題仍是舊檔名）；「 *」表示新檔之後又有未另存的修改
+        try:
+            path = self._saved_path or self.service.document_path(self.document_id)
+        except ServiceError:
+            path = ""
+        name = os.path.basename(path)
+        mark = " *" if self.unsaved else ""
+        # 視窗標題顯示目前檔名，多個視窗時（工作列、Alt+Tab）以資區別（ADR-0030）
+        self.setWindowTitle(f"{name}{mark} — {base}")
+
+    def new_window(self) -> None:
+        """另開一個 PEditor（各自一個行程與 worker，ADR-0030）。"""
+        try:
+            spawn_window()
+        except OSError:
+            self._status("無法開啟新視窗")
+            return
+        self._status("已開啟新視窗")
+
     def _refresh_actions(self) -> None:
+        self._update_title()
         busy, opened = self.jobs.busy, self.document_id is not None
         history = (self.service.history(self.document_id)
                    if opened and self.service else {"undo": 0, "redo": 0})  # fmt: skip
@@ -990,6 +1017,7 @@ class MainWindow(QMainWindow):
         if doc == self.document_id:
             self.saved_revision = revision
             self._saved_path = path
+            self._refresh_actions()  # 標題改為新檔名
         warnings = result.get("warnings") or []
         self._status("；".join(["已另存", *warnings]))
 
@@ -1136,6 +1164,24 @@ def _shown(text: str, original: str | None = None) -> str:
     return text.replace("\ufffd", "□")
 
 
+def _self_command() -> list[str]:
+    """重新啟動本程式的指令：打包後為執行檔本身，開發環境為 `python -m peditor`。"""
+    if getattr(sys, "frozen", False):
+        return [sys.executable]
+    return [sys.executable, "-m", "peditor"]
+
+
+def spawn_window() -> None:
+    """開新視窗：另啟一個獨立的 PEditor 行程（不帶任何參數或檔案路徑）。"""
+    subprocess.Popen(  # noqa: S603 — 固定指令，不經 shell
+        _self_command(),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        close_fds=True,
+    )
+
+
 def prepare_storage():
     """啟動時的本機儲存接線（ADR-0021 §2 例外：不經 DocumentService）：建立復原草稿區、
     設定暫存檔紀錄位置並清除上次中斷留下的另存暫存檔（P3 U9）。回傳 DraftStore，不可用時回 None。"""
@@ -1151,7 +1197,17 @@ def prepare_storage():
     return drafts
 
 
-def run(*, smoke: bool = False, versions: dict[str, str] | None = None) -> int:
+def startup(window: MainWindow, path: str | None) -> None:
+    """啟動後的第一個動作：有指定檔案（右鍵「用 PEditor 開啟」，ADR-0031）就開該檔，
+    此時不詢問復原草稿（留到一般啟動時再列出）；否則詢問復原草稿。"""
+    if path:
+        window.open_path(path)
+    else:
+        window.offer_drafts()
+
+
+def run(*, smoke: bool = False, versions: dict[str, str] | None = None,
+        path: str | None = None) -> int:  # fmt: skip
     app = QApplication.instance() or QApplication(sys.argv[:1])
     app.setApplicationName("PEditor")
     theme.apply(app)
@@ -1166,5 +1222,5 @@ def run(*, smoke: bool = False, versions: dict[str, str] | None = None) -> int:
     with DocumentService(drafts=prepare_storage()) as service:
         window = MainWindow(service)
         window.show()
-        QTimer.singleShot(0, window.offer_drafts)
+        QTimer.singleShot(0, lambda: startup(window, path))
         return app.exec()

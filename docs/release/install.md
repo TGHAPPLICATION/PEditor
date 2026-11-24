@@ -40,7 +40,9 @@ PEditor 依 AGPL-3.0-only 散布（`LICENSE`、`NOTICE`），不提供任何擔�
    由資訊單位以 `SHA256SUMS.txt` 的雜湊確認後加入白名單，或等正式簽章版。
 4. 從開始功能表開啟「PEditor」。
 
-**解除安裝**：設定 → 應用程式 → 已安裝的應用程式 → PEditor → 解除安裝。只移除程式檔，下列使用者資料保留。
+**右鍵開啟**（ADR-0031）：安裝後對 PDF 按右鍵，Windows 11 可在「開啟方式 → PEditor」或「顯示更多選項 → 用 PEditor 開啟」；Windows 10 直接顯示「用 PEditor 開啟」。安裝程式不會自行把 PEditor 設為預設 PDF 程式；要設為預設，可在安裝完成頁勾選「設定 PEditor 為 PDF 預設程式」，它會開啟 Windows 設定的 PEditor 頁面，在「.pdf」選 PEditor 即可（之後也可從 設定 → 應用程式 → 預設應用程式 → PEditor 設定）。
+
+**解除安裝**：設定 → 應用程式 → 已安裝的應用程式 → PEditor → 解除安裝。移除程式檔與右鍵選單機碼，下列使用者資料保留。
 
 ## macOS
 
