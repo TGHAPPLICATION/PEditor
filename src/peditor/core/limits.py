@@ -43,4 +43,5 @@ class LimitExceeded(Exception):
 
 # 頁面工具（ADR-0029）：輸入檔數、所有輸入合計的位元組數（同時載入記憶體）
 MAX_COMPOSE_SOURCES = 20
+MAX_EXTRACT_CHARS = 1_000_000  # 文字擷取：單頁回傳字數上限（ADR-0033）
 MAX_COMPOSE_BYTES = MAX_FILE_BYTES

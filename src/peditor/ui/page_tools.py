@@ -1,4 +1,5 @@
-"""「工具 → 頁面工具…」對話框（ADR-0029，P9-06）：刪除、保留／擷取、合併、插入。
+"""「工具 → 頁面管理…」對話框（ADR-0029，P9-06；原名頁面工具，ADR-0033 改名）：
+刪除、保留／擷取、合併、插入。
 
 只收集使用者的選擇並組成計畫；實際組頁與另存由主視窗經 DocumentService 在 worker 執行。
 畫面只顯示檔名，不顯示完整路徑。
@@ -63,7 +64,7 @@ class PageToolsDialog(QDialog):
                  ask_files: Callable[[], list[str]], ask_file: Callable[[], str | None],
                  parent: QWidget | None = None) -> None:  # fmt: skip
         super().__init__(parent)
-        self.setWindowTitle("頁面工具")
+        self.setWindowTitle("頁面管理")
         self.resize(640, 560)
         self.current, self._probe = current, probe
         self._ask_files, self._ask_file = ask_files, ask_file

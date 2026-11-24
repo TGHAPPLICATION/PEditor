@@ -61,6 +61,8 @@ class Worker:
                 raise ProtocolError("INVALID_REQUEST", "搜尋參數錯誤")
             page_index = self.analyzer._check_index(document, params.get("page_index"))
             return {"span_id": span.find(document, page_index, text, occurrence).span_id}
+        if operation == "extract_text":
+            return self.analyzer.extract_text(document, params.get("page_index"))
         if operation == "plan_text_edit":
             from peditor.worker import edit
 

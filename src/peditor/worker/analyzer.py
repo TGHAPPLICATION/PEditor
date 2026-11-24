@@ -20,6 +20,7 @@ import pymupdf
 
 from peditor.core.geometry import PageGeometry, apply, bbox_of
 from peditor.core.limits import (
+    MAX_EXTRACT_CHARS,
     MAX_FILE_BYTES,
     MAX_OBJECT_WALK,
     MAX_PAGES,
@@ -413,6 +414,21 @@ def render_page(document: Document, page_index, dpi) -> dict:
     pix = document.mu[page_index].get_pixmap(dpi=dpi)
     return {"width": pix.width, "height": pix.height,
             "png_base64": base64.b64encode(pix.tobytes("png")).decode("ascii")}  # fmt: skip
+
+
+def extract_text(document: Document, page_index) -> dict:
+    """文字擷取（ADR-0033）：目前工作文件（含已套用、未另存的修改）一頁的文字，依內容串流順序。
+    內容超過處理上限的頁面不交給 MuPDF（同 render_page）；超過字數上限即拒絕。不做 OCR。"""
+    _require_pages(document)
+    page_index = _check_index(document, page_index)
+    inspect_page(document, page_index)
+    if page_index in document.limited_pages:
+        return {"text": "", "limited": True}
+    raw = document.mu[page_index].get_text("text")  # 內容串流順序（sort=True 會在每行間插空行）
+    text = "\n".join(line.rstrip() for line in raw.splitlines()).strip("\n")
+    if len(text) > MAX_EXTRACT_CHARS:
+        raise ProtocolError("RESOURCE_LIMIT", "頁面文字超過擷取上限")
+    return {"text": text, "limited": False}
 
 
 def _chars(mu_page: pymupdf.Page) -> dict[tuple[int, int], list[dict]]:

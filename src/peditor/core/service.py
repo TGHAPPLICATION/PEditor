@@ -181,6 +181,10 @@ class DocumentService:
         params = {"page_index": page_index, "text": text, "occurrence": occurrence}
         return self._doc_call(document_id, "find_text", params, None)["span_id"]
 
+    def extract_text(self, document_id: str, page_index: int) -> dict:
+        """文字擷取（ADR-0033）：一頁的文字（含已套用、未另存的修改）；limited＝內容超過處理上限未擷取。"""
+        return self._doc_call(document_id, "extract_text", {"page_index": page_index}, None)
+
     def plan_text_edit(
         self,
         document_id: str,
