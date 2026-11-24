@@ -23,7 +23,7 @@ def click_image(qtbot, window, index):
 
 
 def test_flow_replace_image_preview_apply_undo_save(qtbot, make_window, tmp_path):
-    """I03：點第 2 個圖片 → 選新圖 → 前後對照 → 套用 → 復原、重做 → 另存；第 1 個不變。"""
+    """I03：點第 2 個圖片 → 選新圖 → 套用（ADR-0032）→ 復原、重做 → 另存；第 1 個不變。"""
     new_image = tmp_path / "新圖 🖼.png"
     Image.new("RGB", (100, 100), (255, 0, 255)).save(new_image, "PNG")
     window = make_window(ask_image=lambda: str(new_image))
@@ -31,14 +31,13 @@ def test_flow_replace_image_preview_apply_undo_save(qtbot, make_window, tmp_path
     first = window.page["image_targets"][0]["name"]
     click_image(qtbot, window, 1)
     assert window.panel.image_button.isEnabled()
-    assert not window.panel.new_text.isEnabled() and not window.panel.preview_button.isEnabled()
+    assert not window.panel.new_text.isVisible() and not window.panel.apply_button.isEnabled()
+    assert window.panel.image_button.hasFocus()
     qtbot.mouseClick(window.panel.image_button, Qt.MouseButton.LeftButton)
-    wait(qtbot, window)
-    assert window.plan is not None and window.plan["mode"] == "image"
-    assert window.panel.info.text().startswith("替換圖片")
-    assert not window.panel.after.pixmap().isNull()
-    assert window.revision == 0  # 預覽不提交
+    assert window.panel.image_label.text() == "新圖 🖼.png"  # 只顯示檔名
+    assert window.panel.apply_button.isEnabled() and window.revision == 0  # 選圖不提交
     apply(qtbot, window)
+    assert not window.panel.isVisible()
     assert window.revision == 1
     assert [t["name"] for t in window.page["image_targets"]] == [first, "/PEditorI1"]
     window.actions["undo"].trigger()
@@ -68,7 +67,7 @@ def test_flow_unsupported_image_shows_reason(qtbot, make_window, tmp_path):
     open_file(qtbot, window, FILES / "I01.pdf")
     click_image(qtbot, window, 0)
     qtbot.mouseClick(window.panel.image_button, Qt.MouseButton.LeftButton)
-    wait(qtbot, window)
+    apply(qtbot, window)
     assert window.last_error is not None and window.last_error.code == "UNSUPPORTED_FEATURE"
     assert window.panel.info.text() == reason_text("UNSUPPORTED_FEATURE")
     assert window.revision == 0

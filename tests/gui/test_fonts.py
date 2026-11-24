@@ -1,4 +1,4 @@
-"""G4-07：中文字型在頁面與前後對照預覽中實際畫出字形（不是空白，也不是同一個缺字框）。
+"""G4-07：中文字型在頁面（含套用後寫回的頁面）中實際畫出字形（不是空白，也不是同一個缺字框）。
 
 offscreen 平台沒有系統字型，Qt 介面元件的中文字形無法在此自動驗證，
 於 Windows、macOS 實機人工驗收（ADR-0021 §3）。這裡驗證介面拿到的文字未被改碼。
@@ -6,7 +6,7 @@ offscreen 平台沒有系統字型，Qt 介面元件的中文字形無法在此�
 
 from PySide6.QtGui import QColor, QImage
 from PySide6.QtWidgets import QGraphicsPixmapItem
-from test_e2e import FILES, click_target, open_file, preview
+from test_e2e import FILES, apply, click_target, open_file, preview, wait
 
 
 def ink(image: QImage) -> int:
@@ -14,10 +14,21 @@ def ink(image: QImage) -> int:
                for y in range(image.height()) for x in range(image.width()))  # fmt: skip
 
 
-def after_image(qtbot, window, new_text) -> QImage:
+def page_image(window, region) -> QImage:
+    page = next(i for i in window.view.scene().items() if isinstance(i, QGraphicsPixmapItem))
+    return page.pixmap().copy(region).toImage()
+
+
+def after_image(qtbot, window, new_text, region) -> QImage:
+    """套用後寫回頁面的字形（ADR-0032 起沒有前後對照圖），取完後復原。"""
+    click_target(qtbot, window, "稽核")
     preview(qtbot, window, new_text)
-    assert window.plan["ready"], window.panel.info.text()
-    return window.panel.after.pixmap().toImage()
+    apply(qtbot, window)
+    assert window.revision % 2 == 1, window.panel.info.text()
+    image = page_image(window, region)
+    window.actions["undo"].trigger()
+    wait(qtbot, window)
+    return image
 
 
 def test_cjk_font_rendering(qtbot, make_window):
@@ -27,11 +38,11 @@ def test_cjk_font_rendering(qtbot, make_window):
     target = click_target(qtbot, window, "稽核")
     assert window.panel.selected.text() == target["text"]
 
-    page = next(i for i in window.view.scene().items() if isinstance(i, QGraphicsPixmapItem))
-    region = window.view.target_rect(target["target_id"]).toRect()
-    assert ink(page.pixmap().copy(region).toImage()) > 0  # 原字形有畫出
+    region = window.view.target_rect(target["target_id"]).toRect().adjusted(-2, -2, 60, 2)
+    original = page_image(window, region)
+    assert ink(original) > 0  # 原字形有畫出
 
-    first = after_image(qtbot, window, "資訊安全檢查")
-    second = after_image(qtbot, window, "資訊安全演練")
+    first = after_image(qtbot, window, "資訊安全檢查", region)
+    second = after_image(qtbot, window, "資訊安全演練", region)
     assert ink(first) > 0 and ink(second) > 0
     assert first != second  # 不同的字畫出不同字形；若都是缺字框則相同

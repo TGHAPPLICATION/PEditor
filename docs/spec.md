@@ -117,6 +117,7 @@ API：open_document、inspect_page、assess_editability。
 
 ### P4：桌面文字編輯流程（6–10 人日）
 工作：開檔、縮圖、預覽、點選文字、替換輸入、模式／字型／溢出提示、前後對照、undo/redo、另存、進度與取消。
+（P11 起依 ADR-0032：前後對照改為頁面上的編輯框「套用」後直接寫回、有提醒先確認、可 undo。）
 繁中 UI／IME；鍵盤 Ctrl 與 Cmd；worker 不阻塞 UI。
 驗收 G4：每平台至少 12 個 E2E 流程；IME 組字中不提前送出；中文字型與中文路徑／空白檔名／emoji 路徑；取消不提交；不可編輯物件有原因。
 禁止用完整頁面 DOM 或 HTML 匯出假裝完成原 PDF 編輯。

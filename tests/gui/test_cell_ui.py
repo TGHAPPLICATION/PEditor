@@ -31,22 +31,22 @@ def _cell_text(window, row, col):
 
 
 def test_flow_cell_edit_preview_apply(qtbot, make_window):
-    """B04：點格內文字 → 儲存格編輯（顯示列欄）→ 預覽 → 套用；格內其他格不變。"""
+    """B04：點格內文字 → 儲存格編輯（顯示列欄）→ 套用（ADR-0032）；格內其他格不變。"""
     window = make_window()
     open_file(qtbot, window, FILES / "B04.pdf")
     click_cell_text(qtbot, window, "300")
     assert window.selection["kind"] == "cell"
     assert window.panel.selected.text() == "表格第 3 列第 2 欄：300"
     assert not window.panel.line_choice.isVisible()
+    assert window.panel.isVisible() and window.panel.new_text.hasFocus()
     preview(qtbot, window, "250")
-    assert window.plan is not None and window.plan["ready"]
-    assert window.plan["target"]["cell"]["row"] == 2
     apply(qtbot, window)
+    assert window.revision == 1 and not window.panel.isVisible()
     assert _cell_text(window, 2, 1) == ["250"] and _cell_text(window, 1, 1) == ["12"]
 
 
 def test_flow_multiline_and_merged_cells(qtbot, make_window):
-    """B05 多行格顯示行選擇；B06 合併格顯示原因、不能預覽。"""
+    """B05 多行格顯示行選擇；B06 合併格顯示原因、不能套用。"""
     window = make_window()
     open_file(qtbot, window, FILES / "B05.pdf")
     click_cell_text(qtbot, window, "第二行")
@@ -58,7 +58,7 @@ def test_flow_multiline_and_merged_cells(qtbot, make_window):
     open_file(qtbot, window, FILES / "B06.pdf")
     click_cell_text(qtbot, window, "合併格")
     assert window.panel.info.text() == "無法編輯：" + reason_text("UNSUPPORTED_LAYOUT")
-    assert not window.panel.preview_button.isEnabled()
+    assert not window.panel.apply_button.isEnabled()
 
 
 def _drag(qtbot, window, box):
@@ -78,7 +78,7 @@ def _drag(qtbot, window, box):
 
 
 def test_flow_manual_cell(qtbot, make_window, tmp_path):
-    """無框線表格：手動選格拉框 → 判定通過 → 預覽 → 套用；框到兩格時顯示原因。"""
+    """無框線表格：手動選格拉框 → 判定通過 → 套用；框到兩格時顯示原因。"""
     path = tmp_path / "borderless.pdf"
     table_pdf(path, [["Item", "Qty"], ["Pen", "12"]], vertical=False)
     window = make_window()
@@ -91,9 +91,11 @@ def test_flow_manual_cell(qtbot, make_window, tmp_path):
     wait(qtbot, window)
     assert window.selection["kind"] == "manual_cell" and not window.view.box_mode
     assert window.panel.selected.text() == "手動選格：12"
+    viewport = window.view.viewport().rect()
+    assert window.panel.isVisible() and viewport.contains(window.panel.geometry())
     preview(qtbot, window, "21")
-    assert window.plan["ready"] and window.plan["target"]["cell"]["manual"]
     apply(qtbot, window)
+    assert window.revision == 1
     assert any(t["text"] == "21" for t in window.page["text_targets"])
 
     window.actions["manual_cell"].trigger()
@@ -101,12 +103,12 @@ def test_flow_manual_cell(qtbot, make_window, tmp_path):
     _drag(qtbot, window, [left[0] + 2, left[1] - 28, box[2] - 2, box[3] - 2])  # 跨兩列、兩欄
     wait(qtbot, window)
     assert window.panel.info.text().startswith("無法編輯：")
-    assert not window.panel.preview_button.isEnabled()
+    assert not window.panel.apply_button.isEnabled()
 
 
 def test_unsupported_line_not_previewable(qtbot, make_window):
     """P8 實機發現：格本身支援、但所選這一行不支援（例如字型沒有 ToUnicode）時，以行的判定為準——
-    預覽與新文字停用、直接顯示原因、不預填；對應不到的字顯示為「□」而不是亂碼。"""
+    「套用」與新文字停用、直接顯示原因、不預填；對應不到的字顯示為「□」而不是亂碼。"""
     window = make_window()
     bad = {"status": "reject", "reasons": ["UNSUPPORTED_ENCODING"]}
     cell = {"cell_id": "c1", "row": 1, "col": 3, "capability": {"status": "support", "reasons": []},
@@ -114,7 +116,7 @@ def test_unsupported_line_not_previewable(qtbot, make_window):
                       {"text": "N99796", "capability": {"status": "support", "reasons": []},
                        "target_ids": ["t2"]}]}  # fmt: skip
     window._select_cell(cell, 0, "cell", None)
-    assert not window.panel.preview_button.isEnabled()
+    assert not window.panel.apply_button.isEnabled()
     assert not window.panel.new_text.isEnabled() and window.panel.new_text.text() == ""
     assert "無法編輯" in window.panel.info.text()
     assert "�" not in window.panel.selected.text() and "□O□" in window.panel.selected.text()
@@ -126,7 +128,7 @@ def test_unsupported_line_not_previewable(qtbot, make_window):
 
 
 def test_display_text_shown_for_reference(qtbot, make_window):
-    """P8 實機：有 display_text（MuPDF 擷取）時面板顯示它並註明僅供參考；仍不能預覽、不預填。"""
+    """P8 實機：有 display_text（MuPDF 擷取）時編輯框顯示它並註明僅供參考；仍不能套用、不預填。"""
     window = make_window()
     bad = {"status": "reject", "reasons": ["UNSUPPORTED_ENCODING"]}
     cell = {"cell_id": "c1", "row": 1, "col": 3, "capability": {"status": "support", "reasons": []},
@@ -134,7 +136,7 @@ def test_display_text_shown_for_reference(qtbot, make_window):
                        "target_ids": ["t1"]}]}  # fmt: skip
     window._select_cell(cell, 0, "cell", None)
     assert "許O維" in window.panel.selected.text() and "僅供參考" in window.panel.selected.text()
-    assert not window.panel.preview_button.isEnabled() and window.panel.new_text.text() == ""
+    assert not window.panel.apply_button.isEnabled() and window.panel.new_text.text() == ""
     window.select_target({"target_id": "t9", "text": "�", "display_text": "許",
                           "capability": bad})  # fmt: skip
     assert window.panel.selected.text().startswith("許") and window.panel.new_text.text() == ""
