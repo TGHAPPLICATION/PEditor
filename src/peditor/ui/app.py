@@ -1,5 +1,6 @@
-"""桌面主視窗（P4、ADR-0021）：開檔、縮圖、預覽、點選文字、替換、前後對照、undo／redo、另存、進度與取消。
-P5（ADR-0022）：點選圖片、選擇新圖片（PNG／JPEG）、前後對照後套用。
+"""桌面主視窗（P4、ADR-0021）：開檔、縮圖、預覽、點選文字、替換、undo／redo、另存、進度與取消。
+P5（ADR-0022）：點選圖片、選擇新圖片（PNG／JPEG）後套用。
+P11（ADR-0032）：點選後在頁面上開半透明編輯框，只有「套用」；有提醒時先在框內顯示、再按一次才寫回。
 P6（ADR-0023）：點到表格格內文字時改以儲存格編輯（一次一行）；「手動選格」拉框選格，仍經能力判定。
 
 UI 只呼叫 DocumentService 的公開 API，不匯入 PDF 程式庫、不組 PDF 指令（spec §9、G1-01）。
@@ -18,13 +19,23 @@ from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import QDateTime, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPainter, QPen, QPixmap, QTransform
+from PySide6.QtGui import (
+    QAction,
+    QColor,
+    QIcon,
+    QKeySequence,
+    QPainter,
+    QPen,
+    QPixmap,
+    QShortcut,
+    QTransform,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
-    QDockWidget,
     QFileDialog,
+    QFrame,
     QGraphicsPixmapItem,
     QGraphicsRectItem,
     QGraphicsScene,
@@ -38,7 +49,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
-    QScrollArea,
     QSizePolicy,
     QSplitter,
     QToolButton,
@@ -60,7 +70,9 @@ PAGE_DPI = 100
 ZOOM_MIN, ZOOM_MAX, ZOOM_STEP = 0.25, 4.0, 1.25  # 頁面縮放（P8 工程師要求）
 THUMB_DPI = 24
 MAX_THUMBS = 200
-PREVIEW_MAX_H = 160  # 前後對照圖最大高度（px）
+OVERLAY_WIDTH = 380  # 編輯框寬度（px；視窗較窄時縮小）
+# 只是告知、不需確認的計畫訊息（其他提醒套用前先在編輯框顯示，ADR-0032 §3）
+INFO_ONLY_WARNINGS = ("已同步更新結構樹",)
 
 
 def _pixmap(rendered: dict) -> QPixmap:
@@ -158,6 +170,13 @@ class PageView(QGraphicsView):
             if isinstance(item, QGraphicsRectItem) and item.data(0) == target_id:
                 return item.sceneBoundingRect()
         return None
+
+    def page_rect(self, box: list) -> QRectF | None:
+        """頁面座標（pt）的範圍轉成場景矩形（手動選格的編輯框定位用）。"""
+        if self._geometry is None:
+            return None
+        x0, y0, x1, y1 = bbox_of(self._geometry.page_to_view(PAGE_DPI / 72), tuple(box))
+        return QRectF(x0, y0, x1 - x0, y1 - y0)
 
     def highlight(self, target_id: str | None) -> None:
         for item in self.scene().items():
@@ -257,58 +276,66 @@ class TextInput(QLineEdit):
         super().inputMethodEvent(event)
 
 
-class EditPanel(QWidget):
-    """側欄：選取內容、新文字輸入、計畫資訊、前後對照。
-    只在按「預覽」或 Enter 時規劃（IME 組字中不送出）。
-    內容放在捲動區；「套用」固定在底部，螢幕較矮或預覽圖較高時不被擠出畫面（P8 S10）。"""
+class EditOverlay(QFrame):
+    """頁面上的半透明編輯框（ADR-0032）：選取內容、新文字（或選擇新圖片）、「套用」與關閉。
+    點選後焦點自動到輸入欄；Enter 或「套用」送出（IME 組字中不送出）；Esc 或「×」關閉不修改。"""
 
-    def __init__(self) -> None:
-        super().__init__()
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        self.scroll = QScrollArea()
-        self.scroll.setObjectName("panel_scroll")
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        content = QWidget()
-        layout = QVBoxLayout(content)
-        self.selected = QLabel("尚未選取文字")
-        self.selected.setObjectName("selected")
+    def __init__(self, parent: QWidget) -> None:
+        super().__init__(parent)
+        self.setObjectName("edit_overlay")
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setAutoFillBackground(False)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 8, 12, 10)
+        layout.setSpacing(6)
+        head = QHBoxLayout()
+        self.selected = QLabel("")
+        self.selected.setObjectName("caption")
         self.selected.setWordWrap(True)
-        self.new_text = TextInput()
-        self.new_text.setObjectName("new_text")
-        self.new_text.setPlaceholderText("輸入新文字")
-        self.preview_button = QPushButton("預覽")
-        self.preview_button.setObjectName("preview")
-        self.apply_button = QPushButton("套用")
-        self.apply_button.setObjectName("apply")
-        self.info = QLabel("")
-        self.info.setObjectName("info")
-        self.info.setWordWrap(True)
-        self.before = QLabel()
-        self.before.setObjectName("before")
-        self.after = QLabel()
-        self.after.setObjectName("after")
-        self.image_button = QPushButton("選擇新圖片…")
-        self.image_button.setObjectName("replace_image")
+        self.close_button = QToolButton()
+        self.close_button.setObjectName("overlay_close")
+        self.close_button.setText("×")
+        self.close_button.setToolTip("關閉（Esc），不修改")
+        head.addWidget(self.selected, 1)
+        head.addWidget(self.close_button)
+        layout.addLayout(head)
         self.line_choice = QComboBox()  # 儲存格的第幾行（ADR-0023：一次改一行）
         self.line_choice.setObjectName("cell_line")
         self.line_choice.setVisible(False)
-        captions = [_caption(t) for t in ("選取的內容", "新文字", "修改前", "修改後")]
-        for widget in (captions[0], self.selected, self.line_choice, captions[1],
-                       self.new_text, self.image_button, self.info, captions[2],
-                       self.before, captions[3], self.after):  # fmt: skip
-            layout.addWidget(widget)
-        layout.addStretch(1)
-        self.scroll.setWidget(content)
-        outer.addWidget(self.scroll, 1)
-        # 「預覽」「套用」固定在底部（P8 S10；P9 視覺稿）
-        bottom = QHBoxLayout()
-        bottom.setContentsMargins(9, 0, 9, 9)
+        layout.addWidget(self.line_choice)
+        row = QHBoxLayout()
+        self.new_text = TextInput()
+        self.new_text.setObjectName("new_text")
+        self.new_text.setPlaceholderText("輸入新文字")
+        self.image_button = QPushButton("選擇新圖片…")
+        self.image_button.setObjectName("replace_image")
+        self.image_label = QLabel("")
+        self.image_label.setObjectName("caption")
+        self.apply_button = QPushButton("套用")
         self.apply_button.setObjectName("primary")
-        bottom.addWidget(self.preview_button)
-        bottom.addWidget(self.apply_button)
-        outer.addLayout(bottom)
+        for widget in (self.new_text, self.image_button, self.image_label):
+            row.addWidget(widget, 1 if widget is not self.image_button else 0)
+        row.addWidget(self.apply_button)
+        layout.addLayout(row)
+        self.info = QLabel("")
+        self.info.setObjectName("overlay_info")
+        self.info.setWordWrap(True)
+        self.info.setVisible(False)
+        layout.addWidget(self.info)
+        self.escape = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+        self.escape.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.hide()
+
+    def set_info(self, text: str) -> None:
+        self.info.setText(text)
+        self.info.setVisible(bool(text))
+        self.adjustSize()
+
+    def set_image_mode(self, image: bool) -> None:
+        self.new_text.setVisible(not image)
+        self.image_button.setVisible(image)
+        self.image_label.setVisible(image)
 
 
 def _caption(text: str) -> QLabel:
@@ -428,27 +455,26 @@ class MainWindow(QMainWindow):
         self.thumbs.currentRowChanged.connect(self._thumb_selected)
         self.view = PageView()
         self.view.target_clicked.connect(self.select_target)
-        self.panel = EditPanel()
-        self.panel.setMaximumWidth(380)
-        self.panel.setMinimumWidth(320)  # 貼回視窗邊緣時不被擠窄、內容不被裁掉（P9 視覺稿）
-        self.panel.preview_button.clicked.connect(self.request_preview)
-        self.panel.new_text.returnPressed.connect(self.request_preview)
+        # 編輯框在頁面上（ADR-0032，取代 P8 的浮動編輯面板與前後對照）
+        self.panel = EditOverlay(self.view.viewport())
+        self.panel.new_text.returnPressed.connect(self.apply_plan)
         self.panel.apply_button.clicked.connect(self.apply_plan)
+        self.panel.close_button.clicked.connect(self.close_editor)
+        self.panel.escape.activated.connect(self.close_editor)
+        self.panel.new_text.textEdited.connect(self._edit_changed)
+        self._anchor: QRectF | None = None
+        self.image_path: str | None = None
+        self._plan_key: tuple | None = None
         self.find_bar = FindBar(self)
         self.find_bar.find_button.clicked.connect(self.find)
         self.find_bar.find_text.returnPressed.connect(self.find)
-        # 編輯面板浮動（P8 工程師要求）：可拖動、貼回邊緣或關閉；「檢視 → 編輯面板」叫回
-        self.panel_dock = QDockWidget("編輯", self)
-        self.panel_dock.setObjectName("edit_dock")
-        self.panel_dock.setWidget(self.panel)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.panel_dock)
-        self.panel_dock.setFloating(True)
-        self.panel_dock.resize(360, 720)
-        self._dock_placed = False
         self.panel.image_button.clicked.connect(self.replace_image_dialog)
+        for bar in (self.view.horizontalScrollBar(), self.view.verticalScrollBar()):
+            bar.valueChanged.connect(self._place_editor)  # 捲動、縮放時編輯框跟著選取的內容
         self.panel.line_choice.currentIndexChanged.connect(self._line_chosen)
         self.view.box_selected.connect(self.select_box)
         self.view.zoom_changed.connect(self._zoomed)
+        self.view.zoom_changed.connect(self._place_editor)
         self._sharp_timer = QTimer(self)
         self._sharp_timer.setSingleShot(True)
         self._sharp_timer.setInterval(300)
@@ -536,13 +562,10 @@ class MainWindow(QMainWindow):
             button = toolbar.widgetForAction(self.actions[name])
             if isinstance(button, QToolButton):
                 button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
-        panel_action = self.panel_dock.toggleViewAction()
-        panel_action.setText("編輯面板")
-        self.actions["panel"] = panel_action
         menus = (
             ("檔案", ["new_window", None, "open", "save"]),
             ("編輯", ["undo", "redo", None, "find", "manual_cell", "cancel"]),
-            ("檢視", ["zoom_in", "zoom_out", "zoom_reset", "fit_width", None, "panel"]),
+            ("檢視", ["zoom_in", "zoom_out", "zoom_reset", "fit_width"]),
             ("工具", ["page_tools"]),
             ("說明", ["about"]),
         )
@@ -603,11 +626,13 @@ class MainWindow(QMainWindow):
         editable = (self.selection is not None and not busy
                     and self.selection["capability"]["status"] == "support")  # fmt: skip
         is_image = self.selection is not None and self.selection.get("kind") == "image"
-        self.panel.preview_button.setEnabled(editable and not is_image)
         self.panel.new_text.setEnabled(editable and not is_image)
         self.panel.image_button.setEnabled(editable and is_image)
-        self.panel.apply_button.setEnabled(editable and self.plan is not None
-                                           and self.plan.get("ready", False))  # fmt: skip
+        self.panel.apply_button.setEnabled(editable and (not is_image or bool(self.image_path)))
+        pending = self.plan is not None and self.plan.get("ready") and self._plan_key is not None
+        self.panel.apply_button.setText("確認套用" if pending else "套用")
+        # 處理中 Esc 交給「取消」：兩個 Esc 快速鍵同時啟用時 Qt 判定衝突、都不執行（獨立核對 P11）
+        self.panel.escape.setEnabled(not busy)
         self.find_bar.find_button.setEnabled(opened and not busy)
         self.actions["page_tools"].setEnabled(not busy and self.service is not None)
         self.actions["find"].setEnabled(opened)
@@ -618,8 +643,9 @@ class MainWindow(QMainWindow):
     def _fail(self, error: ServiceError) -> None:
         self.last_error = error
         self._status(reason_text(error.code))
-        self.panel.info.setText(reason_text(error.code))
+        self.panel.set_info(reason_text(error.code))
         self._refresh_actions()
+        self._focus_editor()
 
     def _run(self, func, on_done) -> None:
         self.last_error = None
@@ -721,23 +747,89 @@ class MainWindow(QMainWindow):
             self.notice.setText("\n".join(notes))
         self._clear_selection()
 
-    # --- 選取、預覽、套用 ------------------------------------------------
+    # --- 選取、編輯框、套用（ADR-0032） ---------------------------------
     def _clear_selection(self) -> None:
         self.selection = None
         self.plan = None
-        self.panel.selected.setText("尚未選取文字或圖片")
+        self._plan_key = None
+        self.image_path = None
+        self._anchor = None
+        self.panel.hide()
+        self.panel.selected.setText("")
         self.panel.line_choice.setVisible(False)
         self.panel.new_text.clear()
-        self.panel.info.clear()
-        self.panel.before.clear()
-        self.panel.after.clear()
+        self.panel.image_label.clear()
+        self.panel.set_info("")
+        self.view.highlight(None)
         self._refresh_actions()
+        if self.view.zoom > 1 and self.page is not None:
+            self._sharp_timer.start()  # 編輯中延後的高解析度渲染
+
+    def close_editor(self) -> None:
+        """Esc 或「×」：關閉編輯框，不修改；焦點回到頁面。"""
+        if self.busy:
+            return
+        self._clear_selection()
+        self.view.setFocus()
+
+    def _open_editor(self, anchor: QRectF | None) -> None:
+        self._anchor = anchor
+        self.plan, self._plan_key = None, None
+        self.panel.show()
+        self.panel.raise_()
+        self._place_editor()
+        self._refresh_actions()
+        self._focus_editor(select=True)
+
+    def _focus_editor(self, select: bool = False) -> None:
+        """select=True 只在剛開啟時全選原文字；
+        失敗或提醒後回到輸入欄不全選，避免下一個按鍵覆蓋整段。"""
+        if not self.panel.isVisible():
+            return
+        if self.panel.new_text.isVisible() and self.panel.new_text.isEnabled():
+            self.panel.new_text.setFocus()
+            if select:
+                self.panel.new_text.selectAll()
+        elif self.panel.image_button.isVisible() and self.panel.image_button.isEnabled():
+            self.panel.image_button.setFocus()
+        else:
+            self.panel.close_button.setFocus()  # 不能改：焦點在框內，Esc 可關閉
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 — Qt 介面
+        super().resizeEvent(event)
+        QTimer.singleShot(0, self._place_editor)  # 視窗大小改變後重新放置編輯框
+
+    def _place_editor(self, *_args) -> None:
+        """編輯框放在選取內容的正下方（下方放不下改放上方），不超出頁面可視範圍。"""
+        if not self.panel.isVisible():
+            return
+        viewport = self.view.viewport().rect()
+        width = max(240, min(OVERLAY_WIDTH, viewport.width() - 16))
+        self.panel.setFixedWidth(width)
+        self.panel.adjustSize()
+        height = self.panel.height()
+        if self._anchor is None:
+            x, y = 8, 8
+        else:
+            rect = self.view.mapFromScene(self._anchor).boundingRect()
+            x = rect.left()
+            y = rect.bottom() + 6
+            if y + height > viewport.bottom() and rect.top() - 6 - height >= 0:
+                y = rect.top() - 6 - height
+        x = max(8, min(x, viewport.right() - width - 8))
+        y = max(8, min(y, viewport.bottom() - height - 8))
+        self.panel.move(x, y)
+
+    def _edit_changed(self, *_args) -> None:
+        """提醒顯示後又改了內容：回到一般「套用」（重新規劃，不沿用舊計畫）。"""
+        if self._plan_key is not None:
+            self.plan, self._plan_key = None, None
+            self.panel.set_info("")
+            self._refresh_actions()
 
     def select_target(self, target: dict) -> None:
         if self.busy:
             return
-        self.panel_dock.show()  # 面板被關閉時，選取內容後叫回
-        self._fit_dock()
         kind = target.get("kind", "text")
         if kind == "text" and target["target_id"] in self.cells_by_target:
             cell, line_index = self.cells_by_target[target["target_id"]]
@@ -747,7 +839,9 @@ class MainWindow(QMainWindow):
         text = target.get("text", "") if kind == "text" else ""
         self.selection = {"target_id": target["target_id"], "text": text,
                           "capability": target["capability"], "kind": kind}  # fmt: skip
-        self.plan = None
+        self.image_path = None
+        self.panel.image_label.clear()
+        self.panel.set_image_mode(kind == "image")
         self.view.highlight(target["target_id"])
         if kind == "image":
             x0, y0, x1, y1 = target["bbox"]
@@ -759,17 +853,13 @@ class MainWindow(QMainWindow):
             supported = target["capability"]["status"] == "support"
             self.panel.new_text.setText(text if supported else "")
         if target["capability"]["status"] == "support":
-            self.panel.info.setText("")
+            self.panel.set_info("")
         else:
-            self.panel.info.setText("無法編輯：" + reasons_text(target["capability"]["reasons"]))
-        self.panel.before.clear()
-        self.panel.after.clear()
-        self._refresh_actions()
+            self.panel.set_info("無法編輯：" + reasons_text(target["capability"]["reasons"]))
+        self._open_editor(self.view.target_rect(target["target_id"]))
 
     def _select_cell(self, cell: dict, line_index: int, kind: str, highlight: str | None) -> None:
-        """儲存格選取（ADR-0023）：顯示格位置與行；能力判定不支援時顯示原因、不能預覽。"""
-        self.panel_dock.show()
-        self._fit_dock()
+        """儲存格選取（ADR-0023）：顯示格位置與行；能力判定不支援時顯示原因、不能套用。"""
         lines = cell["lines"]
         text = lines[line_index]["text"] if lines else ""
         # 格本身支援時，以所選這一行的判定為準（行內文字無法對應 Unicode 等；P8 實機發現）
@@ -779,7 +869,8 @@ class MainWindow(QMainWindow):
         self.selection = {"target_id": cell.get("cell_id"), "text": text, "kind": kind,
                           "capability": capability, "cell": cell,
                           "line_index": line_index}  # fmt: skip
-        self.plan = None
+        self.image_path = None
+        self.panel.set_image_mode(False)
         self.view.highlight(highlight)
         where = ("手動選格" if kind == "manual_cell"
                  else f"表格第 {cell['row'] + 1} 列第 {cell['col'] + 1} 欄")  # fmt: skip
@@ -795,12 +886,12 @@ class MainWindow(QMainWindow):
         choice.setVisible(len(lines) > 1)
         self.panel.new_text.setText(text if capability["status"] == "support" else "")
         if capability["status"] == "support":
-            self.panel.info.setText("")
+            self.panel.set_info("")
         else:
-            self.panel.info.setText("無法編輯：" + reasons_text(capability["reasons"]))
-        self.panel.before.clear()
-        self.panel.after.clear()
-        self._refresh_actions()
+            self.panel.set_info("無法編輯：" + reasons_text(capability["reasons"]))
+        box = cell.get("cell_box") or cell.get("bbox")
+        anchor = self.view.target_rect(highlight) if highlight else None
+        self._open_editor(anchor or (self.view.page_rect(box) if box else None))
 
     def _line_chosen(self, index: int) -> None:
         if self.selection is not None and "cell" in self.selection and index >= 0:
@@ -813,6 +904,8 @@ class MainWindow(QMainWindow):
     def _render_sharper(self) -> None:
         """放大後以較高 DPI 重新渲染目前頁（上限 MAX_RENDER_DPI）；換頁或文件已變時丟棄結果。"""
         if self.document_id is None or self.page is None or self.busy:
+            return
+        if self.panel.isVisible():  # 編輯中不跑背景工作（會停用輸入欄、打斷組字）；關閉後再渲染
             return
         dpi = min(MAX_RENDER_DPI, round(PAGE_DPI * self.view.zoom))
         if dpi <= self._sharp_dpi:
@@ -850,29 +943,6 @@ class MainWindow(QMainWindow):
         self.find_bar.find_text.setFocus()
         self.find_bar.find_text.selectAll()
 
-    def showEvent(self, event) -> None:  # noqa: N802 — Qt 介面
-        """第一次顯示時把浮動的編輯面板放在視窗右側內緣。"""
-        super().showEvent(event)
-        if not self._dock_placed and self.panel_dock.isFloating():
-            geo = self.geometry()
-            self.panel_dock.move(geo.right() - self.panel_dock.width() - 24, geo.top() + 96)
-            self._dock_placed = True
-        self._fit_dock()
-
-    def _fit_dock(self) -> None:
-        """浮動面板底部不超出所在螢幕的可用範圍（工作列以上）；超出時縮短，內容改捲動（P8 S10）。"""
-        dock = self.panel_dock
-        if not dock.isFloating():
-            return
-        screen = (dock.screen() or self.screen()).availableGeometry()
-        frame = dock.frameGeometry()
-        if frame.bottom() <= screen.bottom():
-            return
-        deco = frame.height() - dock.height()  # 標題列與邊框
-        top = max(screen.top(), min(frame.top(), screen.bottom() - deco - 320))
-        dock.move(frame.left(), top)
-        dock.resize(dock.width(), max(320, screen.bottom() - top - deco))
-
     def find(self) -> None:
         text = self.find_bar.find_text.text()
         if not text or self.document_id is None:
@@ -885,85 +955,82 @@ class MainWindow(QMainWindow):
 
         self._run(lambda: self.service.find_text(doc, index, text), found)
 
-    def request_preview(self) -> None:
-        # 只取已確認的文字：組字中（含組字中按 Enter）不規劃；preedit 不在 text() 內（G4-02、P4 U7）
-        if self.selection is None or self.busy or self.panel.new_text.composing:
-            return
-        doc, revision = self.document_id, self.revision
-        target_id, new_text = self.selection["target_id"], self.panel.new_text.text()
+    def _edit_key(self) -> tuple:
+        """這次要套用的內容；提醒顯示後若內容變了就重新規劃。"""
+        selection = self.selection or {}
+        if selection.get("kind") == "image":
+            return ("image", self.image_path)
+        return (selection.get("kind"), selection.get("line_index"), self.panel.new_text.text())
 
+    def apply_plan(self) -> None:
+        """「套用」或 Enter：規劃後直接寫回；計畫有提醒時先在編輯框顯示，再按一次「確認套用」才寫回
+        （ADR-0032 §3）。只取已確認的文字：組字中（含組字中按 Enter）不送出（G4-02、P4 U7）。"""
         selection = self.selection
+        if (selection is None or self.busy or self.panel.new_text.composing
+                or selection["capability"]["status"] != "support"):  # fmt: skip
+            return
+        key = self._edit_key()
+        if self.plan is not None and self.plan.get("ready") and self._plan_key == key:
+            self._commit(self.plan["plan_id"])
+            return
+        if selection["kind"] == "image" and not self.image_path:
+            return
+        doc, revision, new_text, path = (self.document_id, self.revision,
+                                         self.panel.new_text.text(), self.image_path)  # fmt: skip
 
         def work():
             if selection["kind"] in ("cell", "manual_cell"):
                 cell = selection["cell"]
-                plan = self.service.plan_cell_edit(
+                return self.service.plan_cell_edit(
                     doc, cell.get("cell_id"), new_text, selection["line_index"], "prefer_a",
                     revision, cell_box=cell.get("cell_box"),
                     page_index=self.page_index if cell.get("cell_box") else None,
                 )  # fmt: skip
-            else:
-                plan = self.service.plan_text_edit(doc, target_id, new_text, "prefer_a", revision)
-            if not plan["ready"]:
-                return plan, None
-            return plan, self.service.preview_edit(doc, plan["plan_id"], revision)
+            if selection["kind"] == "image":
+                asset = self.service.register_image(doc, path)
+                return self.service.plan_image_edit(doc, selection["target_id"],
+                                                    asset["asset_id"], revision)  # fmt: skip
+            return self.service.plan_text_edit(doc, selection["target_id"], new_text,
+                                               "prefer_a", revision)  # fmt: skip
 
-        self._status("預覽中…")
-        self._run(work, lambda result: self._previewed(*result))
+        self._status("套用中…")
+        self._run(work, lambda plan: self._planned(plan, key))
 
     def replace_image_dialog(self) -> None:
-        """選擇新圖片後登記、規劃並預覽（ADR-0022）；套用與文字修改共用「套用」。"""
+        """選擇新圖片（ADR-0022）；按「套用」才登記、規劃與寫回。"""
         if self.selection is None or self.selection.get("kind") != "image" or self.busy:
             return
         path = self._ask_image()
         if not path:
             return
-        doc, revision, target_id = self.document_id, self.revision, self.selection["target_id"]
-
-        def work():
-            asset = self.service.register_image(doc, path)
-            plan = self.service.plan_image_edit(doc, target_id, asset["asset_id"], revision)
-            if not plan["ready"]:
-                return plan, None
-            return plan, self.service.preview_edit(doc, plan["plan_id"], revision)
-
-        self._status("預覽中…")
-        self._run(work, lambda result: self._previewed(*result))
-
-    def _previewed(self, plan: dict, preview: dict | None) -> None:
-        self.plan = plan
-        if preview is None:
-            self.panel.info.setText("無法修改：" + reasons_text(plan["unsupported_reasons"]))
-            self._status("無法修改")
-        else:
-            if plan["mode"] == "image":
-                width, height = plan["geometry"]["image_size"]
-                lines = [f"替換圖片（新圖 {width} × {height} 像素，位置與大小不變）"]
-            else:
-                lines = [
-                    f"模式 {plan['mode']}"
-                    + ("（沿用原字型）" if plan["mode"] == "A" else "（字型替換）")
-                ]
-            lines += plan.get("warnings", [])
-            self.panel.info.setText("\n".join(lines))
-            x0, y0, x1, y1 = preview["box"]
-            m = 12  # 改動區域外留邊，看得到鄰近內容
-            for label, key in ((self.panel.before, "before"), (self.panel.after, "after")):
-                pix = _pixmap(preview[key]).copy(x0 - m, y0 - m, x1 - x0 + 2 * m, y1 - y0 + 2 * m)
-                fit = pix.scaled(  # 限高，前後兩張與「套用」在矮螢幕上也放得下
-                    min(320, max(1, pix.width())),
-                    min(PREVIEW_MAX_H, max(1, pix.height())),
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-                label.setPixmap(fit)
-            self._status("預覽完成，按「套用」提交")
+        self.image_path = path
+        self.panel.image_label.setText(os.path.basename(path))  # 只顯示檔名
+        self._edit_changed()
         self._refresh_actions()
+        self.panel.apply_button.setFocus()
 
-    def apply_plan(self) -> None:
-        if not self.plan or not self.plan.get("ready") or self.busy:
+    def _planned(self, plan: dict, key: tuple) -> None:
+        self.plan = plan
+        if not plan["ready"]:
+            self._plan_key = None
+            self.panel.set_info("無法修改：" + reasons_text(plan["unsupported_reasons"]))
+            self._status("無法修改")
+            self._refresh_actions()
+            self._focus_editor()
             return
-        doc, revision, plan_id = self.document_id, self.revision, self.plan["plan_id"]
+        notes = [w for w in plan.get("warnings", []) if not w.startswith(INFO_ONLY_WARNINGS)]
+        if not notes:
+            self._commit(plan["plan_id"])
+            return
+        self._plan_key = key
+        self.panel.set_info("請確認：\n" + "\n".join(f"・{n}" for n in notes))
+        self._status("有提醒，確認後再按「確認套用」")
+        self._refresh_actions()
+        self._place_editor()
+        self.panel.apply_button.setFocus()
+
+    def _commit(self, plan_id: str) -> None:
+        doc, revision = self.document_id, self.revision
         self._status("套用中…")
         self._run(lambda: self.service.apply_edit(doc, plan_id, revision), self._changed)
 

@@ -35,7 +35,7 @@ P3 報告 §9 U2：ADR-0015 的 7 份 fixture 以 MuPDF 渲染為空白，P4 預
   在側欄輸入整段新文字；另提供「尋找文字」以 span 選取跨運算子範圍。實際替換範圍由 P2 span 機制計算。
 - 前後對照：新增 worker 操作 `preview_edit(plan_id)`（spec §7）：在工作文件上套用計畫、渲染改動區域前後圖、
   再以開啟自的位元組回滾並重新規劃同一計畫；revision 不變、不提交。
-- IME：只在使用者按「預覽」或 Enter（且不在組字中）時規劃，組字中的 preedit 不送出。
+- IME：只在使用者按「預覽」或 Enter（且不在組字中）時規劃，組字中的 preedit 不送出。（ADR-0032 起「預覽」改為「套用」，規則相同）
 - 快捷鍵：Qt 標準鍵（QKeySequence.StandardKey），Windows 為 Ctrl、macOS 為 Cmd。
 - 復原草稿：UI 啟用；啟動時列出未逾期草稿由使用者選擇復原或捨棄。先修正 P3 triage f001（草稿結構驗證）、
   f006（保存參數副本）；啟動時清除先前中斷留下的另存暫存檔（P3 U9，路徑記錄在本機資料目錄）。

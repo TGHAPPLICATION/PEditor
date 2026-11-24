@@ -44,11 +44,11 @@ def test_preedit_not_committed(qtbot, make_window, monkeypatch):
     commit(box, "試局")
     qtbot.keyClick(box, Qt.Key.Key_Return)
     wait(qtbot, window)
-    assert planned == ["測試局"] and window.plan["ready"]
+    assert planned == ["測試局"] and window.revision == 1  # Enter 即套用（ADR-0032）
 
 
 def test_enter_during_preedit_not_planned(qtbot, make_window, monkeypatch):
-    """P4 U7：組字中按 Enter 或「預覽」不規劃（offscreen 下 Qt 仍會發出 returnPressed）。"""
+    """P4 U7：組字中按 Enter 或「套用」不規劃（offscreen 下 Qt 仍會發出 returnPressed）。"""
     window = make_window()
     open_file(qtbot, window, FILES / "T01.pdf")
     find(qtbot, window, "衛生局")
@@ -64,11 +64,11 @@ def test_enter_during_preedit_not_planned(qtbot, make_window, monkeypatch):
     box.clear()
     compose(box, "ㄘㄜˋ")
     qtbot.keyClick(box, Qt.Key.Key_Return)
-    qtbot.mouseClick(window.panel.preview_button, Qt.MouseButton.LeftButton)
+    qtbot.mouseClick(window.panel.apply_button, Qt.MouseButton.LeftButton)
     wait(qtbot, window)
     assert planned == [] and window.plan is None
 
     commit(box, "測試局")  # 確認後即可規劃
     qtbot.keyClick(box, Qt.Key.Key_Return)
     wait(qtbot, window)
-    assert planned == ["測試局"] and window.plan["ready"]
+    assert planned == ["測試局"] and window.revision == 1

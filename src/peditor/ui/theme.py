@@ -89,6 +89,12 @@ QLabel#notice {{ background: {t["notice_bg"]}; border: 1px solid {t["notice_line
                 color: {t["notice_text"]}; border-radius: 8px; padding: 6px 10px; }}
 QLabel#notice[empty="true"] {{ background: transparent; border: 0; padding: 0; }}
 QLabel#caption {{ color: {t["muted"]}; font-size: 12px; }}
+QFrame#edit_overlay {{ background: rgba(255, 255, 255, 230); border: 1px solid {t["accent"]};
+                     border-radius: 10px; }}
+QLabel#overlay_info {{ background: {t["notice_bg"]}; border: 1px solid {t["notice_line"]};
+                      color: {t["notice_text"]}; border-radius: 6px; padding: 4px 8px; }}
+QToolButton#overlay_close {{ border: 0; background: transparent; padding: 0 4px; min-height: 0;
+                            font-size: 16px; color: {t["muted"]}; }}
 QLabel#error {{ color: {t["error"]}; }}
 QLabel#limits {{ background: {t["surface"]}; border: 1px solid {t["line"]}; border-radius: 8px;
                 padding: 10px 12px; color: {t["muted"]}; }}
