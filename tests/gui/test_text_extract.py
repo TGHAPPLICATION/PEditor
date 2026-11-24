@@ -107,3 +107,26 @@ def test_main_window_extracts_current_state(qtbot, make_window):
     dialog = shown[0]
     assert dialog.text.toPlainText() == "—— 第 1 頁 ——\nHello Earth"
     dialog.deleteLater()
+
+
+def test_remove_and_restore_page_headers(qtbot):
+    """工程師 2026-11-24：「複製全部」前方的「移除頁碼」；移除後複製與另存都不含標題，可加回。"""
+    dialog, _ = make_dialog(qtbot)
+    dialog.range.setText("1-4")
+    dialog.run()
+    row = next(dialog.layout().itemAt(i).layout() for i in range(dialog.layout().count())
+               if dialog.layout().itemAt(i).layout()
+               and dialog.layout().itemAt(i).layout().indexOf(dialog.copy_button) >= 0)  # fmt: skip
+    assert row.indexOf(dialog.headers_button) == row.indexOf(dialog.copy_button) - 1  # 緊鄰左方
+    assert dialog.headers_button.isEnabled()
+    qtbot.mouseClick(dialog.headers_button, Qt.MouseButton.LeftButton)
+    assert dialog.text.toPlainText() == "第一頁內容\n第二行\n\nHello 第三頁"
+    assert dialog.headers_button.text() == "加回頁碼"
+    qtbot.mouseClick(dialog.copy_button, Qt.MouseButton.LeftButton)
+    assert QGuiApplication.clipboard().text() == "第一頁內容\n第二行\n\nHello 第三頁"
+    dialog.range.setText("3")  # 重新擷取仍維持不加頁碼
+    dialog.run()
+    assert dialog.text.toPlainText() == "Hello 第三頁"
+    qtbot.mouseClick(dialog.headers_button, Qt.MouseButton.LeftButton)
+    assert dialog.text.toPlainText() == "—— 第 3 頁 ——\nHello 第三頁"
+    assert dialog.headers_button.text() == "移除頁碼"

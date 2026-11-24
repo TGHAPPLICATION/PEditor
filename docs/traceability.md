@@ -162,7 +162,7 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | P11-03 | ADR-0032 §3 | 有提醒時先在框內顯示、按「確認套用」才寫回；改字後重新規劃；告知訊息不問 | `tests/gui/test_e2e.py::test_flow_mode_b_shows_font_replacement`、`::test_flow_changing_text_after_warning_replans`、`::test_info_only_warning_does_not_ask`、`test_cell_ui.py::test_pending_confirmation_reset_by_other_line`、`test_image_ui.py::test_pending_confirmation_reset_by_other_image` | F02、F04 | PASS（本機 Linux offscreen）；Windows 實機 P11c PASS（2026-11-24） |
 | P12-01 | ADR-0033 §1 | 「頁面工具」改名「頁面管理」；工具列「開啟｜另存新檔｜頁面管理｜文字擷取」；選單「工具」含兩者 | `tests/gui/test_theme.py::test_toolbar_groups_and_primary` | — | PASS（本機 Linux offscreen）；Windows 實機待驗 |
 | P12-02 | ADR-0033 §2 | worker `extract_text`：目前工作文件（含未另存修改）、去行尾空白、掃描頁空字串、超限頁不擷取、字數上限、頁碼驗證 | `tests/integration/test_extract_text.py` | F04、T05、I02 | PASS（本機 Linux）；Windows 實機待驗 |
-| P12-03 | ADR-0033 §3～§4 | 文字擷取對話框：預設目前頁、頁碼範圍、第 N 頁標題、無文字提示、搜尋、複製全部、另存 .txt（UTF-8 BOM、補副檔名、訊息只含檔名） | `tests/gui/test_text_extract.py` | F04 | PASS（本機 Linux offscreen）；Windows 實機待驗 |
+| P12-03 | ADR-0033 §3～§4 | 文字擷取對話框：預設目前頁（下方說明可自行輸入）、頁碼範圍、第 N 頁標題與「移除頁碼」、無文字提示、搜尋、複製全部、另存 .txt（UTF-8 BOM、補副檔名、訊息只含檔名） | `tests/gui/test_text_extract.py` | F04 | PASS（本機 Linux offscreen）；Windows 實機待驗 |
 | G8-05 | P8 | 標明 macOS 最低支援版本 | ADR-0025 §3（15.0、Apple Silicon） | — | 完成 |
 
 ## 共通（§8）

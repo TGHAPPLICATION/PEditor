@@ -32,10 +32,15 @@ def page_header(page_number: int) -> str:
     return f"—— 第 {page_number} 頁 ——"
 
 
-def combine(results: list[tuple[int, dict]]) -> str:
-    """(頁索引, extract_text 結果) → 合併文字；每頁前加「第 N 頁」標題。"""
+def combine(results: list[tuple[int, dict]], headers: bool = True) -> str:
+    """(頁索引, extract_text 結果) → 合併文字；每頁前加「第 N 頁」標題。
+    headers=False（「移除頁碼」）：不加標題，也不放無文字頁的說明，只留文件文字，頁與頁之間空一行。"""
     parts = []
     for index, result in results:
+        if not headers:
+            if result["text"] and not result["limited"]:
+                parts.append(result["text"])
+            continue
         body = LIMITED if result["limited"] else (result["text"] or NO_TEXT)
         parts.append(f"{page_header(index + 1)}\n{body}")
     return "\n\n".join(parts)
@@ -88,11 +93,16 @@ class TextExtractDialog(QDialog):
         self.info.setObjectName("caption")
         self.info.setWordWrap(True)
 
+        self.results: list[tuple[int, dict]] = []
+        # 「移除頁碼」（工程師 2026-11-24）：按下後拿掉「第 N 頁」標題，再按一次加回
+        self.headers_button = QPushButton("移除頁碼")
+        self.headers_button.setCheckable(True)
         self.copy_button = QPushButton("複製全部")
         self.save_button = QPushButton("另存文字檔…")
         self.close_button = QPushButton("關閉")
         buttons = QHBoxLayout()
         buttons.addWidget(self.info, 1)
+        buttons.addWidget(self.headers_button)
         buttons.addWidget(self.copy_button)
         buttons.addWidget(self.save_button)
         buttons.addWidget(self.close_button)
@@ -108,6 +118,7 @@ class TextExtractDialog(QDialog):
         self.range.returnPressed.connect(self.run)
         self.find_button.clicked.connect(self.find_next)
         self.search.returnPressed.connect(self.find_next)
+        self.headers_button.toggled.connect(self._show)
         self.copy_button.clicked.connect(self.copy_all)
         self.save_button.clicked.connect(self.save_text)
         self.close_button.clicked.connect(self.accept)
@@ -116,7 +127,8 @@ class TextExtractDialog(QDialog):
 
     def _refresh(self) -> None:
         has_text = bool(self.text.toPlainText())
-        for button in (self.copy_button, self.save_button, self.find_button):
+        for button in (self.copy_button, self.save_button, self.find_button,
+                       self.headers_button):  # fmt: skip
             button.setEnabled(has_text)
 
     def run(self) -> None:
@@ -132,12 +144,18 @@ class TextExtractDialog(QDialog):
         except ValueError as exc:
             self.info.setText(str(exc))
             return
-        self.text.setPlainText(combine(results))
+        self.results = results
+        self._show()
         empty = [str(i + 1) for i, r in results if not r["limited"] and not r["text"]]
         note = f"；第 {','.join(empty)} 頁沒有文字（可能是掃描圖片）" if empty else ""
         chars = sum(len(r["text"]) for _, r in results)
         self.info.setText(f"共 {len(results)} 頁、{chars} 字{note}")
         self._refresh()
+
+    def _show(self, *_args) -> None:
+        removed = self.headers_button.isChecked()
+        self.headers_button.setText("加回頁碼" if removed else "移除頁碼")
+        self.text.setPlainText(combine(self.results, headers=not removed))
 
     def find_next(self) -> None:
         needle = self.search.text()
