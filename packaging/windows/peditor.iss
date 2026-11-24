@@ -4,7 +4,10 @@
 ; recovery drafts and the temp-file registry under %LOCALAPPDATA%\PEditor are left in place and
 ; are documented in docs/release/install.md (draft cleanup).
 ; Unsigned test build: not an official deployment (spec P8).
-; This file is ASCII-only.
+; Explorer integration (ADR-0031): per-user (HKCU) right-click verb and an "Open with" entry
+; for .pdf; the default PDF app is NOT changed. All keys are removed on uninstall.
+; This file is UTF-8 (Inno Setup 6.3+ reads UTF-8 without BOM; CI pins 6.7.1). Only the menu
+; label below is non-ASCII.
 
 #ifndef AppVersion
   #error AppVersion is required
@@ -34,6 +37,7 @@ SolidCompression=yes
 LicenseFile={#SourceDir}\LICENSE
 UninstallDisplayName=PEditor {#AppVersion}
 WizardStyle=modern
+ChangesAssociations=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -50,3 +54,14 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Run]
 Filename: "{app}\PEditor.exe"; Description: "{cm:LaunchProgram,PEditor}"; Flags: nowait postinstall skipifsilent
+
+[Registry]
+; Right-click verb on .pdf (Windows 10 menu; Windows 11 under "Show more options")
+Root: HKCU; Subkey: "Software\Classes\SystemFileAssociations\.pdf\shell\PEditor"; ValueType: string; ValueName: ""; ValueData: "用 PEditor 開啟"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\SystemFileAssociations\.pdf\shell\PEditor"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\PEditor.exe"",0"
+Root: HKCU; Subkey: "Software\Classes\SystemFileAssociations\.pdf\shell\PEditor\command"; ValueType: string; ValueName: ""; ValueData: """{app}\PEditor.exe"" ""%1"""
+; "Open with" list (Windows 11 top-level menu); does not become the default app
+Root: HKCU; Subkey: "Software\Classes\PEditor.pdf"; ValueType: string; ValueName: ""; ValueData: "PDF (PEditor)"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\PEditor.pdf\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: """{app}\PEditor.exe"",0"
+Root: HKCU; Subkey: "Software\Classes\PEditor.pdf\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\PEditor.exe"" ""%1"""
+Root: HKCU; Subkey: "Software\Classes\.pdf\OpenWithProgids"; ValueType: string; ValueName: "PEditor.pdf"; ValueData: ""; Flags: uninsdeletevalue

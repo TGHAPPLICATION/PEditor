@@ -1194,7 +1194,17 @@ def prepare_storage():
     return drafts
 
 
-def run(*, smoke: bool = False, versions: dict[str, str] | None = None) -> int:
+def startup(window: MainWindow, path: str | None) -> None:
+    """啟動後的第一個動作：有指定檔案（右鍵「用 PEditor 開啟」，ADR-0031）就開該檔，
+    此時不詢問復原草稿（留到一般啟動時再列出）；否則詢問復原草稿。"""
+    if path:
+        window.open_path(path)
+    else:
+        window.offer_drafts()
+
+
+def run(*, smoke: bool = False, versions: dict[str, str] | None = None,
+        path: str | None = None) -> int:  # fmt: skip
     app = QApplication.instance() or QApplication(sys.argv[:1])
     app.setApplicationName("PEditor")
     theme.apply(app)
@@ -1209,5 +1219,5 @@ def run(*, smoke: bool = False, versions: dict[str, str] | None = None) -> int:
     with DocumentService(drafts=prepare_storage()) as service:
         window = MainWindow(service)
         window.show()
-        QTimer.singleShot(0, window.offer_drafts)
+        QTimer.singleShot(0, lambda: startup(window, path))
         return app.exec()
