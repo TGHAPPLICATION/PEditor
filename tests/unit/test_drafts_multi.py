@@ -69,3 +69,18 @@ def test_lock_held_by_other_process(tmp_path):
         child.kill()  # 模擬當機或強制結束
         child.wait()
     assert [d["draft_id"] for d in DraftStore(tmp_path).list()] == [draft]
+
+
+def test_recover_refused_while_other_window_holds_draft(tmp_path):
+    """獨立核對（P10）：兩個視窗同時復原同一份草稿時，只有先取得鎖的那個可以。"""
+    from peditor.core.service import DocumentService, ServiceError
+
+    draft = "0123456789abcdef"
+    _save(DraftStore(tmp_path), draft)
+    holder = DraftStore(tmp_path)
+    assert holder.claim(draft)  # 另一個視窗正在復原
+    with DocumentService(drafts=DraftStore(tmp_path)) as service:
+        with pytest.raises(ServiceError, match="另一個 PEditor"):
+            service.recover_draft(draft)
+    holder.release(draft)
+    assert (tmp_path / f"{draft}.json").exists()  # 草稿仍在，之後可復原
