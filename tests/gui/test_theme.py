@@ -17,8 +17,8 @@ def test_stylesheet_uses_tokens():
     assert "{" in qss and "{{" not in qss  # f-string 已展開
 
 
-def test_icons_render():
-    for name in ("open", "save", "undo", "redo", "page_tools", "fit_width"):
+def test_icons_render(qtbot):  # QPixmap 需要 QApplication（單獨執行本檔時）
+    for name in ("open", "save", "undo", "redo", "page_tools", "text_extract", "fit_width"):
         assert not theme.icon(name).isNull()
     assert theme.icon("unknown").isNull()
 
@@ -28,7 +28,16 @@ def test_toolbar_groups_and_primary(qtbot, make_window):
     toolbar = window.findChildren(type(window.addToolBar("x")))[0]
     names = [a for a in toolbar.actions()]
     assert window.actions["find"] not in names and window.actions["about"] not in names
-    assert names.index(window.actions["page_tools"]) == len(names) - 1  # 最右邊
+    # 工程師 2026-11-24：「頁面管理」移到「另存新檔」右方，其右為「文字擷取」（ADR-0033）
+    save_at = names.index(window.actions["save"])
+    assert names[save_at + 1] is window.actions["page_tools"]
+    assert names[save_at + 2] is window.actions["text_extract"]
+    assert window.actions["page_tools"].text() == "頁面管理…"
+    for name in ("page_tools", "text_extract"):
+        button = toolbar.widgetForAction(window.actions[name])
+        assert isinstance(button, QToolButton) and button.objectName() == "outline"
+    tools = next(a.menu() for a in window.menuBar().actions() if a.text() == "工具")
+    assert [a.text() for a in tools.actions()] == ["頁面管理…", "文字擷取…"]
     assert sum(1 for a in names if a.isSeparator()) == 2
     save = toolbar.widgetForAction(window.actions["save"])
     assert isinstance(save, QToolButton) and save.objectName() == "primary"

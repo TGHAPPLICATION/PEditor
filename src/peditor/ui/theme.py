@@ -1,4 +1,5 @@
-"""介面主題（ADR-0029 §7，P9-08）：配色 token、QSS、平台內建字型與自繪線條圖示。
+"""介面主題（ADR-0029 §7，P9-08；ADR-0033 文字擷取圖示）：
+配色 token、QSS、平台內建字型與自繪線條圖示。
 
 依工程師確認的視覺稿（配色與字級）。圖示為本檔自繪的 SVG 路徑，不引入第三方圖示包；
 字型用系統內建（Windows「Microsoft JhengHei UI」、macOS「PingFang TC」），不另打包。
@@ -132,6 +133,7 @@ _ICONS = {
     "page_tools": '<rect x="3" y="4" width="8" height="16" rx="1"/>'
     '<rect x="13" y="4" width="8" height="16" rx="1"/>',
     "cancel": '<path d="M6 6l12 12M18 6L6 18"/>',
+    "text_extract": '<path d="M5 5h14M12 5v14"/><path d="M15 15h5M15 19h5"/>',
 }
 
 

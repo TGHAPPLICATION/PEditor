@@ -1,4 +1,5 @@
-"""「工具 → 頁面工具…」對話框（ADR-0029，P9-06）：刪除、保留／擷取、合併、插入。
+"""「工具 → 頁面管理…」對話框（ADR-0029，P9-06；原名頁面工具，ADR-0033 改名）：
+刪除、保留／擷取、合併、插入。
 
 只收集使用者的選擇並組成計畫；實際組頁與另存由主視窗經 DocumentService 在 worker 執行。
 畫面只顯示檔名，不顯示完整路徑。
@@ -12,7 +13,6 @@ from dataclasses import dataclass
 
 from PySide6.QtWidgets import (
     QCheckBox,
-    QDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 from peditor.core import pages
 from peditor.core.limits import MAX_COMPOSE_SOURCES, MAX_PAGES
 from peditor.ui.messages import reasons_text
+from peditor.ui.screen import FittedDialog, fit_size
 
 LIMITS_TEXT = (
     "結果保留每頁內容、註解、頁面大小與旋轉；不保留書籤。"
@@ -55,7 +56,7 @@ class Request:
     open_after: bool
 
 
-class PageToolsDialog(QDialog):
+class PageToolsDialog(FittedDialog):
     """probe(path) → Source 或丟出 ValueError（訊息可直接顯示）；
     ask_files／ask_file 為選檔對話框。"""
 
@@ -63,8 +64,8 @@ class PageToolsDialog(QDialog):
                  ask_files: Callable[[], list[str]], ask_file: Callable[[], str | None],
                  parent: QWidget | None = None) -> None:  # fmt: skip
         super().__init__(parent)
-        self.setWindowTitle("頁面工具")
-        self.resize(640, 560)
+        self.setWindowTitle("頁面管理")
+        fit_size(self, 640, 560)  # 小螢幕或高 DPI 時縮小，按鈕不超出畫面
         self.current, self._probe = current, probe
         self._ask_files, self._ask_file = ask_files, ask_file
         self.request: Request | None = None

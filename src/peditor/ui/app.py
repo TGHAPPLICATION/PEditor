@@ -49,7 +49,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
-    QSizePolicy,
     QSplitter,
     QToolButton,
     QVBoxLayout,
@@ -64,6 +63,8 @@ from peditor.ui import theme
 from peditor.ui.jobs import JobRunner
 from peditor.ui.messages import NOTICES, reason_text, reasons_text
 from peditor.ui.page_tools import PageToolsDialog, Request, Source, probe_error_text
+from peditor.ui.screen import FittedDialog, fit_size, keep_inside
+from peditor.ui.text_extract import TextExtractDialog
 
 SMOKE_MARKER = "PEDITOR_SMOKE_OK"
 PAGE_DPI = 100
@@ -352,7 +353,7 @@ class NoticeLabel(QLabel):
         self.setVisible(bool(text))
 
 
-class FindBar(QDialog):
+class FindBar(FittedDialog):
     """尋找（Ctrl+F，選單「編輯 → 尋找…」）：小型浮動視窗，不擋住頁面；Enter 或「尋找」送出。"""
 
     def __init__(self, parent: QWidget) -> None:
@@ -370,7 +371,7 @@ class FindBar(QDialog):
         layout.addWidget(self.find_button)
 
 
-class DraftDialog(QDialog):
+class DraftDialog(FittedDialog):
     """列出全部未逾期草稿，由使用者選一份復原或捨棄（ADR-0020 §5、P4 U9）。
     只顯示檔名，不顯示完整路徑。choice：("recover"|"discard", draft_id)，稍後再說為 None。"""
 
@@ -425,7 +426,8 @@ class MainWindow(QMainWindow):
     ) -> None:
         super().__init__()
         self.setWindowTitle(f"PEditor {__version__}{_build_suffix()}")
-        self.resize(1280, 860)
+        fit_size(self, 1280, 860)  # 小螢幕或高 DPI（例如 150%）時縮小，不超出畫面
+        self._placed = False
         self.service = service
         self.jobs = JobRunner()
         self._ask_open = ask_open or self._dialog_open
@@ -525,7 +527,8 @@ class MainWindow(QMainWindow):
             ("find", "尋找…", QKeySequence.StandardKey.Find, self.show_find),
             ("cancel", "取消", QKeySequence(Qt.Key.Key_Escape), self.cancel),
             ("about", "關於 PEditor", QKeySequence(), self.show_about),
-            ("page_tools", "頁面工具…", QKeySequence(), self.page_tools),
+            ("page_tools", "頁面管理…", QKeySequence(), self.page_tools),
+            ("text_extract", "文字擷取…", QKeySequence(), self.text_extract),
         ):
             action = QAction(text, self)
             if isinstance(
@@ -540,21 +543,19 @@ class MainWindow(QMainWindow):
             action.triggered.connect(slot)
             action.setIcon(theme.icon(name))
             self.actions[name] = action
-        # 工具列分組（P9 視覺稿）：檔案｜編輯｜檢視 … 頁面工具；尋找、關於只放在選單
+        # 工具列分組：檔案（開啟、另存、頁面管理、文字擷取，ADR-0033）｜編輯｜檢視；
+        # 尋找、關於只放在選單
         toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         toolbar.setMovable(False)
-        groups = (["open", "save"], ["undo", "redo", "manual_cell"],
+        groups = (["open", "save", "page_tools", "text_extract"], ["undo", "redo", "manual_cell"],
                   ["zoom_out", "zoom_in", "zoom_reset", "fit_width", "cancel"])  # fmt: skip
         for index, names in enumerate(groups):
             if index:
                 toolbar.addSeparator()
             for name in names:
                 toolbar.addAction(self.actions[name])
-        spacer = QWidget()
-        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        toolbar.addWidget(spacer)
-        toolbar.addAction(self.actions["page_tools"])
-        for name, style in (("save", "primary"), ("page_tools", "outline")):
+        for name, style in (("save", "primary"), ("page_tools", "outline"),
+                            ("text_extract", "outline")):  # fmt: skip
             button = toolbar.widgetForAction(self.actions[name])
             if isinstance(button, QToolButton):
                 button.setObjectName(style)
@@ -566,7 +567,7 @@ class MainWindow(QMainWindow):
             ("檔案", ["new_window", None, "open", "save"]),
             ("編輯", ["undo", "redo", None, "find", "manual_cell", "cancel"]),
             ("檢視", ["zoom_in", "zoom_out", "zoom_reset", "fit_width"]),
-            ("工具", ["page_tools"]),
+            ("工具", ["page_tools", "text_extract"]),
             ("說明", ["about"]),
         )
         for title, names in menus:
@@ -635,6 +636,7 @@ class MainWindow(QMainWindow):
         self.panel.escape.setEnabled(not busy)
         self.find_bar.find_button.setEnabled(opened and not busy)
         self.actions["page_tools"].setEnabled(not busy and self.service is not None)
+        self.actions["text_extract"].setEnabled(opened and not busy)
         self.actions["find"].setEnabled(opened)
 
     def _status(self, text: str) -> None:
@@ -1123,8 +1125,33 @@ class MainWindow(QMainWindow):
         self._status("處理頁面中…")
         self._run(work, done)
 
+    # --- 文字擷取（ADR-0033） ------------------------------------------------
+    def text_extract(self) -> None:
+        """目前文件（含未另存的修改）指定頁的文字；預設目前頁。
+        對話框開啟時沒有其他工作，同步向 worker 取。"""
+        if self.busy or self.document_id is None or self.service is None:
+            return
+        doc = self.document_id
+
+        def extract(page_index: int) -> dict:
+            try:
+                return self.service.extract_text(doc, page_index)
+            except ServiceError as exc:
+                raise ValueError(reason_text(exc.code)) from None
+
+        dialog = TextExtractDialog(self.page_count, self.page_index, extract,
+                                   self._dialog_save_text, self)  # fmt: skip
+        self._exec_dialog(dialog)
+
+    def _exec_dialog(self, dialog: QDialog) -> None:
+        dialog.exec()
+
+    def _dialog_save_text(self) -> str | None:
+        path, _ = QFileDialog.getSaveFileName(self, "另存文字檔", "", "文字檔 (*.txt)")
+        return path or None
+
     def probe(self, path: str) -> Source:
-        """頁面工具選檔：取頁數與能力判定（UI 執行緒同步呼叫；對話框開啟時沒有其他工作）。"""
+        """頁面管理選檔：取頁數與能力判定（UI 執行緒同步呼叫；對話框開啟時沒有其他工作）。"""
         try:
             result = self.service.probe_document(path)
         except ServiceError as exc:
@@ -1206,6 +1233,13 @@ class MainWindow(QMainWindow):
         dialog = DraftDialog(drafts, self)
         dialog.exec()
         return dialog.choice
+
+    def showEvent(self, event) -> None:  # noqa: N802 — Qt 介面
+        super().showEvent(event)
+        # 只在第一次顯示時調整；從最小化還原時不動使用者放的位置（P12 獨立核對）
+        if not self._placed and not self.isMaximized():
+            keep_inside(self)  # 含標題列與狀態列都在螢幕可用範圍內
+        self._placed = True
 
     def closeEvent(self, event) -> None:  # noqa: N802 — Qt 介面
         """正常關閉：取消進行中的請求、收下已完成的結果，再關閉文件並刪除草稿
