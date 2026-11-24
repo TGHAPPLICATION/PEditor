@@ -106,3 +106,15 @@ def test_message_boxes_fit_smallest_area(qtbot):
         box.show()
         QApplication.processEvents()
         assert box.width() <= smallest.width() - 16 and box.height() <= smallest.height() - 56
+
+
+def test_main_window_restore_keeps_user_position(qtbot, make_window, area):
+    """P12 獨立核對：只在第一次顯示時移回畫面內；之後（例如從最小化還原）不移動使用者放的位置。"""
+    window = make_window()
+    QApplication.processEvents()
+    window.move(area.right() - 50, area.bottom() - 50)  # 使用者自己拖到邊緣
+    moved = window.pos()
+    window.hide()
+    window.show()
+    QApplication.processEvents()
+    assert window.pos() == moved

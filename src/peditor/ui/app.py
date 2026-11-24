@@ -427,6 +427,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle(f"PEditor {__version__}{_build_suffix()}")
         fit_size(self, 1280, 860)  # 小螢幕或高 DPI（例如 150%）時縮小，不超出畫面
+        self._placed = False
         self.service = service
         self.jobs = JobRunner()
         self._ask_open = ask_open or self._dialog_open
@@ -1235,8 +1236,10 @@ class MainWindow(QMainWindow):
 
     def showEvent(self, event) -> None:  # noqa: N802 — Qt 介面
         super().showEvent(event)
-        if not self.isMaximized():
+        # 只在第一次顯示時調整；從最小化還原時不動使用者放的位置（P12 獨立核對）
+        if not self._placed and not self.isMaximized():
             keep_inside(self)  # 含標題列與狀態列都在螢幕可用範圍內
+        self._placed = True
 
     def closeEvent(self, event) -> None:  # noqa: N802 — Qt 介面
         """正常關閉：取消進行中的請求、收下已完成的結果，再關閉文件並刪除草稿

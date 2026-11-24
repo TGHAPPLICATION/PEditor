@@ -33,7 +33,7 @@
 ```
 uv run ruff check . && uv run ruff format --check .   → exit 0
 uv run pytest -q --deselect tests/integration/test_fixtures.py::test_generator_reproduces_committed_bytes
-  → 757 passed, 4 skipped（@ e602316）
+  → 763 passed, 4 skipped（含獨立核對修正）
 ```
 
 略過的一項是既有的環境差異，CI 雙平台通過。這不是 Windows 實機證據。
@@ -52,7 +52,9 @@ uv run pytest -q --deselect tests/integration/test_fixtures.py::test_generator_r
 
 - 不做 OCR；文字順序依 PDF 內容串流，多欄或表格排版可能與視覺順序不同。
 - 擷取為同步、逐頁向 worker 取，頁數多時對話框暫停回應。
-- 螢幕調整以「扣除工作列的可用範圍」計算；跨多螢幕拖曳後再開啟的位置未測。
+- 螢幕調整以「扣除工作列的可用範圍」計算；多螢幕時預設大小以主螢幕計算、顯示時再依實際螢幕移回，未在多螢幕實測。
+- offscreen 測試平台沒有標題列與邊框，標題列寬高的計算只有實機（P12e）證據；DraftDialog 本身尺寸小，其檢查不構成回歸保護。
+- 獨立核對修正（§11）在實機測試之後，只有自動測試與 CI 證據。
 - macOS 實機 NOT RUN（ADR-0003）。
 
 ## 8. 安全審查
@@ -66,6 +68,7 @@ uv run pytest -q --deselect tests/integration/test_fixtures.py::test_generator_r
 | --- | --- | --- |
 | U1 | 實機的螢幕解析度與縮放比例未記錄（沙箱內看不到）；自動測試以 1366×768@125%、1920×1080@150% 模擬 | 已記錄 |
 | U2 | 實機安裝包版本依結果時間推定為 `e602316` | 工程師確認 |
+| U3 | 單頁字數上限在 MuPDF 取完整頁文字後才檢查（T17 殘餘） | 已記錄 |
 
 ## 10. 關卡結果
 
@@ -73,4 +76,17 @@ uv run pytest -q --deselect tests/integration/test_fixtures.py::test_generator_r
 
 ## 11. 獨立核對紀錄
 
-（待填）
+- 2026-11-24，未參與實作的子代理人（只讀）核對 `main..p12-text-extract` 與報告。確認：主行程不開 PDF、無網路模組與新增日誌、錯誤只用代碼說明、
+  存檔訊息只含檔名、`RESULT_FIELDS` 已加、超限頁不交給 MuPDF、`.TXT` 不重複補、不可能覆寫 PDF、搜尋不會無限迴圈、FindBar 的 Tool 旗標、
+  `test_theme.py` 的修改是依新需求而非放寬；把螢幕調整關掉後 `test_screen_fit.py` 6 項失敗，與報告一致。
+  指出並已修正：
+  - （中）報告 §10 寫核對完成但 §11 待填 → 本節。
+  - （中）搜尋「從頭找」的測試空過 → 改為比對繞回後的位置等於第一個。
+  - （低）頁碼 `True` 通過驗證（bool 是 int），多頁文件得到 WORKER_FAILED；測試以 1 頁的 F04 空過 → `_check_index` 拒絕 bool，以 2 頁的 I02 測試。
+  - （低）移除頁碼後擷取只有空白頁的範圍，「加回頁碼」不能按 → 有擷取結果即可切換。
+  - （低）頁碼錯誤或擷取失敗時留著上一次結果 → 清空（原測試「保留舊內容」改為「清空」，屬行為修正）。
+  - （低）補上 .txt 後會不經詢問覆寫同名檔、寫檔非原子 → 已存在則不寫；先寫暫存再換上。
+  - （低）主視窗每次從最小化還原都會被移回 → 只在第一次顯示時調整。
+  - （低）對話框沒有跨頁總量上限 → 合計 ≤20,000,000 字。常數分組錯位 → 已整理。
+  - 文件：ADR-0033 未列螢幕調整與 `test_screen_fit.py`、traceability 未註明實機條件 → 已補（ADR §5、§6）。
+  - 未修（低，§7、U3）：單頁字數在取完文字後才檢查；offscreen 測不到標題列；多螢幕未實測。

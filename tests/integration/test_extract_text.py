@@ -68,3 +68,13 @@ def test_multi_page(tmp_path):
         doc = service.open_document(path)["document_id"]
         texts = [service.extract_text(doc, i)["text"] for i in (0, 1)]
     assert texts == ["first page", "second page"]
+
+
+def test_bool_page_index_rejected_on_multi_page():
+    """P12 獨立核對：bool 是 int 的子類別，True 不得當成第 2 頁（I02 有 2 頁）。"""
+    with DocumentService() as service:
+        doc = service.open_document(FILES / "I02.pdf")["document_id"]
+        for bad in (True, False):
+            with pytest.raises(ServiceError) as info:
+                service.extract_text(doc, bad)
+            assert info.value.code == "INVALID_REQUEST"

@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from peditor.core import pages
+from peditor.core.limits import MAX_EXTRACT_TOTAL_CHARS
 from peditor.ui.screen import FittedDialog, fit_size
 
 NO_TEXT = "（此頁沒有可擷取的文字，可能是掃描圖片）"
@@ -127,22 +128,29 @@ class TextExtractDialog(FittedDialog):
 
     def _refresh(self) -> None:
         has_text = bool(self.text.toPlainText())
-        for button in (self.copy_button, self.save_button, self.find_button,
-                       self.headers_button):  # fmt: skip
+        for button in (self.copy_button, self.save_button, self.find_button):
             button.setEnabled(has_text)
+        # 只要有擷取結果就能切換（移除頁碼後若只剩空白頁，仍要能加回，P12 獨立核對）
+        self.headers_button.setEnabled(bool(self.results))
 
     def run(self) -> None:
+        # 失敗時清空舊結果，避免把上一次的內容誤認為這次頁碼的結果（P12 獨立核對）
         try:
             chosen = pages.parse_ranges(self.range.text(), self.page_count)
         except pages.RangeError as exc:
-            self.info.setText(str(exc))
+            self._fail(str(exc))
             return
-        results = []
+        results, total = [], 0
         try:
             for index in chosen:
-                results.append((index, self._extract(index)))
+                result = self._extract(index)
+                total += len(result["text"])
+                if total > MAX_EXTRACT_TOTAL_CHARS:
+                    self._fail("擷取的文字太多，請縮小頁碼範圍")
+                    return
+                results.append((index, result))
         except ValueError as exc:
-            self.info.setText(str(exc))
+            self._fail(str(exc))
             return
         self.results = results
         self._show()
@@ -150,6 +158,12 @@ class TextExtractDialog(FittedDialog):
         note = f"；第 {','.join(empty)} 頁沒有文字（可能是掃描圖片）" if empty else ""
         chars = sum(len(r["text"]) for _, r in results)
         self.info.setText(f"共 {len(results)} 頁、{chars} 字{note}")
+        self._refresh()
+
+    def _fail(self, message: str) -> None:
+        self.results = []
+        self.text.clear()
+        self.info.setText(message)
         self._refresh()
 
     def _show(self, *_args) -> None:
@@ -180,11 +194,20 @@ class TextExtractDialog(FittedDialog):
             return
         if not path.lower().endswith(".txt"):  # 只寫 .txt，不會覆寫 PDF
             path += ".txt"
+            if os.path.exists(path):  # 補上的檔名沒經過存檔對話框的覆寫確認
+                self.info.setText(f"{os.path.basename(path)} 已存在，請換一個名稱")
+                return
+        temp = f"{path}.~peditor.tmp"
         try:
             # UTF-8 含 BOM：舊版記事本與 Excel 也能正確辨識中文；換行依作業系統
-            with open(path, "w", encoding="utf-8-sig") as fh:  # 覆寫已由存檔對話框確認
+            with open(temp, "w", encoding="utf-8-sig") as fh:
                 fh.write(self.text.toPlainText())
+            os.replace(temp, path)  # 寫完才換上，失敗不留半個檔
         except OSError:
+            try:
+                os.remove(temp)
+            except OSError:
+                pass
             self.info.setText("無法寫入文字檔")
             return
         self.info.setText(f"已另存 {os.path.basename(path)}")

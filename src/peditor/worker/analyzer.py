@@ -359,7 +359,9 @@ def _require_pages(document: Document) -> None:
 
 
 def _check_index(document: Document, page_index) -> int:
-    if not isinstance(page_index, int) or not 0 <= page_index < document.page_count:
+    # bool 是 int 的子類別：True 不得當成第 1 頁（P12 獨立核對）
+    if (not isinstance(page_index, int) or isinstance(page_index, bool)
+            or not 0 <= page_index < document.page_count):  # fmt: skip
         raise ProtocolError("INVALID_REQUEST", "頁碼超出範圍")
     return page_index
 
