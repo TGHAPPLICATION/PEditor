@@ -20,28 +20,34 @@ def _run(command: list[str]) -> str:
     return result.stdout
 
 
-def _parents() -> dict[int, int]:
-    """全部行程的 pid → 父 pid（一次查詢）。"""
+def _parents() -> dict[int, tuple[int, int]]:
+    """全部行程的 pid → (父 pid, 建立時間)（一次查詢；建立時間只在 Windows 有，其他平台為 0）。"""
     if sys.platform == "win32":
         out = _run(["powershell", "-NoProfile", "-Command",
                     "Get-CimInstance Win32_Process | ForEach-Object "
-                    "{ \"$($_.ProcessId) $($_.ParentProcessId)\" }"])  # fmt: skip
+                    "{ \"$($_.ProcessId) $($_.ParentProcessId) $(if ($_.CreationDate) "
+                    "{ $_.CreationDate.ToFileTimeUtc() } else { 0 })\" }"])  # fmt: skip
     else:
         out = _run(["ps", "-A", "-o", "pid=,ppid="])
     pairs = {}
     for line in out.splitlines():
         parts = line.split()
-        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
-            pairs[int(parts[0])] = int(parts[1])
+        if len(parts) in (2, 3) and all(p.isdigit() for p in parts):
+            pairs[int(parts[0])] = (int(parts[1]), int(parts[2]) if len(parts) == 3 else 0)
     if not pairs:
         raise RuntimeError("enumeration failed")
     return pairs
 
 
 def process_tree(pids: list[int]) -> set[int]:
+    """這些行程與其子孫。Windows 不會把孤兒行程改掛到別的父行程，父 pid 可能已被重用
+    （例如 wininit、csrss 的父行程 smss 早已結束）：子行程建立時間早於「父」行程者不是它的子行程。
+    2026-11-24 CI 曾因此把整串系統服務誤認為測試行程的子孫（run 的 test_no_listening_sockets）。"""
+    parents = _parents()
     children: dict[int, list[int]] = {}
-    for pid, ppid in _parents().items():
-        if pid != ppid:
+    for pid, (ppid, created) in parents.items():
+        parent_created = parents.get(ppid, (0, 0))[1]
+        if pid != ppid and created >= parent_created:
             children.setdefault(ppid, []).append(pid)
     seen: set[int] = set()
     todo = list(pids)
