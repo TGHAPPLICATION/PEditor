@@ -2,6 +2,7 @@
 
 import sys
 
+from PySide6.QtGui import QKeySequence
 from test_e2e import FILES, apply, click_target, open_file, preview, wait
 
 from peditor.ui import app as app_module
@@ -47,6 +48,7 @@ def test_new_window_spawns_process(qtbot, make_window, monkeypatch):
     window = make_window()
     menus = {a.text(): a.menu() for a in window.menuBar().actions()}
     assert window.actions["new_window"] in menus["檔案"].actions()
+    assert window.actions["new_window"].shortcut() == QKeySequence(QKeySequence.StandardKey.New)
     window.actions["new_window"].trigger()
     cmd, kw = calls[0]
     assert cmd == [sys.executable, "-m", "peditor"] and "shell" not in kw

@@ -400,6 +400,15 @@ class DocumentService:
         draft = self._drafts_call(self.drafts.load, draft_id) if self.drafts is not None else None
         if draft is None:
             raise ServiceError("INVALID_REQUEST", "草稿不存在或已逾期")
+        # 兩個視窗同時復原同一份草稿：只有先取得鎖的那個可以（ADR-0030，獨立核對 P10）
+        if not self._drafts_call(self.drafts.claim, draft_id):
+            raise ServiceError("INVALID_REQUEST", "草稿正由另一個 PEditor 視窗使用")
+        try:
+            return self._recover(draft_id, draft)
+        finally:
+            self._drafts_call(self.drafts.release, draft_id)
+
+    def _recover(self, draft_id: str, draft: dict) -> dict[str, Any]:
         opened = self.open_document(draft["path"])
         document_id = opened["document_id"]
         if opened["sha256"] != draft["sha256"]:
