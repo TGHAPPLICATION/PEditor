@@ -140,3 +140,17 @@ def test_display_text_shown_for_reference(qtbot, make_window):
     window.select_target({"target_id": "t9", "text": "�", "display_text": "許",
                           "capability": bad})  # fmt: skip
     assert window.panel.selected.text().startswith("許") and window.panel.new_text.text() == ""
+
+
+def test_pending_confirmation_reset_by_other_line(qtbot, make_window):
+    """獨立核對（P11）：提醒待確認時改選多行格的另一行，不沿用舊計畫（重新規劃）。"""
+    window = make_window()
+    open_file(qtbot, window, FILES / "B05.pdf")
+    click_cell_text(qtbot, window, "第二行")
+    assert window.panel.line_choice.isVisible()
+    window.plan, window._plan_key = {"ready": True, "plan_id": "old"}, window._edit_key()
+    window._refresh_actions()
+    assert window.panel.apply_button.text() == "確認套用"
+    other = 1 - window.panel.line_choice.currentIndex()
+    window.panel.line_choice.setCurrentIndex(other)
+    assert window._edit_key() != window._plan_key

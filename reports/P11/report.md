@@ -4,7 +4,7 @@
 
 ## 1. 階段／commit／日期
 
-- 階段：P11（2026-11-24 追加）　分支：`p11-inline-edit`（從 `p10-multi-window` 分出）　實作 commit：`e809a1c`；本報告所在 commit 另含獨立核對修正（見 §11）
+- 階段：P11（2026-11-24 追加）　分支：`p11-inline-edit`（從 `p10-multi-window` 的 `2608f22` 分出，之後合併 P10 的修正）　實作 commit：`e809a1c`；獨立核對修正與本報告定稿在其後的 commit（見 §11）
 - 日期：2026-11-24
 - 撰寫：Claude Code；審查：工程師；獨立核對：見 §11
 
@@ -32,7 +32,7 @@
 ```
 uv run ruff check . && uv run ruff format --check .   → exit 0
 uv run pytest -q --deselect tests/integration/test_fixtures.py::test_generator_reproduces_committed_bytes
-  → 727 passed, 4 skipped（@ 0cd8bd8）
+  → 732 passed, 4 skipped（含 P10 與獨立核對修正）
 ```
 
 略過的一項是既有的環境差異，CI 雙平台通過。這不是 Windows 實機證據。
@@ -51,6 +51,7 @@ uv run pytest -q --deselect tests/integration/test_fixtures.py::test_generator_r
 - 不再有修改前／修改後對照圖；改錯以 Ctrl+Z 復原（工程師決定）。
 - 被視為「只是告知」而不詢問的訊息以前綴比對（目前只有「已同步更新結構樹」）；worker 新增提醒時預設會詢問。
 - 編輯框高度超過頁面可視範圍時（極小視窗）可能部分被裁切。
+- 編輯框開著時不做放大後的高解析度重新渲染（關閉後才做），放大時頁面暫時較模糊。
 - macOS 實機 NOT RUN（ADR-0003）。
 
 ## 8. 安全審查
@@ -71,4 +72,12 @@ uv run pytest -q --deselect tests/integration/test_fixtures.py::test_generator_r
 
 ## 11. 獨立核對紀錄
 
-（待填）
+- 2026-11-24，未參與實作的子代理人（只讀）核對 `p10-multi-window..p11-inline-edit` 與報告。確認：改字、換行、換圖都會讓舊計畫失效；undo／redo、換頁、開檔清除選取並關閉編輯框；
+  忙碌時重複觸發與 IME 組字中 Enter 被擋下；刪除的前後對照與浮動面板測試有 ADR-0032 理由，修改後的測試仍驗證寫回結果。
+  指出並已修正：
+  - （中）處理中焦點在編輯框時按 Esc，編輯框的 Esc 與「取消」衝突、兩者都不執行（G4-04）→ 處理中停用編輯框的 Esc（`test_escape_while_busy_cancels`，移除修正時此測試失敗）。
+  - （低）放大後 300 ms 的背景重新渲染會停用輸入欄、打斷組字 → 編輯框開著時延後到關閉後（`test_sharper_render_waits_until_editor_closes`，移除修正時失敗）。
+  - （低）視窗大小改變時未重新放置編輯框 → 補 `resizeEvent`；失敗後回到輸入欄會全選、下一鍵覆蓋整段 → 只在剛開啟時全選。
+  - 測試缺口：縮放後位置的斷言幾乎永遠成立 → 改為檢查緊鄰選取內容與縮窄視窗後仍在可視範圍；補多行格換行、換圖後不沿用待確認計畫的測試。
+  - 文件：G4-07、G5-07 仍寫前後對照；P11-02 少列 `test_fonts.py`；traceability 仍寫實機待驗；§11 待填 → 已改正。
+- 定稿後：ruff exit 0；pytest 732 passed、4 skipped（略過既有環境差異 1 項）。

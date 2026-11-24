@@ -71,3 +71,21 @@ def test_flow_unsupported_image_shows_reason(qtbot, make_window, tmp_path):
     assert window.last_error is not None and window.last_error.code == "UNSUPPORTED_FEATURE"
     assert window.panel.info.text() == reason_text("UNSUPPORTED_FEATURE")
     assert window.revision == 0
+
+
+def test_pending_confirmation_reset_by_other_image(qtbot, make_window, tmp_path):
+    """獨立核對（P11）：提醒待確認時改選另一張圖片，按鈕回到「套用」、重新規劃。"""
+    first, second = tmp_path / "a.png", tmp_path / "b.png"
+    for path in (first, second):
+        Image.new("RGB", (100, 100), (0, 128, 255)).save(path, "PNG")
+    chosen = iter([str(first), str(second)])
+    window = make_window(ask_image=lambda: next(chosen))
+    open_file(qtbot, window, FILES / "I01.pdf")
+    click_image(qtbot, window, 0)
+    qtbot.mouseClick(window.panel.image_button, Qt.MouseButton.LeftButton)
+    window.plan, window._plan_key = {"ready": True, "plan_id": "old"}, window._edit_key()
+    window._refresh_actions()
+    assert window.panel.apply_button.text() == "確認套用"
+    qtbot.mouseClick(window.panel.image_button, Qt.MouseButton.LeftButton)
+    assert window._plan_key is None and window.panel.apply_button.text() == "套用"
+    assert window.panel.image_label.text() == "b.png"

@@ -631,6 +631,8 @@ class MainWindow(QMainWindow):
         self.panel.apply_button.setEnabled(editable and (not is_image or bool(self.image_path)))
         pending = self.plan is not None and self.plan.get("ready") and self._plan_key is not None
         self.panel.apply_button.setText("確認套用" if pending else "套用")
+        # 處理中 Esc 交給「取消」：兩個 Esc 快速鍵同時啟用時 Qt 判定衝突、都不執行（獨立核對 P11）
+        self.panel.escape.setEnabled(not busy)
         self.find_bar.find_button.setEnabled(opened and not busy)
         self.actions["page_tools"].setEnabled(not busy and self.service is not None)
         self.actions["find"].setEnabled(opened)
@@ -760,6 +762,8 @@ class MainWindow(QMainWindow):
         self.panel.set_info("")
         self.view.highlight(None)
         self._refresh_actions()
+        if self.view.zoom > 1 and self.page is not None:
+            self._sharp_timer.start()  # 編輯中延後的高解析度渲染
 
     def close_editor(self) -> None:
         """Esc 或「×」：關閉編輯框，不修改；焦點回到頁面。"""
@@ -775,18 +779,25 @@ class MainWindow(QMainWindow):
         self.panel.raise_()
         self._place_editor()
         self._refresh_actions()
-        self._focus_editor()
+        self._focus_editor(select=True)
 
-    def _focus_editor(self) -> None:
+    def _focus_editor(self, select: bool = False) -> None:
+        """select=True 只在剛開啟時全選原文字；
+        失敗或提醒後回到輸入欄不全選，避免下一個按鍵覆蓋整段。"""
         if not self.panel.isVisible():
             return
         if self.panel.new_text.isVisible() and self.panel.new_text.isEnabled():
             self.panel.new_text.setFocus()
-            self.panel.new_text.selectAll()
+            if select:
+                self.panel.new_text.selectAll()
         elif self.panel.image_button.isVisible() and self.panel.image_button.isEnabled():
             self.panel.image_button.setFocus()
         else:
             self.panel.close_button.setFocus()  # 不能改：焦點在框內，Esc 可關閉
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 — Qt 介面
+        super().resizeEvent(event)
+        QTimer.singleShot(0, self._place_editor)  # 視窗大小改變後重新放置編輯框
 
     def _place_editor(self, *_args) -> None:
         """編輯框放在選取內容的正下方（下方放不下改放上方），不超出頁面可視範圍。"""
@@ -893,6 +904,8 @@ class MainWindow(QMainWindow):
     def _render_sharper(self) -> None:
         """放大後以較高 DPI 重新渲染目前頁（上限 MAX_RENDER_DPI）；換頁或文件已變時丟棄結果。"""
         if self.document_id is None or self.page is None or self.busy:
+            return
+        if self.panel.isVisible():  # 編輯中不跑背景工作（會停用輸入欄、打斷組字）；關閉後再渲染
             return
         dpi = min(MAX_RENDER_DPI, round(PAGE_DPI * self.view.zoom))
         if dpi <= self._sharp_dpi:

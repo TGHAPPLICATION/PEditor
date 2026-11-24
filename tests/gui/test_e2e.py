@@ -97,10 +97,34 @@ def test_flow_editor_placed_at_target(qtbot, make_window):
     frame = window.panel.geometry()
     assert window.view.viewport().rect().contains(frame)
     assert frame.top() >= target.bottom() or frame.bottom() <= target.top()
-    window.view.set_zoom(3.0)
+    window.view.set_zoom(2.0)
     qtbot.wait(10)
     moved = window.view.mapFromScene(window._anchor).boundingRect()
-    assert window.panel.geometry() != frame or moved == target
+    after = window.panel.geometry()
+    assert moved != target and window.view.viewport().rect().contains(after)
+    if window.view.viewport().rect().intersects(moved):  # 選取內容仍在畫面上：編輯框緊鄰它
+        assert after.top() >= moved.bottom() or after.bottom() <= moved.top()
+        assert after.left() == max(
+            8, min(moved.left(), window.view.viewport().rect().right() - after.width() - 8)
+        )
+    window.resize(window.width() - 200, window.height())  # 視窗變窄後重新放置
+    qtbot.wait(10)
+    assert window.view.viewport().rect().contains(window.panel.geometry())
+
+
+def test_sharper_render_waits_until_editor_closes(qtbot, make_window, monkeypatch):
+    """獨立核對（P11）：編輯中不跑背景重新渲染（會停用輸入欄、打斷組字），關閉編輯框後才跑。"""
+    window = make_window()
+    open_file(qtbot, window, FILES / "F04.pdf")
+    click_target(qtbot, window, "World")
+    calls = []
+    real = window.service.render_page
+    monkeypatch.setattr(window.service, "render_page", lambda *a: calls.append(a) or real(*a))
+    window.view.set_zoom(2.0)
+    qtbot.wait(400)
+    assert calls == [] and window.panel.new_text.isEnabled() and window.panel.new_text.hasFocus()
+    window.close_editor()
+    qtbot.waitUntil(lambda: calls != [], timeout=TIMEOUT)
 
 
 def test_flow_apply_without_warnings_writes_back_and_closes(qtbot, make_window):
@@ -312,6 +336,24 @@ def test_cancel_does_not_commit(qtbot, make_window, monkeypatch):
     window.load_page(0)
     wait(qtbot, window)
     assert any(t["text"] == "Hello World" for t in window.page["text_targets"])
+
+
+def test_escape_while_busy_cancels(qtbot, make_window, monkeypatch):
+    """獨立核對（P11）：處理中焦點在編輯框時按 Esc 是「取消」（G4-04），不與編輯框的 Esc 衝突。"""
+    monkeypatch.setenv("PEDITOR_WORKER_TEST_HOOKS", "1")
+    window = make_window()
+    open_file(qtbot, window, FILES / "F04.pdf")
+    click_target(qtbot, window, "World")
+    service = window.service
+    window._run(lambda: service._send_raw("_sleep", {"seconds": 20}), lambda _: None)
+    qtbot.waitUntil(lambda: service.inflight_request is not None, timeout=TIMEOUT)
+    window.panel.close_button.setFocus()
+    qtbot.keyClick(window.panel.close_button, Qt.Key.Key_Escape)
+    wait(qtbot, window)
+    assert window.last_error is not None and window.last_error.code == "CANCELLED"
+    assert window.panel.isVisible() and window.revision == 0  # 編輯框留著，可再套用
+    qtbot.keyClick(window.panel.new_text, Qt.Key.Key_Escape)  # 不忙時 Esc 關閉編輯框
+    assert not window.panel.isVisible()
 
 
 def test_reason_shown_for_uneditable(qtbot, make_window):
