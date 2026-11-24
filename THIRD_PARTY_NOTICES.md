@@ -35,7 +35,7 @@
 | 字型 | 授權 | 用途 |
 | --- | --- | --- |
 | Droid Sans Fallback（PyMuPDF 內建 `china-t`） | Apache-2.0 | 僅合成 fixture |
-| Noto Sans TC Regular（noto-cjk@f8d1575） | OFL-1.1 | **隨安裝包散布**：模式 B 重建字型，授權檔 `peditor/resources/fonts/LICENSE-NotoSansCJK.txt`（ADR-0008、ADR-0025）；fixture |
+| Noto Sans TC Regular（noto-cjk@f8d1575） | OFL-1.1 | **隨安裝包散布**：模式 B 重建字型，授權檔 `lumicat/resources/fonts/LICENSE-NotoSansCJK.txt`（ADR-0008、ADR-0025）；fixture |
 | Noto Serif TC（google/fonts@bd8f81d） | OFL-1.1 | 僅 fixture（不散布） |
 
 ## 建置與開發工具（不隨產品散布）

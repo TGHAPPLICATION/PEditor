@@ -8,8 +8,8 @@ from pathlib import Path
 
 from cell_samples import cell_box, table_pdf
 
-from peditor.core import drafts
-from peditor.core.service import DocumentService
+from lumicat.core import drafts
+from lumicat.core.service import DocumentService
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 

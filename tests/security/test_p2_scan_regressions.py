@@ -11,8 +11,8 @@ import time
 import pikepdf
 import pytest
 
-from peditor.worker import analyzer, edit, export, span
-from peditor.worker.content import interpret
+from lumicat.worker import analyzer, edit, export, span
+from lumicat.worker.content import interpret
 
 FAST = 10.0  # 秒
 REGION = [0, 0, 400, 200]

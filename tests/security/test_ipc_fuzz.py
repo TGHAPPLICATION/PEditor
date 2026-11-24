@@ -14,9 +14,9 @@ from pathlib import Path
 
 import pytest
 
-from peditor.core.protocol import OPERATIONS, PROTOCOL_VERSION, validate_response
-from peditor.core.service import DocumentService, ServiceError
-from peditor.worker import server
+from lumicat.core.protocol import OPERATIONS, PROTOCOL_VERSION, validate_response
+from lumicat.core.service import DocumentService, ServiceError
+from lumicat.worker import server
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 BAD_VALUES = [None, "x", -1, 10**30, 1.5, True, [], {}, [1, "x"], "\x00" * 3]

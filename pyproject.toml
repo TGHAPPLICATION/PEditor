@@ -1,5 +1,5 @@
 [project]
-name = "peditor"
+name = "lumicat"
 version = "0.0.1"
 description = "離線 PDF 文字編輯器（Offline PDF text editor）"
 readme = "README.md"
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-peditor = "peditor.__main__:main"
+lumicat = "lumicat.__main__:main"
 
 [dependency-groups]
 dev = [

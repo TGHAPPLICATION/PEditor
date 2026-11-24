@@ -9,9 +9,9 @@ import pikepdf
 import pymupdf
 import pytest
 
-from peditor.core.protocol import ProtocolError
-from peditor.worker import analyzer, edit, span
-from peditor.worker.content import interpret
+from lumicat.core.protocol import ProtocolError
+from lumicat.worker import analyzer, edit, span
+from lumicat.worker.content import interpret
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 TAGGED = ("T05", "T06", "F06", "L04", "T08", "F07")  # Word 4 份帶 /ActualText；LibreOffice 2 份沒有

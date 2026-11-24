@@ -1,7 +1,7 @@
 """G1-08 輔助：ToUnicode CMap 解析與 clip 矩形判定的邊界情況。"""
 
-from peditor.worker.content import _make_clip
-from peditor.worker.fonts import parse_cmap
+from lumicat.worker.content import _make_clip
+from lumicat.worker.fonts import parse_cmap
 
 CMAP = """
 /CIDInit /ProcSet findresource begin

@@ -1,4 +1,4 @@
-"""P8 盲測工具 `peditor blind-run`：結果只含判定與結果碼，不含文件文字、新文字或路徑（G8-03）。"""
+"""P8 盲測工具 `lumicat blind-run`：結果只含判定與結果碼，不含文件文字、新文字或路徑（G8-03）。"""
 
 import csv
 import json
@@ -24,7 +24,7 @@ def test_blind_run_outputs_codes_only(tmp_path):
         writer.writerow(["F03", "吉田", "𠮷田", "0", ""])
     out = tmp_path / "result.json"
     run = subprocess.run(
-        [sys.executable, "-P", "-m", "peditor", "blind-run", str(folder), "--cases", str(cases),
+        [sys.executable, "-P", "-m", "lumicat", "blind-run", str(folder), "--cases", str(cases),
          "--out", str(out)],
         capture_output=True, text=True, encoding="utf-8", timeout=300,
     )  # fmt: skip
@@ -37,6 +37,6 @@ def test_blind_run_outputs_codes_only(tmp_path):
     assert results["F03"]["edit"]["reasons"] == ["GLYPH_MISSING"]
     assert results["U02"]["document"] == {"status": "reject", "reasons": ["ENCRYPTED_DOCUMENT"]}
     assert not (tmp_path / ".result-work").exists()  # 暫存的另存結果不保留
-    rerun = subprocess.run([sys.executable, "-P", "-m", "peditor", "blind-run", str(folder),
+    rerun = subprocess.run([sys.executable, "-P", "-m", "lumicat", "blind-run", str(folder),
                             "--out", str(out)], capture_output=True, timeout=120)  # fmt: skip
     assert rerun.returncode == 2  # 不覆寫既有結果

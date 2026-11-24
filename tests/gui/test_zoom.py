@@ -5,8 +5,8 @@ from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QWheelEvent
 from test_e2e import FILES, click_target, open_file, wait
 
-from peditor.core.limits import MAX_RENDER_DPI
-from peditor.ui import app
+from lumicat.core.limits import MAX_RENDER_DPI
+from lumicat.ui import app
 
 
 def test_zoom_actions_and_bounds(qtbot, make_window):

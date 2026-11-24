@@ -6,18 +6,18 @@ import json
 import os
 import time
 
-from peditor.core import drafts
-from peditor.core.protocol import ProtocolError
-from peditor.export import transaction
-from peditor.ui.app import prepare_storage
+from lumicat.core import drafts
+from lumicat.core.protocol import ProtocolError
+from lumicat.export import transaction
+from lumicat.ui.app import prepare_storage
 
 
 def _leftover(tmp_path, monkeypatch):
-    data_dir = tmp_path / "PEditor"
+    data_dir = tmp_path / "LUMICAT"
     monkeypatch.setattr(drafts, "default_dir", lambda: data_dir / "drafts")
     monkeypatch.setattr(transaction, "registry", None)  # 測試結束時還原
     data_dir.mkdir()
-    temp = tmp_path / ".~peditor-00000000000000aa.tmp.pdf"
+    temp = tmp_path / ".~lumicat-00000000000000aa.tmp.pdf"
     temp.write_bytes(b"content")
     old = time.time() - transaction.STALE_TEMP_S - 60  # 上次中斷留下的（P7 起只清除過期的）
     os.utime(temp, (old, old))

@@ -5,8 +5,8 @@ from pathlib import Path
 import pymupdf
 import pytest
 
-from peditor.core.service import DocumentService, ServiceError
-from peditor.worker import analyzer
+from lumicat.core.service import DocumentService, ServiceError
+from lumicat.worker import analyzer
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 

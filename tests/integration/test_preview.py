@@ -8,8 +8,8 @@ import pikepdf
 import pytest
 import visual
 
-from peditor.core.protocol import ProtocolError
-from peditor.worker import analyzer, edit, span
+from lumicat.core.protocol import ProtocolError
+from lumicat.worker import analyzer, edit, span
 
 SKIP = {"ENCRYPTED_DOCUMENT", "MALFORMED_DOCUMENT"}
 

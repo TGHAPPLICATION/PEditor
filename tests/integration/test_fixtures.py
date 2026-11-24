@@ -12,7 +12,7 @@ import pymupdf
 import pypdfium2
 import pytest
 
-from peditor.core.limits import MAX_STREAM_BYTES
+from lumicat.core.limits import MAX_STREAM_BYTES
 
 ROOT = Path(__file__).resolve().parents[2]
 FILES = ROOT / "tests" / "fixtures" / "files"

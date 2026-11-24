@@ -4,8 +4,8 @@ import shutil
 
 from test_e2e import FILES, apply, click_target, open_file, page_text, preview, wait
 
-from peditor.core import drafts
-from peditor.core.service import DocumentService
+from lumicat.core import drafts
+from lumicat.core.service import DocumentService
 
 
 def _edited(qtbot, make_window, tmp_path, answers, **kwargs):

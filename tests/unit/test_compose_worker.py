@@ -3,9 +3,9 @@
 import pymupdf
 import pytest
 
-from peditor.core.limits import MAX_COMPOSE_SOURCES
-from peditor.core.protocol import ProtocolError
-from peditor.worker import pages
+from lumicat.core.limits import MAX_COMPOSE_SOURCES
+from lumicat.core.protocol import ProtocolError
+from lumicat.worker import pages
 
 
 def _sample(path, count=2):

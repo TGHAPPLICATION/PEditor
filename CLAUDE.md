@@ -1,4 +1,4 @@
-# CLAUDE.md — PEditor 共同規則
+# CLAUDE.md — LUMICAT 共同規則
 
 本檔是 Claude Code 在本 repo 的工作規則。每段（P0–P8）開工前必讀：
 `docs/spec.md`（規格 v1.1，含 §9 共同提示詞與各段啟動指令）、`docs/adr/`、
@@ -31,8 +31,8 @@ uv run python scripts/gen_fixtures.py  # 重產合成 fixture 到 tests/fixtures
 uv run python packaging/smoke_build.py # PyInstaller smoke build + 執行 --smoke
 powershell -ExecutionPolicy Bypass -File scripts\p0_windows_check.ps1   # Windows 實機一鍵驗證
 bash scripts/p0_macos_check.sh         # macOS 實機一鍵驗證
-uv run peditor                         # 啟動 app
-uv run peditor analyze X.pdf --out D   # P1 只讀分析：D/report.json 與頁面 PNG
+uv run lumicat                         # 啟動 app
+uv run lumicat analyze X.pdf --out D   # P1 只讀分析：D/report.json 與頁面 PNG
 ```
 
 ## 程式風格（karpathy-guidelines）

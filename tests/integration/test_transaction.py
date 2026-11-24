@@ -10,9 +10,9 @@ import pymupdf
 import pytest
 import visual
 
-from peditor.core.service import DocumentService, ServiceError
-from peditor.export import transaction
-from peditor.worker import analyzer, edit, export, span
+from lumicat.core.service import DocumentService, ServiceError
+from lumicat.export import transaction
+from lumicat.worker import analyzer, edit, export, span
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 

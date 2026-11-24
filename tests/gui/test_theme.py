@@ -3,7 +3,7 @@
 import pytest
 from PySide6.QtWidgets import QToolButton
 
-from peditor.ui import theme
+from lumicat.ui import theme
 
 
 @pytest.mark.parametrize(("fg", "bg"), theme.CONTRAST_PAIRS)

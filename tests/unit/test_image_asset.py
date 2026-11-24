@@ -8,9 +8,9 @@ import zlib
 import pytest
 from PIL import Image
 
-from peditor.core.editplan import validate_image_params
-from peditor.core.protocol import ProtocolError
-from peditor.worker import image
+from lumicat.core.editplan import validate_image_params
+from lumicat.core.protocol import ProtocolError
+from lumicat.worker import image
 
 
 def _png(size=(4, 3), mode="RGB", color=(1, 2, 3)) -> bytes:

@@ -1,9 +1,9 @@
-"""ADR-0030：多個 PEditor 視窗同時執行時，開啟中文件的草稿不被另一個視窗列出或刪除。"""
+"""ADR-0030：多個 LUMICAT 視窗同時執行時，開啟中文件的草稿不被另一個視窗列出或刪除。"""
 
 import pytest
 
-from peditor.core.drafts import DraftStore
-from peditor.core.protocol import ProtocolError
+from lumicat.core.drafts import DraftStore
+from lumicat.core.protocol import ProtocolError
 
 LOG = [{"params": {}, "base_revision": 0}]
 
@@ -19,7 +19,7 @@ def test_claimed_draft_hidden_from_other_window(tmp_path):
     _save(a, draft)
     assert [d["draft_id"] for d in a.list()] == [draft]  # 持有者自己看得到
     assert b.list() == [] and b.in_use(draft)  # 另一個視窗看不到、判定使用中
-    with pytest.raises(ProtocolError, match="另一個 PEditor"):
+    with pytest.raises(ProtocolError, match="另一個 LUMICAT"):
         b.discard(draft)
     assert (tmp_path / f"{draft}.json").exists()
     assert not b.claim(draft)  # 不能同時持有
@@ -58,7 +58,7 @@ def test_lock_held_by_other_process(tmp_path):
 
     draft = "0123456789abcdef"
     _save(DraftStore(tmp_path), draft)
-    code = ("import sys,time;from peditor.core.drafts import DraftStore;"
+    code = ("import sys,time;from lumicat.core.drafts import DraftStore;"
             f"s=DraftStore({str(tmp_path)!r});assert s.claim({draft!r});"
             "print('held',flush=True);time.sleep(60)")  # fmt: skip
     child = subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, text=True)
@@ -73,14 +73,14 @@ def test_lock_held_by_other_process(tmp_path):
 
 def test_recover_refused_while_other_window_holds_draft(tmp_path):
     """獨立核對（P10）：兩個視窗同時復原同一份草稿時，只有先取得鎖的那個可以。"""
-    from peditor.core.service import DocumentService, ServiceError
+    from lumicat.core.service import DocumentService, ServiceError
 
     draft = "0123456789abcdef"
     _save(DraftStore(tmp_path), draft)
     holder = DraftStore(tmp_path)
     assert holder.claim(draft)  # 另一個視窗正在復原
     with DocumentService(drafts=DraftStore(tmp_path)) as service:
-        with pytest.raises(ServiceError, match="另一個 PEditor"):
+        with pytest.raises(ServiceError, match="另一個 LUMICAT"):
             service.recover_draft(draft)
     holder.release(draft)
     assert (tmp_path / f"{draft}.json").exists()  # 草稿仍在，之後可復原

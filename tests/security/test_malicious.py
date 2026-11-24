@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from network import connections
 
-from peditor.core.service import DocumentService, ServiceError
+from lumicat.core.service import DocumentService, ServiceError
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 EXPECTED = {
@@ -51,4 +51,4 @@ def test_no_external_launch(fid, tmp_path, monkeypatch):
         assert connections([worker_pid]) == []
         svc.close_document(doc)
         assert svc._worker.proc.poll() is None  # worker 沒有崩潰
-    assert not list(tmp_path.glob("peditor-sentinel*"))
+    assert not list(tmp_path.glob("lumicat-sentinel*"))

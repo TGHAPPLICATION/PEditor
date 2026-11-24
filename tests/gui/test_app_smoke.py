@@ -3,7 +3,7 @@
 import subprocess
 import sys
 
-from peditor.ui.app import SMOKE_MARKER, MainWindow
+from lumicat.ui.app import SMOKE_MARKER, MainWindow
 
 
 def test_main_window_shows(qtbot):
@@ -11,12 +11,12 @@ def test_main_window_shows(qtbot):
     qtbot.addWidget(window)
     window.show()
     assert window.isVisible()
-    assert window.windowTitle().startswith("PEditor")
+    assert window.windowTitle().startswith("LUMICAT")
 
 
 def test_cli_smoke_exits_zero():
     result = subprocess.run(
-        [sys.executable, "-m", "peditor", "--smoke"],
+        [sys.executable, "-m", "lumicat", "--smoke"],
         capture_output=True,
         text=True,
         encoding="utf-8",

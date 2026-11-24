@@ -17,9 +17,9 @@ import pytest
 import visual
 from cell_samples import cell_box, ops_pdf, rich_pdf, table_pdf, text
 
-from peditor.core.protocol import ProtocolError
-from peditor.worker import analyzer, cell, edit, export, span, table
-from peditor.worker.content import interpret
+from lumicat.core.protocol import ProtocolError
+from lumicat.worker import analyzer, cell, edit, export, span, table
+from lumicat.worker.content import interpret
 
 SUPPORTED = ("B01", "B02", "B03", "B04", "B05")
 

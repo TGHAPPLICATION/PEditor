@@ -1,9 +1,9 @@
-"""P8 授權核對 F2、F3：「說明 → 關於 PEditor」顯示 AGPL-3.0 §5(d) 的適當法律聲明
+"""P8 授權核對 F2、F3：「說明 → 關於 LUMICAT」顯示 AGPL-3.0 §5(d) 的適當法律聲明
 與對應原始碼位置。"""
 
 from PySide6.QtWidgets import QMessageBox
 
-from peditor.ui.app import COPYRIGHT, SOURCE_URL, about_text
+from lumicat.ui.app import COPYRIGHT, SOURCE_URL, about_text
 
 
 def test_about_text_has_legal_notices():
@@ -24,4 +24,4 @@ def test_about_menu_shows_dialog(qtbot, make_window, monkeypatch):
     menus = {a.text(): a.menu() for a in window.menuBar().actions()}
     assert window.actions["about"] in menus["說明"].actions()
     window.actions["about"].trigger()
-    assert shown and shown[0][0] == "關於 PEditor" and COPYRIGHT in shown[0][1]
+    assert shown and shown[0][0] == "關於 LUMICAT" and COPYRIGHT in shown[0][1]

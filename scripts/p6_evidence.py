@@ -25,7 +25,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tests" / "integration"))
 os.environ.setdefault(
-    "PEDITOR_MODE_B_FONT", str(ROOT / "tests/fixtures/fonts/NotoSansTC-Regular.otf")
+    "LUMICAT_MODE_B_FONT", str(ROOT / "tests/fixtures/fonts/NotoSansTC-Regular.otf")
 )
 
 import pikepdf  # noqa: E402
@@ -34,8 +34,8 @@ import pypdfium2  # noqa: E402
 import visual  # noqa: E402
 from PIL import Image  # noqa: E402
 
-from peditor.worker import analyzer, cell, edit, export, table  # noqa: E402
-from peditor.worker.content import interpret  # noqa: E402
+from lumicat.worker import analyzer, cell, edit, export, table  # noqa: E402
+from lumicat.worker.content import interpret  # noqa: E402
 
 CASES = ("B01", "B02", "B03", "B04", "B05", "B06")
 

@@ -7,7 +7,7 @@ from PIL import Image
 from PySide6.QtCore import QPoint, Qt
 from test_e2e import apply, open_file, wait
 
-from peditor.ui.messages import reason_text
+from lumicat.ui.messages import reason_text
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 
@@ -39,7 +39,7 @@ def test_flow_replace_image_preview_apply_undo_save(qtbot, make_window, tmp_path
     apply(qtbot, window)
     assert not window.panel.isVisible()
     assert window.revision == 1
-    assert [t["name"] for t in window.page["image_targets"]] == [first, "/PEditorI1"]
+    assert [t["name"] for t in window.page["image_targets"]] == [first, "/LUMICATI1"]
     window.actions["undo"].trigger()
     wait(qtbot, window)
     assert [t["name"] for t in window.page["image_targets"]] == [first, "/fzImg1"]
@@ -50,7 +50,7 @@ def test_flow_replace_image_preview_apply_undo_save(qtbot, make_window, tmp_path
     wait(qtbot, window)
     assert window.last_error is None and out.exists()
     with pikepdf.open(out) as pdf:
-        assert "/PEditorI1" in pdf.pages[0].Resources.XObject
+        assert "/LUMICATI1" in pdf.pages[0].Resources.XObject
 
 
 def test_flow_unsupported_image_shows_reason(qtbot, make_window, tmp_path):

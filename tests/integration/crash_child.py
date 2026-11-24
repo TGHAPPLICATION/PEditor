@@ -6,8 +6,8 @@
 import os
 import sys
 
-from peditor.core.service import DocumentService
-from peditor.export import transaction
+from lumicat.core.service import DocumentService
+from lumicat.export import transaction
 
 
 def main() -> None:

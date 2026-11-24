@@ -17,7 +17,7 @@ from pathlib import Path
 
 from network import connections
 
-from peditor.core.service import DocumentService
+from lumicat.core.service import DocumentService
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 

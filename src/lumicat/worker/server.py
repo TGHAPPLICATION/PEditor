@@ -1,0 +1,194 @@
+"""Worker 主迴圈：stdin 讀一行請求、stdout 寫一行回應（ADR-0004）。
+
+stdout 只寫協定訊息；Python 層的 print 改導向 stderr，避免汙染協定。
+stderr 只寫不含原文與路徑的診斷碼。
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+import time
+from typing import Any, BinaryIO
+
+from lumicat.core.limits import LimitExceeded
+from lumicat.core.protocol import ProtocolError, decode, encode, validate_request
+
+_TEST_HOOKS = os.environ.get("LUMICAT_WORKER_TEST_HOOKS") == "1"
+
+
+class Worker:
+    def __init__(self) -> None:
+        from lumicat.worker import analyzer
+
+        self.analyzer = analyzer
+        self.documents: dict[str, Any] = {}
+
+    def handle(self, message: dict) -> dict:
+        operation = message["operation"]
+        params = message.get("params", {})
+        if operation == "open_document":
+            path = params.get("path")
+            if not isinstance(path, str):
+                raise ProtocolError("INVALID_REQUEST", "缺少 path")
+            document = self.analyzer.open_document(path)
+            self.documents[document.document_id] = document
+            return {
+                "document_id": document.document_id,
+                "revision": document.revision,
+                "sha256": document.sha256,
+                "page_count": document.page_count,
+                "document_flags": document.flags,
+            }
+        if operation == "compose_pages":  # 不屬於任何已開啟文件（ADR-0029）
+            from lumicat.worker import pages
+
+            return pages.compose_pages(params)
+        document = self._document(message)
+        if operation == "inspect_page":
+            return self.analyzer.inspect_page(document, params.get("page_index"))
+        if operation == "assess_editability":
+            return self.analyzer.assess_editability(document)
+        if operation == "render_page":
+            return self.analyzer.render_page(
+                document, params.get("page_index"), params.get("dpi", 150)
+            )
+        if operation == "find_text":
+            from lumicat.worker import span
+
+            text, occurrence = params.get("text"), params.get("occurrence", 0)
+            if not isinstance(text, str) or not isinstance(occurrence, int) or occurrence < 0:
+                raise ProtocolError("INVALID_REQUEST", "搜尋參數錯誤")
+            page_index = self.analyzer._check_index(document, params.get("page_index"))
+            return {"span_id": span.find(document, page_index, text, occurrence).span_id}
+        if operation == "extract_text":
+            return self.analyzer.extract_text(document, params.get("page_index"))
+        if operation == "plan_text_edit":
+            from lumicat.worker import edit
+
+            return edit.plan_text_edit(document, params)
+        if operation == "register_asset":
+            from lumicat.worker import image
+
+            return image.register_asset(document, params)
+        if operation == "plan_image_edit":
+            from lumicat.worker import image
+
+            return image.plan_image_edit(document, params)
+        if operation in ("plan_cell_edit", "assess_cell_box"):
+            from lumicat.worker import cell
+
+            return getattr(cell, operation)(document, params)
+        if operation == "apply_edit":
+            from lumicat.worker import edit
+
+            return edit.apply_edit(
+                document, params.get("plan_id"), message.get("expected_revision")
+            )
+        if operation == "preview_edit":
+            from lumicat.worker import edit
+
+            return edit.preview_edit(document, params.get("plan_id"))
+        if operation == "replay":
+            from lumicat.worker import edit
+
+            return edit.replay(document, params.get("commands"), params.get("revision"),
+                               bool(params.get("reset")))  # fmt: skip
+        if operation == "export_document":
+            from lumicat.worker import export
+
+            return export.export_document(document, params.get("destination"))
+        if operation == "close_document":
+            self.documents.pop(document.document_id).close()
+            return {}
+        raise ProtocolError("INVALID_REQUEST", "未知操作")
+
+    def _document(self, message: dict):
+        document = self.documents.get(message.get("document_id"))
+        if document is None:
+            raise ProtocolError("INVALID_REQUEST", "文件未開啟")
+        expected = message.get("expected_revision")
+        if expected is not None and expected != document.revision:
+            raise ProtocolError("REVISION_CONFLICT", "文件版本不符", retryable=True)
+        return document
+
+
+def serve(stdin: BinaryIO, stdout: BinaryIO) -> int:
+    worker = None
+    for line in stdin:
+        request_id = None
+        try:
+            message = decode(line)
+            request_id = message.get("request_id")
+            if not isinstance(request_id, str):  # 只回傳字串 id（P7 畸形輸入測試）
+                request_id = None
+            if _TEST_HOOKS and str(message.get("operation")).startswith("_"):
+                result = _test_hook(message["operation"], message.get("params", {}))
+                response = {"request_id": request_id, "ok": True, "result": result}
+            else:
+                validate_request(message)
+                if worker is None:
+                    worker = Worker()
+                response = {"request_id": request_id, "ok": True, "result": worker.handle(message)}
+        except ProtocolError as exc:
+            response = {"request_id": request_id, "ok": False, "error": exc.to_dict()}
+        except LimitExceeded:  # 解析工作量或解壓後大小超過上限（core.limits）
+            error = ProtocolError("RESOURCE_LIMIT", "文件內容超過處理上限")
+            response = {"request_id": request_id, "ok": False, "error": error.to_dict()}
+        except MemoryError:  # 超過 worker 記憶體上限（Windows Job Object；ADR-0024）
+            error = ProtocolError("RESOURCE_LIMIT", "處理文件所需記憶體超過上限")
+            response = {"request_id": request_id, "ok": False, "error": error.to_dict()}
+        except Exception as exc:  # noqa: BLE001 — 任何未預期錯誤都回受控失敗，不洩漏細節
+            sys.stderr.write(f"worker: {type(exc).__name__}\n")
+            error = ProtocolError("WORKER_FAILED", "處理文件時發生未預期錯誤")
+            response = {"request_id": request_id, "ok": False, "error": error.to_dict()}
+        try:
+            stdout.write(encode(response))
+        except ProtocolError as exc:
+            stdout.write(encode({"request_id": request_id, "ok": False, "error": exc.to_dict()}))
+        stdout.flush()
+    return 0
+
+
+def _test_hook(operation: str, params: dict) -> dict:
+    """測試用（LUMICAT_WORKER_TEST_HOOKS=1 才啟用）：製造長操作、配置記憶體、嘗試建立子行程。"""
+    if operation == "_sleep":
+        time.sleep(float(params.get("seconds", 0)))
+        return {}
+    if operation == "_alloc":
+        block = bytearray(int(params["bytes"]))
+        return {"allocated": len(block)}
+    if operation == "_spawn":
+        import subprocess
+
+        try:
+            subprocess.run([sys.executable, "-c", "pass"], check=True, timeout=10)  # noqa: S603
+        except (OSError, subprocess.SubprocessError):
+            return {"spawned": False}
+        return {"spawned": True}
+    raise ProtocolError("INVALID_REQUEST", "未知操作")
+
+
+def _deny_network(event: str, args) -> None:
+    """G7-01 測試：Python 層的 socket 事件一律失敗，並記到 LUMICAT_TEST_NETWORK_LOG（被 worker 內部
+    吞掉的嘗試也留下紀錄，P7 獨立核對 V3）。安裝後 main() 送出的 `lumicat.network_hook` 事件記為
+    「installed」——hook 沒有安裝就沒有這一行（第二輪核對 W1）。"""
+    if event.startswith("socket.") or event == "lumicat.network_hook":
+        log = os.environ.get("LUMICAT_TEST_NETWORK_LOG")
+        if log:
+            with open(log, "a", encoding="utf-8") as fh:
+                fh.write(("installed" if event == "lumicat.network_hook" else event) + "\n")
+        if event.startswith("socket."):
+            raise RuntimeError(f"network: {event}")
+
+
+def main() -> int:
+    from lumicat.core.sandbox import limit_self
+
+    limit_self()  # POSIX：讀任何請求之前設定行程限制（Windows 由主行程的 Job Object 負責）
+    if _TEST_HOOKS and os.environ.get("LUMICAT_TEST_DENY_NETWORK") == "1":
+        sys.addaudithook(_deny_network)  # G7-01 測試：Python 層 socket 事件即失敗並記錄
+        sys.audit("lumicat.network_hook")  # 經由 hook 本身記下安裝標記
+    stdin, stdout = sys.stdin.buffer, sys.stdout.buffer
+    sys.stdout = sys.stderr  # 任何 print 都不得進入協定通道
+    return serve(stdin, stdout)

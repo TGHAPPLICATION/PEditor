@@ -6,9 +6,9 @@ from pathlib import Path
 from PySide6.QtCore import QPoint, QPointF, Qt
 from test_e2e import apply, open_file, preview, wait
 
-from peditor.core.geometry import PageGeometry
-from peditor.ui.app import PAGE_DPI
-from peditor.ui.messages import reason_text
+from lumicat.core.geometry import PageGeometry
+from lumicat.ui.app import PAGE_DPI
+from lumicat.ui.messages import reason_text
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "integration"))
 from cell_samples import cell_box, table_pdf  # noqa: E402

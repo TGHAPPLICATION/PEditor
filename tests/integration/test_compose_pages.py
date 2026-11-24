@@ -5,8 +5,8 @@ import pikepdf
 import pymupdf
 import pytest
 
-from peditor.core import pages
-from peditor.core.service import ServiceError
+from lumicat.core import pages
+from lumicat.core.service import ServiceError
 
 
 def _sample(path, label: str, count: int, *, outline=False, link=False):

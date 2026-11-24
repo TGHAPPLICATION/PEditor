@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from peditor.core.service import ServiceError
+from lumicat.core.service import ServiceError
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 TARGET_ID = re.compile(r"^[ti]:r\d+:p\d+:s\d+\.\d+:o\d+:f[^:]*:g[0-9a-f]{12}$")

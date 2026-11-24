@@ -1,4 +1,10 @@
-# PEditor — 離線 PDF 文字編輯器
+# LUMICAT — 離線 PDF 文字編輯器
+
+<img src="src/lumicat/resources/icons/lumicat-128.png" width="96" alt="LUMICAT 圖示">
+
+**Edit Freely. Shine Brightly.／自由編輯，綻放光芒。**（專案原名 PEditor，2026-11-24 改名，ADR-0034）
+
+程式碼依 AGPL-3.0；「LUMICAT」名稱與圖示由專案保留，修改版請改用其他名稱與圖示（`docs/brand/TRADEMARK.md`）。
 
 在不連網的環境中，直接修改 PDF 內既有文字（含繁體中文），並保留原排版。
 
@@ -7,8 +13,8 @@
 ## 使用（CLI）
 
 ```bash
-uv run peditor analyze X.pdf --out D                       # 只讀分析：能力報告與頁面 PNG
-uv run peditor edit-text X.pdf --find 原文 --new 新文 --out D  # 替換文字，另存 D/output.pdf
+uv run lumicat analyze X.pdf --out D                       # 只讀分析：能力報告與頁面 PNG
+uv run lumicat edit-text X.pdf --find 原文 --new 新文 --out D  # 替換文字，另存 D/output.pdf
 ```
 
 `edit-text` 另輸出 `plan.json`（EditPlan：模式、字型替換、影響資源）與 `validation.json`（結構檢查、內容差異）。
@@ -22,7 +28,7 @@ uv run peditor edit-text X.pdf --find 原文 --new 新文 --out D  # 替換文�
   Noto Sans TC 也沒有的字（例如 𠮷）一律拒絕，不顯示方框。
 - 新文字超出可改動區域一律拒絕，不自動縮字或重排。
 - 不支援的文件或物件（加密、簽章、XFA、直排、旋轉文字、Type3、無可靠 ToUnicode 等）會回傳理由碼並拒絕編輯。
-- 開發階段的模式 B 字型由環境變數 `PEDITOR_MODE_B_FONT` 指定（測試預設為 `tests/fixtures/fonts/`）；
+- 開發階段的模式 B 字型由環境變數 `LUMICAT_MODE_B_FONT` 指定（測試預設為 `tests/fixtures/fonts/`）；
   正式安裝包於 P8 內附。
 
 ## 開發
@@ -33,7 +39,7 @@ uv run peditor edit-text X.pdf --find 原文 --new 新文 --out D  # 替換文�
 uv sync --locked --all-groups
 uv run python scripts/fetch_fonts.py   # fixture 字型（約 22 MB，不入 repo）
 uv run pytest
-uv run peditor
+uv run lumicat
 ```
 
 Linux 開發機若出現 `libEGL.so.1` 找不到，需安裝 `libegl1 libgl1 libxkbcommon0 libfontconfig1`。

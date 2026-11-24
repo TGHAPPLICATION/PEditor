@@ -5,14 +5,14 @@ import sys
 from PySide6.QtGui import QKeySequence
 from test_e2e import FILES, apply, click_target, open_file, preview, wait
 
-from peditor.ui import app as app_module
+from lumicat.ui import app as app_module
 
 
 def test_title_shows_file_name(qtbot, make_window):
     window = make_window()
-    assert window.windowTitle().startswith("PEditor")
+    assert window.windowTitle().startswith("LUMICAT")
     open_file(qtbot, window, FILES / "F04.pdf")
-    assert window.windowTitle().startswith("F04.pdf — PEditor")
+    assert window.windowTitle().startswith("F04.pdf — LUMICAT")
     assert window.menuBar().cornerWidget() is None  # 檔名只在標題，不在選單列重複
     click_target(qtbot, window, "World")
     preview(qtbot, window, "Earth")
@@ -32,7 +32,7 @@ def test_title_follows_save_as(qtbot, make_window, tmp_path):
     window.actions["save"].trigger()
     wait(qtbot, window)
     assert window.last_error is None
-    assert window.windowTitle().startswith("新檔 v2.pdf — PEditor")
+    assert window.windowTitle().startswith("新檔 v2.pdf — LUMICAT")
     assert str(tmp_path) not in window.windowTitle()
     click_target(qtbot, window, "Earth")
     preview(qtbot, window, "Moon")
@@ -51,7 +51,7 @@ def test_new_window_spawns_process(qtbot, make_window, monkeypatch):
     assert window.actions["new_window"].shortcut() == QKeySequence(QKeySequence.StandardKey.New)
     window.actions["new_window"].trigger()
     cmd, kw = calls[0]
-    assert cmd == [sys.executable, "-m", "peditor"] and "shell" not in kw
+    assert cmd == [sys.executable, "-m", "lumicat"] and "shell" not in kw
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     assert app_module._self_command() == [sys.executable]
 

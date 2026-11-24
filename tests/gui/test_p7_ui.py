@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QGraphicsRectItem
 
-from peditor.ui import jobs
+from lumicat.ui import jobs
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 TIMEOUT = 60_000

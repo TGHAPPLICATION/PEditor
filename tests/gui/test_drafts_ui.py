@@ -8,9 +8,9 @@ import time
 from PySide6.QtCore import Qt
 from test_e2e import FILES, apply, click_target, open_file, preview, wait
 
-from peditor.core import drafts
-from peditor.core.service import DocumentService
-from peditor.ui.app import DraftDialog
+from lumicat.core import drafts
+from lumicat.core.service import DocumentService
+from lumicat.ui.app import DraftDialog
 
 SAMPLES = [
     {"draft_id": "0123456789abcdef", "path": "/secret/folder/甲.pdf", "operations": 2,
@@ -92,7 +92,7 @@ def test_close_window_discards_draft(qtbot, make_window, tmp_path):
 def test_close_window_while_busy(qtbot, make_window, tmp_path, monkeypatch):
     """U11：長操作進行中關閉視窗，先取消再關閉文件，不等操作完成；草稿刪除。
     ADR-0027：工作進行中關閉不詢問未另存的修改。"""
-    monkeypatch.setenv("PEDITOR_WORKER_TEST_HOOKS", "1")
+    monkeypatch.setenv("LUMICAT_WORKER_TEST_HOOKS", "1")
     store = drafts.DraftStore(tmp_path / "drafts")
     source = tmp_path / "a.pdf"
     shutil.copyfile(FILES / "F04.pdf", source)
@@ -116,7 +116,7 @@ def test_close_window_while_busy(qtbot, make_window, tmp_path, monkeypatch):
 def test_close_window_while_busy_between_calls(qtbot, make_window, monkeypatch):
     """U11：工作還在 Python 端（尚未送出請求）時關閉，cancel 打不中；
     須重試到取消成功，不等長操作完成。"""
-    monkeypatch.setenv("PEDITOR_WORKER_TEST_HOOKS", "1")
+    monkeypatch.setenv("LUMICAT_WORKER_TEST_HOOKS", "1")
     window = make_window()
     open_file(qtbot, window, FILES / "F04.pdf")
     service = window.service

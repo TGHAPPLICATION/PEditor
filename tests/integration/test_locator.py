@@ -11,7 +11,7 @@ import pikepdf
 import pymupdf
 import pytest
 
-from peditor.core.locate import find_text, span_bbox, span_capability
+from lumicat.core.locate import find_text, span_bbox, span_capability
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 

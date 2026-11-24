@@ -26,15 +26,15 @@ step "ruff check" uv run ruff check .
 step "ruff format --check" uv run ruff format --check .
 step "pytest" uv run pytest
 step "smoke build" uv run python packaging/smoke_build.py
-versions=$(printf '%s\n' "$LAST_OUTPUT" | grep '^PEDITOR_SMOKE_OK' | head -n 1)
+versions=$(printf '%s\n' "$LAST_OUTPUT" | grep '^LUMICAT_SMOKE_OK' | head -n 1)
 
 window="NOT RUN (--skip-launch)"
 if [ "${1:-}" != "--skip-launch" ]; then
-  uv run peditor & pid=$!
-  read -r -p "Did a window titled 'PEditor 0.0.1' appear? (y/n) " a1; kill "$pid" 2>/dev/null
-  build/smoke/dist/peditor/peditor & pid=$!
+  uv run lumicat & pid=$!
+  read -r -p "Did a window titled 'LUMICAT 0.0.1' appear? (y/n) " a1; kill "$pid" 2>/dev/null
+  build/smoke/dist/lumicat/lumicat & pid=$!
   read -r -p "Did the packaged app window appear? (y/n) " a2; kill "$pid" 2>/dev/null
-  window="uv run peditor: $a1; packaged app: $a2"
+  window="uv run lumicat: $a1; packaged app: $a2"
   [ "$a1" = y ] && [ "$a2" = y ] || failed=1
 fi
 

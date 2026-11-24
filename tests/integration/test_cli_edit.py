@@ -1,4 +1,4 @@
-"""`peditor edit-text`：尋找、計畫、套用、驗證後另存（spec P2 輸出）。"""
+"""`lumicat edit-text`：尋找、計畫、套用、驗證後另存（spec P2 輸出）。"""
 
 import hashlib
 import json
@@ -11,7 +11,7 @@ FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 
 def _run(pdf: Path, out: Path, *extra: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, "-m", "peditor", "edit-text", str(pdf), "--out", str(out), *extra],
+        [sys.executable, "-m", "lumicat", "edit-text", str(pdf), "--out", str(out), *extra],
         capture_output=True,
         timeout=120,
     )

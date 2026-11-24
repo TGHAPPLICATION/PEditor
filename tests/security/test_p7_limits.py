@@ -7,9 +7,9 @@ import zlib
 import pikepdf
 import pytest
 
-from peditor.core.limits import MAX_STREAM_BYTES, LimitExceeded
-from peditor.core.protocol import ProtocolError
-from peditor.worker import analyzer, fonts, streams
+from lumicat.core.limits import MAX_STREAM_BYTES, LimitExceeded
+from lumicat.core.protocol import ProtocolError
+from lumicat.worker import analyzer, fonts, streams
 
 PDF = pikepdf.new()  # 串流的擁有者須存活到測試結束
 
@@ -111,7 +111,7 @@ def test_cmap_unterminated_array_linear():
 
 def test_unpainted_path_points_bounded(tmp_path):
     """候選 5：從未塗繪的路徑累積的點數也有上限，超過即頁面 RESOURCE_LIMIT。"""
-    from peditor.core.limits import MAX_PAINTED_POINTS
+    from lumicat.core.limits import MAX_PAINTED_POINTS
 
     curves = "1 1 2 2 3 3 c " * (MAX_PAINTED_POINTS // 16 + 10)
     pdf = pikepdf.new()
@@ -154,7 +154,7 @@ def test_ink_check_pixel_bound(monkeypatch):
     """候選 3：儲存格墨跡檢查的渲染像素超過上限即 RESOURCE_LIMIT，不逐點走訪。"""
     from pathlib import Path
 
-    from peditor.worker import cell
+    from lumicat.worker import cell
 
     files = Path(__file__).resolve().parents[1] / "fixtures" / "files"
     monkeypatch.setattr(cell, "INK_MAX_PIXELS", 100)

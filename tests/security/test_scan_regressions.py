@@ -10,9 +10,9 @@ from pathlib import Path
 import pikepdf
 import pytest
 
-from peditor.core.protocol import ProtocolError
-from peditor.core.service import DocumentService
-from peditor.worker import analyzer
+from lumicat.core.protocol import ProtocolError
+from lumicat.core.service import DocumentService
+from lumicat.worker import analyzer
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 FAST = 10.0  # 秒
@@ -56,7 +56,7 @@ def _inspect(path: Path) -> dict:
 
 
 def test_f001_cid_width_range_bounded(tmp_path):
-    from peditor.worker.fonts import _cid_widths
+    from lumicat.worker.fonts import _cid_widths
 
     started = time.monotonic()
     widths = _cid_widths(pikepdf.Array([0, 4_000_000_000, 500]))

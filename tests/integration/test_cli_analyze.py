@@ -1,4 +1,4 @@
-"""G1-07：`peditor analyze` 輸出 JSON 分析報告與頁面 PNG。"""
+"""G1-07：`lumicat analyze` 輸出 JSON 分析報告與頁面 PNG。"""
 
 import json
 import subprocess
@@ -13,7 +13,7 @@ FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 
 def _run(pdf: Path, out: Path, *extra: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, "-m", "peditor", "analyze", str(pdf), "--out", str(out), *extra],
+        [sys.executable, "-m", "lumicat", "analyze", str(pdf), "--out", str(out), *extra],
         capture_output=True,
         timeout=120,
     )

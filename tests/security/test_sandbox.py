@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from peditor.core.limits import WORKER_MEMORY_BYTES
-from peditor.core.service import DocumentService, ServiceError, _processes
+from lumicat.core.limits import WORKER_MEMORY_BYTES
+from lumicat.core.service import DocumentService, ServiceError, _processes
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 WINDOWS_ONLY = pytest.mark.skipif(
@@ -23,7 +23,7 @@ WINDOWS_ONLY = pytest.mark.skipif(
 
 @pytest.fixture
 def hooked(monkeypatch):
-    monkeypatch.setenv("PEDITOR_WORKER_TEST_HOOKS", "1")
+    monkeypatch.setenv("LUMICAT_WORKER_TEST_HOOKS", "1")
     with DocumentService(timeout=60.0) as svc:
         yield svc
 
@@ -47,7 +47,7 @@ def test_worker_cannot_spawn_processes(hooked):
 
 def test_spawn_hook_works_without_job(monkeypatch):
     """對照：沒有 Job Object 時同一個 hook 能建立子行程（確認上一項不是 hook 本身失效）。"""
-    from peditor.worker import server
+    from lumicat.worker import server
 
     monkeypatch.setattr(server, "_TEST_HOOKS", True)
     assert server._test_hook("_spawn", {}) == {"spawned": True}
@@ -57,11 +57,11 @@ def test_spawn_hook_works_without_job(monkeypatch):
 def test_worker_dies_with_main_process(tmp_path, monkeypatch):
     """主行程異常結束（未呼叫 close）時，worker 隨 Job handle 關閉一併終止，不留孤兒行程。
     worker 正在執行長操作（不會因管線關閉讀到 EOF 而自行結束）。"""
-    monkeypatch.setenv("PEDITOR_WORKER_TEST_HOOKS", "1")
+    monkeypatch.setenv("LUMICAT_WORKER_TEST_HOOKS", "1")
     script = tmp_path / "main.py"
     script.write_text(
         "import os, sys, threading, time\n"
-        "from peditor.core.service import DocumentService\n"
+        "from lumicat.core.service import DocumentService\n"
         "svc = DocumentService(timeout=120)\n"
         f"svc.open_document({str(FILES / 'T01.pdf')!r})\n"
         "args = ('_sleep', {'seconds': 60})\n"

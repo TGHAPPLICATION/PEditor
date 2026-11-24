@@ -141,7 +141,7 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | --- | --- | --- | --- | --- | --- |
 | G8-01 | G8 | 乾淨 VM／實機無 Python、無網路可安裝並完成核心流程 | 實機驗收清單 S01–S15（Windows Sandbox，`scripts/p8_sandbox.ps1`）＋ `packaging/build_release.py` 打包結果自我檢查 | T01、F02、I01、B01 | 自我檢查 CI 雙平台 PASS；Windows 實機 PASS（2026-11-10～12，S12 NOT RUN；S14 新版重測僅口頭回報；`reports/P8/acceptance.md`）；macOS NOT RUN |
 | G8-02 | G8 | 兩種 PDF 閱讀器正常開啟輸出 | 實機驗收清單 R01–R03（Acrobat Reader、Edge） | T05、F06、I01、B03 | Windows 實機 PASS（2026-11-11） |
-| G8-03 | G8 | 完整支援矩陣 100%；61 fixture 與 12 盲測結果（依 ADR-0012 為 11 份，U06 無法製作） | `tests/integration/test_release_matrix.py`（49＋1 項）＋ `peditor blind-run`（`tests/integration/test_cli_blind.py`） | 全部 | 矩陣 PASS（本機）；盲測 NOT RUN（工程師 2026-11-11 決定附條件發布，日後補測） |
+| G8-03 | G8 | 完整支援矩陣 100%；61 fixture 與 12 盲測結果（依 ADR-0012 為 11 份，U06 無法製作） | `tests/integration/test_release_matrix.py`（49＋1 項）＋ `lumicat blind-run`（`tests/integration/test_cli_blind.py`） | 全部 | 矩陣 PASS（本機）；盲測 NOT RUN（工程師 2026-11-11 決定附條件發布，日後補測） |
 | G8-04 | G8、ADR-0002、授權核對 F1–F4 | 已知缺陷清單、SBOM、LICENSE、相依來源與版本、卸載／草稿清理說明；安裝包附第三方授權全文（`licenses/`）、`NOTICE`；「說明 → 關於」顯示 AGPL 法律聲明與對應原始碼 | `docs/release/`、`packaging/sbom/`、`THIRD_PARTY_NOTICES.md`、`reports/P8/license-review.md` 文件審查；`tests/unit/test_release_licenses.py`、`tests/gui/test_about.py` | — | 文件與自動測試 PASS（本機 Linux）；Windows 實機 L01、L02 PASS（2026-11-13）；負責人簽核 2026-11-13（代為寫入）；F6 負責人接受指向 lxml 原始碼 |
 | G8-06 | P8 實機 S10 | 編輯面板內容可捲動、「套用」固定在底部；前後對照圖限高；浮動面板高度不超出螢幕；面板顯示或叫回時底部不超出螢幕可用範圍；視窗標題顯示安裝包建置 commit | `tests/gui/test_layout.py::test_build_id_in_title`（面板部分由 ADR-0032 取代，見 P11-01） | I01、T01 | PASS（本機 Linux offscreen）、CI run 42773024799 雙平台；Windows 實機 S10 PASS（安裝包推定 57ab13a，P8 報告 U7） |
 | G8-07 | P8 實機 S13、ADR-0027 | 有未另存修改時，關閉視窗或開啟另一份檔案前詢問「另存／不儲存／取消」；另存成功才繼續，取消或另存失敗停在原文件；改了又復原、復原草稿後也算未另存 | `tests/gui/test_unsaved.py`（9 項）、`tests/gui/test_drafts_ui.py::test_close_window_while_busy`（進行中不詢問） | F04、T01 | PASS（本機 Linux offscreen）；Windows 實機 S13b PASS（2026-11-12，安裝包推定 d702e29） |
@@ -156,7 +156,7 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | P9-11 | ADR-0029 | Windows 沙箱實機（清單 P9a～P9e） | 驗收頁面 | I02、T05、I01、S06 | PASS（2026-11-20，安裝包推定 3ed4441） |
 | P10-01 | ADR-0030 | 多視窗：開啟中文件的草稿持有檔案鎖，其他視窗不列出、不捨棄、不 purge；結束或當機後可復原 | `tests/unit/test_drafts_multi.py`（含兩視窗同時復原同一草稿）、`tests/integration/test_drafts.py`、`tests/gui/test_drafts_ui.py` | — | PASS（本機 Linux）；Windows 實機 P10b PASS（2026-11-24） |
 | P10-02 | ADR-0030 | 「檔案 → 開新視窗」（Ctrl+N）；視窗標題顯示檔名與未另存狀態（不在選單列重複；另存後改顯示新檔名，`::test_title_follows_save_as`） | `tests/gui/test_multi_window.py` | F04 | PASS（本機 Linux offscreen）；Windows 實機 P10a、P10f PASS（2026-11-24） |
-| P10-03 | ADR-0031 | 檔案總管右鍵「用 PEditor 開啟」與「開啟方式」（HKCU、卸載移除、不自行改預設程式）；安裝完成頁選用「設為 PDF 預設程式」開啟 Windows 設定；`PEditor.exe <檔案>` 啟動即開檔 | `tests/gui/test_shell_open.py` | F04 | PASS（本機 Linux offscreen、機碼靜態檢查）；Windows 實機 P10c～P10e PASS（2026-11-24） |
+| P10-03 | ADR-0031 | 檔案總管右鍵「用 LUMICAT 開啟」與「開啟方式」（HKCU、卸載移除、不自行改預設程式）；安裝完成頁選用「設為 PDF 預設程式」開啟 Windows 設定；`LUMICAT.exe <檔案>` 啟動即開檔 | `tests/gui/test_shell_open.py` | F04 | PASS（本機 Linux offscreen、機碼靜態檢查）；Windows 實機 P10c～P10e PASS（2026-11-24） |
 | P11-01 | ADR-0032 §1、§5 | 點選後在頁面上開半透明編輯框（選取處下方／上方、不超出可視範圍、跟著捲動縮放），焦點在輸入欄並全選；Esc／「×」關閉不修改；移除右側編輯面板 | `tests/gui/test_e2e.py::test_flow_click_selects_target`、`::test_flow_editor_placed_at_target`、`::test_flow_escape_closes_editor_without_change`、`tests/gui/test_layout.py::test_no_floating_panel_editor_on_page`、`::test_editor_and_apply_inside_small_view`、`tests/gui/test_e2e.py::test_escape_while_busy_cancels`、`::test_sharper_render_waits_until_editor_closes` | F04、F02、T01 | PASS（本機 Linux offscreen）；Windows 實機 P11a、P11d PASS（2026-11-24） |
 | P11-02 | ADR-0032 §2、§4 | 「套用」或 Enter 一步寫回並關閉編輯框；IME 組字中不送出；不能改時原因在框內 | `tests/gui/test_e2e.py::test_flow_apply_without_warnings_writes_back_and_closes`、`::test_flow_enter_applies`、`::test_flow_overflow_explained_and_not_applicable`、`::test_reason_shown_for_uneditable`、`tests/gui/test_ime.py`、`test_cell_ui.py`、`test_image_ui.py`、`test_fonts.py` | F04、F05、T01、B04～B06、I01、I03、I09 | PASS（本機 Linux offscreen）；Windows 實機 P11b PASS（2026-11-24） |
 | P11-03 | ADR-0032 §3 | 有提醒時先在框內顯示、按「確認套用」才寫回；改字後重新規劃；告知訊息不問 | `tests/gui/test_e2e.py::test_flow_mode_b_shows_font_replacement`、`::test_flow_changing_text_after_warning_replans`、`::test_info_only_warning_does_not_ask`、`test_cell_ui.py::test_pending_confirmation_reset_by_other_line`、`test_image_ui.py::test_pending_confirmation_reset_by_other_image` | F02、F04 | PASS（本機 Linux offscreen）；Windows 實機 P11c PASS（2026-11-24） |
@@ -164,6 +164,9 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | P12-02 | ADR-0033 §2 | worker `extract_text`：目前工作文件（含未另存修改）、去行尾空白、掃描頁空字串、超限頁不擷取、字數上限、頁碼驗證（含拒絕 bool，`::test_bool_page_index_rejected_on_multi_page`） | `tests/integration/test_extract_text.py` | F04、T05、I02 | PASS（本機 Linux）；Windows 實機 P12b PASS（2026-11-24） |
 | P12-03 | ADR-0033 §3～§4 | 文字擷取對話框：預設目前頁（下方說明可自行輸入）、頁碼範圍、第 N 頁標題與「移除頁碼」、無文字提示、搜尋、複製全部、另存 .txt（UTF-8 BOM、補副檔名但不覆寫既有檔、暫存後換上、訊息只含檔名）；失敗清空舊結果、合計字數上限 | `tests/gui/test_text_extract.py` | F04 | PASS（本機 Linux offscreen）；Windows 實機 P12b～P12d PASS（2026-11-24） |
 | P12-04 | 實機回報（2026-11-24） | 全部視窗與對話框（主視窗、尋找、復原草稿、頁面管理各分頁、文字擷取、編輯框、訊息框）不超出螢幕可用範圍，按鈕完整、文字不被裁切；以 1366×768@125%、1920×1080@150% 模擬；主視窗只在第一次顯示時移回（ADR-0033 §5） | `tests/gui/test_screen_fit.py`（移除修正時 6 項失敗） | F02 | PASS（本機 Linux offscreen）；Windows 實機 P12e PASS（2026-11-24；實機解析度與縮放未記錄） |
+| P13-01 | ADR-0034 §1～§2 | 全部改名 LUMICAT（套件、命令列、環境變數、執行檔、標題、關於、安裝程式、右鍵選單、機碼、CI 產物）；歷史紀錄與 fixture 不改 | 全部測試隨改名更新、`tests/gui/test_brand.py::test_window_title_and_app_name`、`::test_installer_branding` | — | PASS（本機 Linux）；Windows 實機待驗 |
+| P13-02 | ADR-0034 §3 | 舊資料夾 PEditor 改名沿用（失敗時用舊的）；舊暫存檔名仍清除 | `tests/gui/test_brand.py::test_old_data_folder_is_renamed`、`::test_old_data_folder_kept_when_rename_fails`、`::test_old_temp_name_still_cleaned` | — | PASS（本機 Linux）；Windows 實機待驗 |
+| P13-03 | ADR-0034 §4～§6 | 圖示（視窗、執行檔、安裝程式）與品牌配色（對比度照檢查） | `tests/gui/test_brand.py::test_app_icon_has_all_sizes`、`::test_brand_colors`、`tests/gui/test_theme.py` | — | PASS（本機 Linux offscreen）；Windows 實機待驗 |
 | G8-05 | P8 | 標明 macOS 最低支援版本 | ADR-0025 §3（15.0、Apple Silicon） | — | 完成 |
 
 ## 共通（§8）
@@ -173,7 +176,7 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | X-01 | §8.3 | 首次預覽 p95 ≤3 s、單頁替換預覽 ≤2 s、另存 ≤15 s、UI ≤100 ms（實機 20 次） | `tests/perf/test_benchmarks.py`（實機） | PLANNED |
 | X-02 | §8.3 | 50 次循環 worker 峰值 ≤2 GB、無單調洩漏 | `tests/perf/test_memory.py` | PLANNED |
 | X-03 | §8.4 | 錯誤標成可編輯率 = 0%；盲測誤判即回歸 | `tests/integration/test_analyzer.py::test_no_false_editable` | PLANNED |
-| X-04 | §8.4 | core 分支覆蓋率目標 85%（輔助） | `pytest --cov=peditor.core`（P1 起加入） | PLANNED |
+| X-04 | §8.4 | core 分支覆蓋率目標 85%（輔助） | `pytest --cov=lumicat.core`（P1 起加入） | PLANNED |
 | X-06 | §7 | SHARED_RESOURCE_UNSAFE：共享資源無法安全 copy-on-write 時拒絕 | `tests/integration/test_edit_image.py::test_shared_resource_unsafe_rejected` | PLANNED |
 | X-07 | §7 | VALIDATION_FAILED：輸出驗證失敗不落地 | `tests/integration/test_transaction.py::test_validation_failed_no_output` | PLANNED |
 | X-08 | §7 | SAVE_FAILED：寫入失敗回報且原檔不變 | `tests/integration/test_crash_injection.py::test_save_failed_reported` | PLANNED |

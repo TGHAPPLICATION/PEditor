@@ -61,7 +61,7 @@ def test_editor_and_apply_inside_small_view(qtbot, make_window, tmp_path):
 
 def test_build_id_in_title(tmp_path):
     """P8：安裝包的視窗標題帶建置 commit，實機驗收可辨認裝的是哪一版；開發環境不顯示。"""
-    from peditor.ui.app import _build_suffix
+    from lumicat.ui.app import _build_suffix
 
     build = tmp_path / "BUILD"
     assert _build_suffix(build) == ""

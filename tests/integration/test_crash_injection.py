@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from peditor.core.protocol import ProtocolError
-from peditor.core.service import DocumentService, ServiceError
-from peditor.export import transaction
+from lumicat.core.protocol import ProtocolError
+from lumicat.core.service import DocumentService, ServiceError
+from lumicat.export import transaction
 
 HERE = Path(__file__).resolve().parent
 FILES = HERE.parents[0] / "fixtures" / "files"
@@ -57,7 +57,7 @@ def test_interrupt_each_stage(manifest_rows, tmp_path, stage):
 
 def test_stale_temp_removed_on_next_save(manifest_rows, tmp_path, monkeypatch, service):
     """中斷留下的暫存檔（含文件內容）在下次寫入同一資料夾時刪除（spec P3 暫存保留限制）。"""
-    stale = tmp_path / ".~peditor-0123456789abcdef.tmp.pdf"
+    stale = tmp_path / ".~lumicat-0123456789abcdef.tmp.pdf"
     stale.write_bytes(b"sensitive")
     other = tmp_path / "unrelated.tmp.pdf"
     other.write_bytes(b"not ours")
@@ -72,8 +72,8 @@ def test_stale_temp_removed_on_next_save(manifest_rows, tmp_path, monkeypatch, s
 
 def test_stale_temp_threshold(tmp_path):
     """只刪超過 10 分鐘的暫存檔：其他執行中的寫入（剛建立的暫存檔）不受影響（ADR-0020 §3.3）。"""
-    old = tmp_path / ".~peditor-00000000000000aa.tmp.pdf"
-    fresh = tmp_path / ".~peditor-00000000000000bb.tmp.pdf"
+    old = tmp_path / ".~lumicat-00000000000000aa.tmp.pdf"
+    fresh = tmp_path / ".~lumicat-00000000000000bb.tmp.pdf"
     for path in (old, fresh):
         path.write_bytes(b"content")
     stamp = time.time() - transaction.STALE_TEMP_S - 60
@@ -149,7 +149,7 @@ def test_temp_hash_mismatch_rejected(tmp_path):
 # worker 寫出一半暫存檔後異常結束（不經 Python 清理）
 _CRASHING_WORKER = """
 import os, sys
-from peditor.worker import export, server
+from lumicat.worker import export, server
 
 def crash(document, destination):
     with open(destination, "xb") as fh:
@@ -260,13 +260,13 @@ def test_cleanup_recorded_removes_only_own_temps(tmp_path, monkeypatch):
     """啟動時清除：只刪紀錄中符合本程式命名的檔案；不存在的略過；紀錄檔損壞時不刪任何檔。"""
     registry = tmp_path / "pending-temps.json"
     monkeypatch.setattr(transaction, "registry", str(registry))
-    left = tmp_path / ".~peditor-00000000000000aa.tmp.pdf"
+    left = tmp_path / ".~lumicat-00000000000000aa.tmp.pdf"
     other = tmp_path / "important.pdf"
     old = time.time() - transaction.STALE_TEMP_S - 60  # 上次中斷留下的（P7 起只清除過期的）
     for path in (left, other):
         path.write_bytes(b"content")
         os.utime(path, (old, old))
-    gone = tmp_path / ".~peditor-00000000000000bb.tmp.pdf"
+    gone = tmp_path / ".~lumicat-00000000000000bb.tmp.pdf"
     registry.write_text(json.dumps([str(left), str(other), str(gone), 5]), encoding="utf-8")
     assert transaction.cleanup_recorded() == 1
     assert not left.exists() and other.exists()
@@ -280,10 +280,10 @@ def test_cleanup_recorded_removes_only_own_temps(tmp_path, monkeypatch):
 
 
 def test_cleanup_recorded_keeps_recent_temps(tmp_path, monkeypatch):
-    """P4 U10：另一個執行中的 PEditor 正在寫入的暫存檔（未過期）不刪，留在紀錄中。"""
+    """P4 U10：另一個執行中的 LUMICAT 正在寫入的暫存檔（未過期）不刪，留在紀錄中。"""
     registry = tmp_path / "pending-temps.json"
     monkeypatch.setattr(transaction, "registry", str(registry))
-    fresh = tmp_path / ".~peditor-00000000000000cc.tmp.pdf"
+    fresh = tmp_path / ".~lumicat-00000000000000cc.tmp.pdf"
     fresh.write_bytes(b"content")
     registry.write_text(json.dumps([str(fresh)]), encoding="utf-8")
     assert transaction.cleanup_recorded() == 0
@@ -293,7 +293,7 @@ def test_cleanup_recorded_keeps_recent_temps(tmp_path, monkeypatch):
 def test_no_overwrite_refuses_destination_created_late(tmp_path):
     """P3 triage f009：不覆寫時，目的檔在最後檢查後才出現也不取代。"""
     dest = transaction.destination(tmp_path / "out.pdf", overwrite=False)
-    temp = tmp_path / ".~peditor-00000000000000dd.tmp.pdf"
+    temp = tmp_path / ".~lumicat-00000000000000dd.tmp.pdf"
     temp.write_bytes(b"new")
     (tmp_path / "out.pdf").write_bytes(b"someone else")
     with pytest.raises(FileExistsError):
@@ -308,7 +308,7 @@ def test_overwrite_keeps_destination_mode(tmp_path):
     target.write_bytes(b"old")
     target.chmod(0o640)
     dest = transaction.destination(target, overwrite=True)
-    temp = tmp_path / ".~peditor-00000000000000ee.tmp.pdf"
+    temp = tmp_path / ".~lumicat-00000000000000ee.tmp.pdf"
     temp.write_bytes(b"new")
     temp.chmod(0o600)
     transaction._place(str(temp), dest)
@@ -319,7 +319,7 @@ def test_cleanup_recorded_malformed_registry(tmp_path, monkeypatch):
     """紀錄檔巢狀過深或不是清單時視為空紀錄、不中斷啟動與另存；刪除失敗的路徑留到下次啟動。"""
     registry = tmp_path / "pending-temps.json"
     monkeypatch.setattr(transaction, "registry", str(registry))
-    left = tmp_path / ".~peditor-00000000000000aa.tmp.pdf"
+    left = tmp_path / ".~lumicat-00000000000000aa.tmp.pdf"
     left.write_bytes(b"content")
     for broken in ("[" * 200_000, json.dumps({"paths": [str(left)]})):
         registry.write_text(broken, encoding="utf-8")
@@ -350,7 +350,7 @@ def test_overwrite_readonly_leaves_no_readonly_temp(tmp_path):
     target.write_bytes(b"old")
     dest = transaction.destination(target, overwrite=True)
     target.chmod(stat.S_IREAD)
-    temp = tmp_path / ".~peditor-00000000000000ff.tmp.pdf"
+    temp = tmp_path / ".~lumicat-00000000000000ff.tmp.pdf"
     temp.write_bytes(b"new")
     try:
         with pytest.raises(OSError):

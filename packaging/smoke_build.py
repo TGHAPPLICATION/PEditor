@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "build" / "smoke" / "dist"
 WORK = ROOT / "build" / "smoke" / "work"
-MARKER = "PEDITOR_SMOKE_OK"
+MARKER = "LUMICAT_SMOKE_OK"
 
 
 def main() -> int:
@@ -22,7 +22,7 @@ def main() -> int:
         [
             sys.executable, "-m", "PyInstaller",
             "--noconfirm", "--clean", "--onedir", "--console",
-            "--name", "peditor",
+            "--name", "lumicat",
             "--distpath", str(DIST),
             "--workpath", str(WORK),
             "--specpath", str(WORK),
@@ -31,7 +31,7 @@ def main() -> int:
         ],
         check=True,
     )  # fmt: skip
-    exe = DIST / "peditor" / ("peditor.exe" if os.name == "nt" else "peditor")
+    exe = DIST / "lumicat" / ("lumicat.exe" if os.name == "nt" else "lumicat")
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
     result = subprocess.run(
         [str(exe), "--smoke"], capture_output=True, text=True, env=env, timeout=120, check=False
@@ -41,7 +41,7 @@ def main() -> int:
     if result.returncode != 0 or MARKER not in result.stdout:
         print(f"smoke build FAILED (exit {result.returncode})", file=sys.stderr)
         return 1
-    files = (DIST / "peditor").rglob("*")
+    files = (DIST / "lumicat").rglob("*")
     size = sum(f.stat().st_size for f in files if f.is_file() and not f.is_symlink())
     print(f"smoke build OK, onedir size = {size / 1_048_576:.1f} MiB")
     return 0

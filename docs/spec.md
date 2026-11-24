@@ -277,9 +277,9 @@ v1.1 做繁體校正並回填已確認決策（2026-10-12 負責人接受 ADR-00
 |---|---|---|---|
 | A1 | 簡體字校正為繁體（換、確、圖、預、數、單、內、應、並、與、會、規、則、為、約、階、於；泄漏→洩漏、坐標→座標） | 已完成 | 執行計畫書 v1.1 |
 | A2 | §3 編輯語義：**允許 A/B，優先 A**（非嚴格 A 模式）；B 須證明先移除舊內容（G2 第 5 點） | 已確認 | ADR-0001 |
-| A3 | §2 授權：AGPL-3.0，repo 已公開（TGHAPPLICATION/PEditor） | 已確認 | ADR-0002 |
+| A3 | §2 授權：AGPL-3.0，repo 已公開（TGHAPPLICATION/LUMICAT） | 已確認 | ADR-0002 |
 | A4 | §6 P0 停止條件：「沒有 macOS 實機可驗證」改為「P3 結束時仍無 macOS 實機取得方案」；G0 的 macOS 啟動以 CI（macos-15 arm64）證據達成，實機項目標 NOT RUN，G4、G7、G8 仍須實機 | 已確認 | ADR-0003 |
-| A5 | §2 架構落地為 `src/peditor/{ui,core,worker,export}`（§5 的 `src/ui/` 等對應為同名子套件，以便打包與匯入） | 已實作 | ADR-0004 |
+| A5 | §2 架構落地為 `src/lumicat/{ui,core,worker,export}`（§5 的 `src/ui/` 等對應為同名子套件，以便打包與匯入） | 已實作 | ADR-0004 |
 | A6 | §2／§8.1 第二套解譯器採 **PDFium（pypdfium2）**，結構檢查採 **qpdf（經 pikepdf `check_pdf_syntax`）**；Poppler 因 Windows 安裝與維運成本高不列為必要 | 已確認 | ADR-0006 |
 | A7 | §7 錯誤碼補充 capability／拒絕用理由碼：`NO_TEXT_LAYER`、`MALFORMED_DOCUMENT`、`ACTIVE_CONTENT`、`UNSUPPORTED_FEATURE` | 已確認 | ADR-0007 |
 | A8 | §2 繁中字型：模式 B 與 fixture 採 Noto Sans TC（Noto Sans CJK TC 子集 OTF）與 Noto Serif TC，均 OFL-1.1；來源鎖定 commit 與 SHA-256 | 已確認 | ADR-0008 |

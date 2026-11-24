@@ -1,6 +1,6 @@
 """G1-09：P1 基本防護——逾時、取消、worker 崩潰後重啟；不執行主動內容（spec P7「P1 起即需」）。
 
-逾時與取消以 worker 的測試 hook（環境變數 PEDITOR_WORKER_TEST_HOOKS=1 才啟用的 `_sleep`）製造
+逾時與取消以 worker 的測試 hook（環境變數 LUMICAT_WORKER_TEST_HOOKS=1 才啟用的 `_sleep`）製造
 可預期的長操作；產品執行時不設此變數，hook 不存在。
 """
 
@@ -10,14 +10,14 @@ from pathlib import Path
 
 import pytest
 
-from peditor.core.service import DocumentService, ServiceError
+from lumicat.core.service import DocumentService, ServiceError
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 
 
 @pytest.fixture
 def hooked(monkeypatch):
-    monkeypatch.setenv("PEDITOR_WORKER_TEST_HOOKS", "1")
+    monkeypatch.setenv("LUMICAT_WORKER_TEST_HOOKS", "1")
     with DocumentService(timeout=2.0) as svc:
         yield svc
 
@@ -89,8 +89,8 @@ def test_active_content_reported_not_executed(service):
 
 
 def test_file_size_and_page_limits(monkeypatch):
-    from peditor.core.protocol import ProtocolError
-    from peditor.worker import analyzer
+    from lumicat.core.protocol import ProtocolError
+    from lumicat.worker import analyzer
 
     monkeypatch.setattr(analyzer, "MAX_FILE_BYTES", 1000)
     with pytest.raises(ProtocolError) as exc:
@@ -131,7 +131,7 @@ def _form_pdf(path, depth: int, cycle: bool) -> None:
 
 @pytest.mark.parametrize(("depth", "cycle"), [(12, False), (3, True)])
 def test_form_depth_and_cycle_limited(tmp_path, depth, cycle):
-    from peditor.worker import analyzer
+    from lumicat.worker import analyzer
 
     path = tmp_path / "forms.pdf"
     _form_pdf(path, depth, cycle)
@@ -145,7 +145,7 @@ def test_oversized_worker_response_rejected(monkeypatch, tmp_path):
     """worker 回應超過單行上限：讀取時即中止，不整行載入，回 WORKER_FAILED 並重啟。"""
     import sys
 
-    from peditor.core import service as service_mod
+    from lumicat.core import service as service_mod
 
     monkeypatch.setattr(service_mod, "MAX_MESSAGE_BYTES", 1000)
     fake = tmp_path / "fake_worker.py"

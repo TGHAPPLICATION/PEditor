@@ -3,9 +3,9 @@
 import pikepdf
 import pytest
 
-from peditor.core.geometry import IDENTITY
-from peditor.worker import table
-from peditor.worker.content import FilledRect, PageContent, Stroke, interpret
+from lumicat.core.geometry import IDENTITY
+from lumicat.worker import table
+from lumicat.worker.content import FilledRect, PageContent, Stroke, interpret
 
 
 def _grid_strokes(xs, ys, skip=(), width=1.0, form_path=()):
@@ -98,7 +98,7 @@ def test_interpreter_records_paths(monkeypatch):
     content = interpret(pdf.pages[0])
     assert len(content.strokes) == 1 + 4 and content.strokes[0].width == 2.0
     assert len(content.filled_rects) == 1 and not content.paths_truncated
-    monkeypatch.setattr("peditor.worker.content.MAX_RULE_PATHS", 2)
+    monkeypatch.setattr("lumicat.worker.content.MAX_RULE_PATHS", 2)
     assert interpret(pdf.pages[0]).paths_truncated
 
 

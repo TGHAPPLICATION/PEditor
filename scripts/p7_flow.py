@@ -19,7 +19,7 @@ FILES = ROOT / "tests" / "fixtures" / "files"
 
 
 def main(out_dir: Path, rounds: int = 1) -> int:
-    from peditor.core.service import DocumentService
+    from lumicat.core.service import DocumentService
 
     out_dir.mkdir(parents=True, exist_ok=True)
     os.chdir(out_dir)
@@ -28,7 +28,7 @@ def main(out_dir: Path, rounds: int = 1) -> int:
     with DocumentService() as svc:
         for _ in range(rounds):
             _round(svc, out_dir, steps)
-    sentinel = sorted(p.name for p in out_dir.glob("peditor-sentinel*"))
+    sentinel = sorted(p.name for p in out_dir.glob("lumicat-sentinel*"))
     result = {"rounds": rounds, "steps": steps[: 1 + 5], "sentinel_files": sentinel,
               "all_saved": all(s.get("saved", True) for s in steps),
               "seconds": round(time.monotonic() - started, 1)}  # fmt: skip
@@ -41,7 +41,7 @@ def main(out_dir: Path, rounds: int = 1) -> int:
 
 def _round(svc, out_dir: Path, steps: list[dict]) -> None:
     """一輪：T01 完整編輯流程，再開啟 S02–S06。"""
-    from peditor.core.service import ServiceError
+    from lumicat.core.service import ServiceError
 
     opened = svc.open_document(FILES / "T01.pdf")
     doc = opened["document_id"]

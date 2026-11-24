@@ -1,6 +1,6 @@
 # licenses/
 
-PEditor 安裝包隨附的第三方授權全文（P8 授權核對 F1；對照 `THIRD_PARTY_NOTICES.md`）。
+LUMICAT 安裝包隨附的第三方授權全文（P8 授權核對 F1；對照 `THIRD_PARTY_NOTICES.md`）。
 
 - `<套件名>/`：建置時由各套件 wheel 的 `dist-info` 複製（pymupdf、pikepdf 與其 `third-party-licenses/`、
   pyside6-essentials、shiboken6、pillow、lxml、packaging、fonttools、pyinstaller）。

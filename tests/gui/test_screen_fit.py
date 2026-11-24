@@ -9,10 +9,10 @@ from PySide6.QtCore import QRect
 from PySide6.QtWidgets import QAbstractButton, QApplication
 from test_e2e import FILES, click_target, open_file
 
-from peditor.ui import screen
-from peditor.ui.app import DraftDialog
-from peditor.ui.page_tools import PageToolsDialog, Source
-from peditor.ui.text_extract import TextExtractDialog
+from lumicat.ui import screen
+from lumicat.ui.app import DraftDialog
+from lumicat.ui.page_tools import PageToolsDialog, Source
+from lumicat.ui.text_extract import TextExtractDialog
 
 AREAS = {"1366x768@125%": QRect(0, 0, 1093, 574), "1920x1080@150%": QRect(0, 0, 1280, 680)}
 
@@ -93,7 +93,7 @@ def test_message_boxes_fit_smallest_area(qtbot):
     """「關於」與未另存提醒是 Qt 自動調整大小的訊息框：確認在最小的可用範圍內放得下。"""
     from PySide6.QtWidgets import QMessageBox
 
-    from peditor.ui.app import about_text
+    from lumicat.ui.app import about_text
 
     smallest = AREAS["1366x768@125%"]
     unsaved = ("這份文件有尚未另存的修改，要先另存嗎？", ["另存…", "不儲存", "取消"])

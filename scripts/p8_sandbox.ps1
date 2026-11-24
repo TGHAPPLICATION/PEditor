@@ -1,7 +1,7 @@
 <#
 P8 clean-environment check (G8-01, G8-02): build a Windows Sandbox configuration and start it.
 
-Windows Sandbox is a fresh, disposable Windows with no Python and no PEditor. The generated
+Windows Sandbox is a fresh, disposable Windows with no Python and no LUMICAT. The generated
 configuration:
   - disables networking (offline install and core flow, G8-01);
   - maps the folder that holds the installer read-only to C:\P8\installer;
@@ -14,7 +14,7 @@ Requirements: Windows 11 Pro/Enterprise with the "Windows Sandbox" optional feat
 (needs administrator rights once). Follow the P8 acceptance checklist while the sandbox runs.
 
 Usage (from the repo root, normal PowerShell):
-  powershell -ExecutionPolicy Bypass -File scripts\p8_sandbox.ps1 -InstallerDir <folder with PEditor-*-setup.exe>
+  powershell -ExecutionPolicy Bypass -File scripts\p8_sandbox.ps1 -InstallerDir <folder with LUMICAT-*-setup.exe>
 
 This file is ASCII-only on purpose so Windows PowerShell 5.1 parses it correctly.
 #>
@@ -23,8 +23,8 @@ param([Parameter(Mandatory = $true)][string]$InstallerDir)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $installer = (Resolve-Path $InstallerDir).Path
-if (-not (Get-ChildItem -Path $installer -Filter "PEditor-*-setup.exe" -ErrorAction SilentlyContinue)) {
-    throw "No PEditor-*-setup.exe in the installer folder"
+if (-not (Get-ChildItem -Path $installer -Filter "LUMICAT-*-setup.exe" -ErrorAction SilentlyContinue)) {
+    throw "No LUMICAT-*-setup.exe in the installer folder"
 }
 $fixtures = Join-Path $root "tests\fixtures\files"
 $out = Join-Path $root "build\p8-sandbox"
@@ -73,8 +73,8 @@ $wsb = @"
   </LogonCommand>
 </Configuration>
 "@
-$path = Join-Path $out "peditor-p8.wsb"
+$path = Join-Path $out "lumicat-p8.wsb"
 Set-Content -Path $path -Value $wsb -Encoding UTF8
-Write-Host "Sandbox configuration: build\p8-sandbox\peditor-p8.wsb (networking disabled)"
+Write-Host "Sandbox configuration: build\p8-sandbox\lumicat-p8.wsb (networking disabled)"
 Write-Host "Results folder on the host: build\p8-sandbox\results"
 Start-Process -FilePath $path

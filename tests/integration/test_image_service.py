@@ -11,9 +11,9 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from peditor.core import drafts
-from peditor.core import service as service_module
-from peditor.core.service import DocumentService, ServiceError
+from lumicat.core import drafts
+from lumicat.core import service as service_module
+from lumicat.core.service import DocumentService, ServiceError
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 
@@ -46,7 +46,7 @@ def test_image_preview_undo_redo_and_restart(tmp_path):
         assert preview["mode"] == "image" and preview["before"] != preview["after"]
         assert _names(service, doc, 0) == original  # 預覽不提交
         rev = service.apply_edit(doc, plan["plan_id"], 0)["new_revision"]
-        replaced = [original[0], "/PEditorI1"]
+        replaced = [original[0], "/LUMICATI1"]
         assert _names(service, doc, rev) == replaced
         rev = service.undo(doc, rev)["new_revision"]
         assert _names(service, doc, rev) == original
@@ -82,7 +82,7 @@ def test_image_draft_recovery(tmp_path):
     with DocumentService(drafts=drafts.DraftStore(store_dir)) as service:
         draft_id = service.list_drafts()[0]["draft_id"]
         doc = service.recover_draft(draft_id)["document_id"]
-        assert _names(service, doc) == ["/PEditorI1"]
+        assert _names(service, doc) == ["/LUMICATI1"]
         rev = service.history(doc)["revision"]
         assert _names(service, doc, service.undo(doc, rev)["new_revision"]) == ["/fzImg0"]
         service.close_document(doc)

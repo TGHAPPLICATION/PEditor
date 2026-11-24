@@ -12,7 +12,7 @@ FIXTURES = ROOT / "tests" / "fixtures"
 # 測試一律以 offscreen 執行，不需實體顯示器（CI 與本機一致）
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 # 模式 B 字型（ADR-0008：不入庫，由 scripts/fetch_fonts.py 取得；worker 子行程繼承此設定）
-os.environ.setdefault("PEDITOR_MODE_B_FONT", str(FIXTURES / "fonts" / "NotoSansTC-Regular.otf"))
+os.environ.setdefault("LUMICAT_MODE_B_FONT", str(FIXTURES / "fonts" / "NotoSansTC-Regular.otf"))
 
 
 @pytest.fixture(scope="session")
@@ -39,7 +39,7 @@ def available_rows(manifest_rows):
 @pytest.fixture(scope="session")
 def service():
     """共用一個 worker 子行程的 DocumentService（G1：PDF 只在 worker 解析）。"""
-    from peditor.core.service import DocumentService
+    from lumicat.core.service import DocumentService
 
     with DocumentService() as svc:
         yield svc

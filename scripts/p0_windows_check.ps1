@@ -53,21 +53,21 @@ Invoke-Step "ruff check" "uv run ruff check ." | Out-Null
 Invoke-Step "ruff format --check" "uv run ruff format --check ." | Out-Null
 Invoke-Step "pytest" "uv run pytest" | Out-Null
 $smoke = Invoke-Step "smoke build" "uv run python packaging/smoke_build.py"
-$versions = ($smoke | Where-Object { $_ -like "PEDITOR_SMOKE_OK*" } | Select-Object -First 1)
+$versions = ($smoke | Where-Object { $_ -like "LUMICAT_SMOKE_OK*" } | Select-Object -First 1)
 
 # 7. Real window (interactive only)
 $window = "NOT RUN (-SkipLaunch)"
 $windowOk = $true
 if (-not $SkipLaunch) {
-    Write-Host "==> launching PEditor; close the window after checking it" -ForegroundColor Cyan
-    $p = Start-Process -FilePath "uv" -ArgumentList "run", "peditor" -PassThru
-    $answer = Read-Host "Did a window titled 'PEditor 0.0.1' appear? (y/n)"
+    Write-Host "==> launching LUMICAT; close the window after checking it" -ForegroundColor Cyan
+    $p = Start-Process -FilePath "uv" -ArgumentList "run", "lumicat" -PassThru
+    $answer = Read-Host "Did a window titled 'LUMICAT 0.0.1' appear? (y/n)"
     if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
-    $exe = Join-Path $root "build\smoke\dist\peditor\peditor.exe"
+    $exe = Join-Path $root "build\smoke\dist\lumicat\lumicat.exe"
     $p2 = Start-Process -FilePath $exe -PassThru
-    $answer2 = Read-Host "Did the packaged peditor.exe window appear? (y/n)"
+    $answer2 = Read-Host "Did the packaged lumicat.exe window appear? (y/n)"
     if (-not $p2.HasExited) { Stop-Process -Id $p2.Id -Force -ErrorAction SilentlyContinue }
-    $window = "uv run peditor: $answer; packaged exe: $answer2"
+    $window = "uv run lumicat: $answer; packaged exe: $answer2"
     $windowOk = ($answer -eq "y") -and ($answer2 -eq "y")
 }
 

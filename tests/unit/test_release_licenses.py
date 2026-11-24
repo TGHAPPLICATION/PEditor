@@ -23,4 +23,4 @@ def test_release_docs_include_notice():
     root = Path(build_release.ROOT)
     notice = (root / "NOTICE").read_text(encoding="utf-8")
     assert "AGPL-3.0-only" in notice and "WITHOUT ANY" in notice
-    assert "https://github.com/TGHAPPLICATION/PEditor" in notice
+    assert "https://github.com/TGHAPPLICATION/LUMICAT" in notice

@@ -17,7 +17,7 @@ import pytest
 import visual
 from PIL import Image
 
-from peditor.worker import analyzer, edit, export, image
+from lumicat.worker import analyzer, edit, export, image
 
 SUPPORTED = ("I01", "I02", "I03", "I04", "I05", "I06", "I07")
 MAGENTA = (255, 0, 255)
@@ -346,7 +346,7 @@ def test_built_image_reused_after_preview(monkeypatch):
         edit.replay(document, [command], 2, True)
         assert calls == []
         names = [t["name"] for t in analyzer.inspect_page(document, 0)["image_targets"]]
-        assert names == ["/PEditorI1"]
+        assert names == ["/LUMICATI1"]
     finally:
         document.close()
 

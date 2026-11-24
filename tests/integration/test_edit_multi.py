@@ -10,8 +10,8 @@ import pikepdf
 import pytest
 import visual
 
-from peditor.worker import analyzer, edit, span
-from peditor.worker.content import interpret
+from lumicat.worker import analyzer, edit, span
+from lumicat.worker.content import interpret
 
 ORIGIN_TOL = 0.01  # pt
 

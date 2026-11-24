@@ -3,8 +3,8 @@ import gc
 import pytest
 from PySide6.QtCore import QCoreApplication, QEvent
 
-from peditor.core.service import DocumentService
-from peditor.ui.app import MainWindow
+from lumicat.core.service import DocumentService
+from lumicat.ui.app import MainWindow
 
 
 @pytest.fixture(autouse=True)

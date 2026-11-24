@@ -17,8 +17,8 @@ import pypdfium2
 import pypdfium2.raw as pdfium_c
 from PIL import Image, ImageChops, ImageDraw
 
-from peditor.core.geometry import bbox_of
-from peditor.worker import analyzer, edit, span
+from lumicat.core.geometry import bbox_of
+from lumicat.worker import analyzer, edit, span
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 FILES = FIXTURES / "files"

@@ -13,10 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from peditor.core.service import DocumentService, ServiceError
+from lumicat.core.service import DocumentService, ServiceError
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
-SENTINEL = "peditor-sentinel"
+SENTINEL = "lumicat-sentinel"
 
 
 def _worker_with_stderr(path: Path) -> list[str]:
@@ -26,7 +26,7 @@ def _worker_with_stderr(path: Path) -> list[str]:
         f"fd = os.open({str(path)!r}, os.O_WRONLY | os.O_CREAT | os.O_APPEND)\n"
         "os.dup2(fd, 2)\n"
         "sys.stderr = open(2, 'w', closefd=False)\n"
-        "from peditor.worker.server import main\n"
+        "from lumicat.worker.server import main\n"
         "sys.exit(main())\n"
     )
     return [sys.executable, "-P", "-c", script]
@@ -89,6 +89,6 @@ def test_cli_stderr_has_no_sentinel(args, tmp_path):
     folder.mkdir()
     shutil.copy(FILES / "S02.pdf", folder / f"{SENTINEL}-S02.pdf")
     argv = [a.format(folder=folder, s=SENTINEL) for a in args]
-    result = subprocess.run([sys.executable, "-P", "-m", "peditor", *argv], capture_output=True,
+    result = subprocess.run([sys.executable, "-P", "-m", "lumicat", *argv], capture_output=True,
                             text=True, encoding="utf-8", errors="replace", timeout=120)  # fmt: skip
     assert SENTINEL not in result.stderr and str(tmp_path) not in result.stderr, result.stderr

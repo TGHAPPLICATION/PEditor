@@ -14,8 +14,8 @@
     ],
     "component": {
       "type": "library",
-      "bom-ref": "peditor-1@0.0.1",
-      "name": "peditor",
+      "bom-ref": "lumicat-1@0.0.1",
+      "name": "lumicat",
       "version": "0.0.1",
       "properties": [
         {
@@ -880,7 +880,7 @@
       "ref": "packaging-4@26.3"
     },
     {
-      "ref": "peditor-1@0.0.1",
+      "ref": "lumicat-1@0.0.1",
       "dependsOn": [
         "fonttools-2@4.66.0",
         "pikepdf-5@10.14.0",

@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication
 from test_e2e import FILES, apply, click_target, open_file, preview
 
-from peditor.ui.text_extract import NO_TEXT, TextExtractDialog, combine
+from lumicat.ui.text_extract import NO_TEXT, TextExtractDialog, combine
 
 PAGES = {0: {"text": "第一頁內容\n第二行", "limited": False},
          1: {"text": "", "limited": False},
@@ -57,7 +57,7 @@ def test_bad_range_clears_old_result(qtbot):
 
 
 def test_extract_failure_and_total_limit_clear_result(qtbot, monkeypatch):
-    from peditor.ui import text_extract
+    from lumicat.ui import text_extract
 
     def fail(_index):
         raise ValueError("處理逾時")
@@ -173,7 +173,7 @@ def test_save_does_not_overwrite_appended_name_and_is_atomic(qtbot, tmp_path, mo
     assert existing.read_text(encoding="utf-8") == "原本的內容"
     assert "已存在" in dialog.info.text() and str(tmp_path) not in dialog.info.text()
 
-    import peditor.ui.text_extract as module
+    import lumicat.ui.text_extract as module
 
     def broken_replace(*_a):
         raise OSError("disk full")

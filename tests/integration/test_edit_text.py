@@ -10,10 +10,10 @@ import pikepdf
 import pypdfium2
 import pytest
 
-from peditor.core.protocol import ProtocolError
-from peditor.core.service import DocumentService
-from peditor.worker import analyzer, edit, span
-from peditor.worker.content import interpret
+from lumicat.core.protocol import ProtocolError
+from lumicat.core.service import DocumentService
+from lumicat.worker import analyzer, edit, span
+from lumicat.worker.content import interpret
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 FILES = FIXTURES / "files"
@@ -351,7 +351,7 @@ def test_rejections_leave_files_unchanged(fid, policy):
 
 def test_mode_b_font_unavailable(monkeypatch, tmp_path):
     """模式 B 字型不存在或 SHA-256 不符時不改用其他字型，回 GLYPH_MISSING 並說明。"""
-    from peditor.worker import fontb
+    from lumicat.worker import fontb
 
     fake = tmp_path / "NotoSansTC-Regular.otf"
     fake.write_bytes(b"not the pinned font")

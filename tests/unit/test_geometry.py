@@ -10,7 +10,7 @@ import pymupdf
 import pypdfium2
 import pytest
 
-from peditor.core.geometry import PageGeometry, apply, contains, invert
+from lumicat.core.geometry import PageGeometry, apply, contains, invert
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 

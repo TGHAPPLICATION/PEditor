@@ -32,7 +32,7 @@ import pypdfium2  # noqa: E402
 import visual  # noqa: E402
 from PIL import Image  # noqa: E402
 
-from peditor.worker import analyzer, edit, export, image  # noqa: E402
+from lumicat.worker import analyzer, edit, export, image  # noqa: E402
 
 CASES = ("I01", "I02", "I03", "I04", "I05", "I06", "I07", "I09")
 MAGENTA = (255, 0, 255)

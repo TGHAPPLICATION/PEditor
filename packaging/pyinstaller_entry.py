@@ -2,6 +2,6 @@
 
 import sys
 
-from peditor.__main__ import main
+from lumicat.__main__ import main
 
 sys.exit(main())

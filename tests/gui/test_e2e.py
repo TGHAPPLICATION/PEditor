@@ -11,9 +11,9 @@ from pathlib import Path
 import pymupdf
 from PySide6.QtCore import QPoint, Qt
 
-from peditor.core import drafts
-from peditor.core.service import DocumentService
-from peditor.ui.messages import NOTICES, reason_text
+from lumicat.core import drafts
+from lumicat.core.service import DocumentService
+from lumicat.ui.messages import NOTICES, reason_text
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 TIMEOUT = 60_000
@@ -313,7 +313,7 @@ def test_flow_recover_draft_after_crash(qtbot, make_window, tmp_path):
 
 def test_cancel_does_not_commit(qtbot, make_window, monkeypatch):
     """G4-04：進行中的請求取消後不提交；worker 重啟後回到原狀態並可繼續編輯。"""
-    monkeypatch.setenv("PEDITOR_WORKER_TEST_HOOKS", "1")
+    monkeypatch.setenv("LUMICAT_WORKER_TEST_HOOKS", "1")
     window = make_window()
     open_file(qtbot, window, FILES / "F04.pdf")
     click_target(qtbot, window, "World")
@@ -340,7 +340,7 @@ def test_cancel_does_not_commit(qtbot, make_window, monkeypatch):
 
 def test_escape_while_busy_cancels(qtbot, make_window, monkeypatch):
     """獨立核對（P11）：處理中焦點在編輯框時按 Esc 是「取消」（G4-04），不與編輯框的 Esc 衝突。"""
-    monkeypatch.setenv("PEDITOR_WORKER_TEST_HOOKS", "1")
+    monkeypatch.setenv("LUMICAT_WORKER_TEST_HOOKS", "1")
     window = make_window()
     open_file(qtbot, window, FILES / "F04.pdf")
     click_target(qtbot, window, "World")
@@ -384,4 +384,4 @@ def test_source_never_modified(qtbot, make_window, tmp_path):
     wait(qtbot, window)
     assert window.last_error is not None and window.last_error.code == "INVALID_REQUEST"
     assert hashlib.sha256(source.read_bytes()).hexdigest() == digest
-    assert not any(n.startswith(".~peditor-") for n in os.listdir(tmp_path))
+    assert not any(n.startswith(".~lumicat-") for n in os.listdir(tmp_path))

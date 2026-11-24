@@ -4,8 +4,8 @@ import pymupdf
 import pytest
 from test_e2e import apply, click_target, open_file, preview, wait
 
-from peditor.core import pages
-from peditor.ui.page_tools import PageToolsDialog, Request, Source
+from lumicat.core import pages
+from lumicat.ui.page_tools import PageToolsDialog, Request, Source
 
 
 def _sample(path, label, count):

@@ -12,9 +12,9 @@ PDF_LIBS = {"pymupdf", "fitz", "pikepdf", "pypdfium2"}
 # __main__.py 不列入：它只在 --version／--smoke 時匯入 pymupdf／pikepdf 讀版本字串，不開使用者 PDF；
 # 開檔路徑是否載入 PDF 程式庫由下方執行期測試涵蓋。
 MAIN_PROCESS_MODULES = [
-    *(ROOT / "src" / "peditor" / "ui").rglob("*.py"),
-    *(ROOT / "src" / "peditor" / "core").rglob("*.py"),
-    ROOT / "src" / "peditor" / "cli.py",
+    *(ROOT / "src" / "lumicat" / "ui").rglob("*.py"),
+    *(ROOT / "src" / "lumicat" / "core").rglob("*.py"),
+    ROOT / "src" / "lumicat" / "cli.py",
 ]
 
 
@@ -24,9 +24,9 @@ def _imports(path: Path):
             yield from (a.name.split(".")[0] for a in node.names)
         elif isinstance(node, ast.ImportFrom) and node.module:
             yield node.module.split(".")[0]
-            if node.module == "peditor":
-                yield from (f"peditor.{a.name}" for a in node.names)
-            elif node.module.startswith("peditor."):
+            if node.module == "lumicat":
+                yield from (f"lumicat.{a.name}" for a in node.names)
+            elif node.module.startswith("lumicat."):
                 yield node.module
 
 
@@ -34,7 +34,7 @@ def test_main_process_modules_do_not_import_pdf_libs_or_worker():
     violations = []
     for path in MAIN_PROCESS_MODULES:
         for name in _imports(path):
-            if name in PDF_LIBS or name.startswith("peditor.worker"):
+            if name in PDF_LIBS or name.startswith("lumicat.worker"):
                 violations.append(f"{path.relative_to(ROOT)}: {name}")
     assert not violations, violations
 
@@ -44,7 +44,7 @@ def test_main_process_never_imports_pdf_libs_for_user_files(tmp_path):
     script = tmp_path / "probe.py"
     script.write_text(
         "import json, sys\n"
-        "from peditor.core.service import DocumentService\n"
+        "from lumicat.core.service import DocumentService\n"
         "with DocumentService() as s:\n"
         "    doc = s.open_document(sys.argv[1])['document_id']\n"
         "    s.assess_editability(doc)\n"
@@ -52,7 +52,7 @@ def test_main_process_never_imports_pdf_libs_for_user_files(tmp_path):
         "    s.render_page(doc, 0, 72)\n"
         "loaded = sorted(m for m in sys.modules if m.split('.')[0] in "
         + repr(sorted(PDF_LIBS))
-        + " or m.startswith('peditor.worker'))\n"
+        + " or m.startswith('lumicat.worker'))\n"
         "print(json.dumps(loaded))\n",
         encoding="utf-8",
     )

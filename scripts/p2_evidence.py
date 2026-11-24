@@ -24,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tests" / "integration"))
 os.environ.setdefault(
-    "PEDITOR_MODE_B_FONT", str(ROOT / "tests/fixtures/fonts/NotoSansTC-Regular.otf")
+    "LUMICAT_MODE_B_FONT", str(ROOT / "tests/fixtures/fonts/NotoSansTC-Regular.otf")
 )
 
 import pymupdf  # noqa: E402
@@ -32,7 +32,7 @@ import pypdfium2  # noqa: E402
 import visual  # noqa: E402
 from PIL import Image  # noqa: E402
 
-from peditor.worker import analyzer, edit, export, span  # noqa: E402
+from lumicat.worker import analyzer, edit, export, span  # noqa: E402
 
 
 def cases():

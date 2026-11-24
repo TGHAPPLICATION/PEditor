@@ -7,7 +7,7 @@ LIMIT_MS = 100
 
 
 def test_ui_not_blocked(qtbot, make_window, monkeypatch):
-    monkeypatch.setenv("PEDITOR_WORKER_TEST_HOOKS", "1")
+    monkeypatch.setenv("LUMICAT_WORKER_TEST_HOOKS", "1")
     window = make_window()
     open_file(qtbot, window, FILES / "F04.pdf")
     clock, gaps, last = QElapsedTimer(), [], [0]

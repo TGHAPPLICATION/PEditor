@@ -9,8 +9,8 @@ import pymupdf
 import pypdfium2
 import pytest
 
-from peditor.core.protocol import ProtocolError
-from peditor.worker import analyzer, edit, export, span
+from lumicat.core.protocol import ProtocolError
+from lumicat.worker import analyzer, edit, export, span
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 FILES = FIXTURES / "files"

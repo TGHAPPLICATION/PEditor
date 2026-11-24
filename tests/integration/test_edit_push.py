@@ -6,7 +6,7 @@
 import pytest
 from test_edit_multi import _origins, _sample
 
-from peditor.worker import analyzer, edit, span
+from lumicat.worker import analyzer, edit, span
 
 TOL = 0.01  # pt
 UNIT = 24 / 1000  # 字寬 → pt

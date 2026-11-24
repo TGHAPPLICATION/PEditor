@@ -20,7 +20,7 @@ def deny(event, args):
         events.append(event)
         raise RuntimeError("network: " + event)
 sys.addaudithook(deny)
-from peditor.core.service import DocumentService
+from lumicat.core.service import DocumentService
 with DocumentService() as svc:
     opened = svc.open_document(sys.argv[1])
     doc = opened["document_id"]
@@ -42,9 +42,9 @@ print("OFFLINE-OK")
 
 
 def _deny_env(monkeypatch, log: Path) -> None:
-    monkeypatch.setenv("PEDITOR_WORKER_TEST_HOOKS", "1")
-    monkeypatch.setenv("PEDITOR_TEST_DENY_NETWORK", "1")
-    monkeypatch.setenv("PEDITOR_TEST_NETWORK_LOG", str(log))
+    monkeypatch.setenv("LUMICAT_WORKER_TEST_HOOKS", "1")
+    monkeypatch.setenv("LUMICAT_TEST_DENY_NETWORK", "1")
+    monkeypatch.setenv("LUMICAT_TEST_NETWORK_LOG", str(log))
 
 
 def test_offline_flow(tmp_path, monkeypatch):
@@ -86,7 +86,7 @@ def test_worker_hook_records_swallowed_attempts(tmp_path, monkeypatch):
     _deny_env(monkeypatch, log)
     code = (
         "import sys\n"
-        "from peditor.worker import server\n"
+        "from lumicat.worker import server\n"
         "sys.addaudithook(server._deny_network)\n"
         "import socket\n"
         "try:\n"

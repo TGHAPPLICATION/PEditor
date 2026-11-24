@@ -2,7 +2,7 @@
 
 import pytest
 
-from peditor.core.protocol import ERROR_CODES, PROTOCOL_ERROR_CODES, ProtocolError
+from lumicat.core.protocol import ERROR_CODES, PROTOCOL_ERROR_CODES, ProtocolError
 
 SPEC_CODES = {"UNSUPPORTED_ENCODING", "UNSUPPORTED_LAYOUT", "GLYPH_MISSING", "TEXT_OVERFLOW",
               "SHARED_RESOURCE_UNSAFE", "SIGNED_DOCUMENT", "ENCRYPTED_DOCUMENT",

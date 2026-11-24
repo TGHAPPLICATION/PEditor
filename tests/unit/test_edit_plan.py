@@ -5,15 +5,15 @@ from pathlib import Path
 
 import pytest
 
-from peditor.core.editplan import (
+from lumicat.core.editplan import (
     EditPlan,
     SpanTarget,
     common_affixes,
     parse_target_id,
     validate_plan_params,
 )
-from peditor.core.protocol import ProtocolError
-from peditor.worker import analyzer, span
+from lumicat.core.protocol import ProtocolError
+from lumicat.worker import analyzer, span
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 SPEC_PLAN_FIELDS = {"mode", "preconditions", "target", "resource_changes", "allowed_change_mask",

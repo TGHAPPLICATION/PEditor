@@ -8,8 +8,8 @@ from pathlib import Path
 import pikepdf
 import pytest
 
-from peditor.core.locate import find_text, span_bbox, span_capability
-from peditor.core.service import ServiceError
+from lumicat.core.locate import find_text, span_bbox, span_capability
+from lumicat.core.service import ServiceError
 
 FILES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 
@@ -137,7 +137,7 @@ def test_display_text_for_unmapped_glyphs():
     """P8 實機：字型沒有 ToUnicode 時，目標另附 display_text（MuPDF 在同一位置擷取的字），
     只供介面顯示；
     text、能力判定不變；能對應的目標沒有這個欄位。"""
-    from peditor.worker import analyzer
+    from lumicat.worker import analyzer
 
     document = analyzer.open_document(str(FILES / "F05.pdf"))
     try:

@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pikepdf
 import pymupdf
 
-from peditor.worker import analyzer, edit, export, span
+from lumicat.worker import analyzer, edit, export, span
 
 PIXEL_BUDGET = 12_000_000  # f015 修補訂定的視覺驗證渲染上限
 

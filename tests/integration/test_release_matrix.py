@@ -14,7 +14,7 @@ from pathlib import Path
 import pymupdf
 import pytest
 
-from peditor.core.service import DocumentService, ServiceError
+from lumicat.core.service import DocumentService, ServiceError
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 FILES = FIXTURES / "files"

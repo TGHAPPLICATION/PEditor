@@ -2,8 +2,8 @@
 
 import pytest
 
-from peditor.core import pages
-from peditor.core.limits import MAX_COMPOSE_SOURCES, MAX_PAGES
+from lumicat.core import pages
+from lumicat.core.limits import MAX_COMPOSE_SOURCES, MAX_PAGES
 
 
 @pytest.mark.parametrize(("text", "expected"), [

@@ -2,8 +2,8 @@
 
 import pytest
 
-from peditor.core import service as service_mod
-from peditor.core.service import DocumentService, ServiceError
+from lumicat.core import service as service_mod
+from lumicat.core.service import DocumentService, ServiceError
 
 
 def test_replay_split_into_batches(monkeypatch):

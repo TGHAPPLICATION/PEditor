@@ -15,8 +15,8 @@ import pytest
 import visual
 from PIL import ImageChops, ImageDraw
 
-from peditor.core.geometry import bbox_of
-from peditor.worker import analyzer
+from lumicat.core.geometry import bbox_of
+from lumicat.worker import analyzer
 
 ORIGIN_TOL = 0.01  # pt
 
