@@ -54,6 +54,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Run]
 Filename: "{app}\PEditor.exe"; Description: "{cm:LaunchProgram,PEditor}"; Flags: nowait postinstall skipifsilent
+; Optional, unchecked: open Windows "Default apps" for PEditor so the user picks it for .pdf
+; (Windows does not let installers set the default themselves; ADR-0031 section 6)
+Filename: "ms-settings:defaultapps?registeredAppUser=PEditor"; Description: "設定 PEditor 為 PDF 預設程式（開啟 Windows 設定）"; Flags: shellexec nowait postinstall skipifsilent unchecked
 
 [Registry]
 ; Right-click verb on .pdf (Windows 10 menu; Windows 11 under "Show more options")
@@ -65,3 +68,9 @@ Root: HKCU; Subkey: "Software\Classes\PEditor.pdf"; ValueType: string; ValueName
 Root: HKCU; Subkey: "Software\Classes\PEditor.pdf\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: """{app}\PEditor.exe"",0"
 Root: HKCU; Subkey: "Software\Classes\PEditor.pdf\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\PEditor.exe"" ""%1"""
 Root: HKCU; Subkey: "Software\Classes\.pdf\OpenWithProgids"; ValueType: string; ValueName: "PEditor.pdf"; ValueData: ""; Flags: uninsdeletevalue
+; Registered application (lets Windows "Default apps" list PEditor for .pdf)
+Root: HKCU; Subkey: "Software\PEditor"; Flags: uninsdeletekeyifempty
+Root: HKCU; Subkey: "Software\PEditor\Capabilities"; ValueType: string; ValueName: "ApplicationName"; ValueData: "PEditor"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\PEditor\Capabilities"; ValueType: string; ValueName: "ApplicationDescription"; ValueData: "Offline PDF text editor"
+Root: HKCU; Subkey: "Software\PEditor\Capabilities\FileAssociations"; ValueType: string; ValueName: ".pdf"; ValueData: "PEditor.pdf"
+Root: HKCU; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueName: "PEditor"; ValueData: "Software\PEditor\Capabilities"; Flags: uninsdeletevalue

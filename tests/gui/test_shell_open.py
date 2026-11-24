@@ -71,3 +71,16 @@ def test_installer_registers_per_user_verb_and_open_with():
              and "DefaultIcon" not in line]  # fmt: skip
     assert all("uninsdeletekey" in line for line in owned)
     assert any("OpenWithProgids" in line and "uninsdeletevalue" in line for line in lines)
+
+
+def test_installer_default_app_is_opt_in_via_windows_settings():
+    text = ISS.read_text(encoding="utf-8")
+    run = text.split("[Run]", 1)[1].split("[", 1)[0]
+    line = next(x for x in run.splitlines() if "ms-settings:defaultapps" in x)
+    # 預設不勾；只開 Windows 設定由使用者選，不自行改預設程式
+    assert "registeredAppUser=PEditor" in line and "unchecked" in line and "shellexec" in line
+    lines = _registry()
+    assert any(r'"Software\RegisteredApplications"; ValueType: string; ValueName: "PEditor"' in x
+               and "uninsdeletevalue" in x for x in lines)  # fmt: skip
+    assert any(r"Capabilities\FileAssociations" in x and 'ValueData: "PEditor.pdf"' in x
+               for x in lines)  # fmt: skip

@@ -156,7 +156,7 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | P9-11 | ADR-0029 | Windows 沙箱實機（清單 P9a～P9e） | 驗收頁面 | I02、T05、I01、S06 | PASS（2026-11-20，安裝包推定 3ed4441） |
 | P10-01 | ADR-0030 | 多視窗：開啟中文件的草稿持有檔案鎖，其他視窗不列出、不捨棄、不 purge；結束或當機後可復原 | `tests/unit/test_drafts_multi.py`、`tests/integration/test_drafts.py`、`tests/gui/test_drafts_ui.py` | — | PASS（本機 Linux）；Windows 實機待驗 |
 | P10-02 | ADR-0030 | 「檔案 → 開新視窗」（Ctrl+N）；視窗標題顯示檔名與未另存狀態（不在選單列重複） | `tests/gui/test_multi_window.py` | F04 | PASS（本機 Linux offscreen）；Windows 實機待驗 |
-| P10-03 | ADR-0031 | 檔案總管右鍵「用 PEditor 開啟」與「開啟方式」（HKCU、卸載移除、不改預設程式）；`PEditor.exe <檔案>` 啟動即開檔 | `tests/gui/test_shell_open.py` | F04 | PASS（本機 Linux offscreen、機碼靜態檢查）；Windows 實機待驗 |
+| P10-03 | ADR-0031 | 檔案總管右鍵「用 PEditor 開啟」與「開啟方式」（HKCU、卸載移除、不自行改預設程式）；安裝完成頁選用「設為 PDF 預設程式」開啟 Windows 設定；`PEditor.exe <檔案>` 啟動即開檔 | `tests/gui/test_shell_open.py` | F04 | PASS（本機 Linux offscreen、機碼靜態檢查）；Windows 實機待驗 |
 | G8-05 | P8 | 標明 macOS 最低支援版本 | ADR-0025 §3（15.0、Apple Silicon） | — | 完成 |
 
 ## 共通（§8）

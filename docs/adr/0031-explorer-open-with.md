@@ -17,9 +17,13 @@
    - `Software\Classes\SystemFileAssociations\.pdf\shell\PEditor`：右鍵「用 PEditor 開啟」（Windows 10 直接顯示；Windows 11 在「顯示更多選項」）。
    - `Software\Classes\PEditor.pdf` 加 `.pdf\OpenWithProgids` 的值：出現在「開啟方式」清單（Windows 11 新版右鍵選單第一層即可看到）。
    - 指令一律為 `"{app}\PEditor.exe" "%1"`（兩者都加引號，含空白的路徑不會被拆開）。
-3. **不改預設 PDF 程式**：不寫 `.pdf` 的預設值、不碰 `UserChoice`；使用者要設為預設時自行在 Windows 設定選擇。
+3. **安裝程式不自行改預設 PDF 程式**：不寫 `.pdf` 的預設值、不碰 `UserChoice`；使用者要設為預設時在 Windows 設定選擇（見 6）。
 4. 不做 IExplorerCommand（需 COM DLL 與套件身分／簽章，維運成本高）。
-5. `peditor.iss` 改為 UTF-8（只有選單文字是中文；CI 鎖定 Inno Setup 6.7.1，6.3 起可讀無 BOM 的 UTF-8）。
+5. `peditor.iss` 改為 UTF-8（只有右鍵選單與完成頁勾選框的文字是中文；CI 鎖定 Inno Setup 6.7.1，6.3 起可讀無 BOM 的 UTF-8）。
+6. **設為預設程式（選用）**：2026-11-24 工程師追加。安裝完成頁加一個**預設不勾**的「設定 PEditor 為 PDF 預設程式（開啟 Windows 設定）」；
+   勾選後開啟 `ms-settings:defaultapps?registeredAppUser=PEditor`，由使用者在 Windows 設定自行選擇（Windows 10/11 不允許程式自行改預設，`UserChoice` 有雜湊保護）。
+   為此登記 `HKCU\Software\RegisteredApplications\PEditor` → `Software\PEditor\Capabilities`（`FileAssociations\.pdf` = `PEditor.pdf`），卸載時移除。
+   直接開到 PEditor 頁面需 Windows 11 21H2／22H2（2023-04 累積更新）或 23H2 以上；較舊版本開到一般的預設應用程式頁面。
 
 ## 後果
 
