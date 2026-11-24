@@ -2,7 +2,7 @@
 
 import sys
 
-from test_e2e import FILES, apply, click_target, open_file, preview
+from test_e2e import FILES, apply, click_target, open_file, preview, wait
 
 from peditor.ui import app as app_module
 
@@ -18,6 +18,27 @@ def test_title_shows_file_name(qtbot, make_window):
     apply(qtbot, window)
     assert window.windowTitle().startswith("F04.pdf * — ")
     assert str(FILES) not in window.windowTitle()  # 只顯示檔名，不顯示完整路徑
+
+
+def test_title_follows_save_as(qtbot, make_window, tmp_path):
+    """實機回報：另存新檔後標題仍是舊檔名 → 改顯示新檔名；之後再改加「 *」；開別的檔恢復。"""
+    out = tmp_path / "新檔 v2.pdf"
+    window = make_window(ask_save=lambda: str(out))
+    open_file(qtbot, window, FILES / "F04.pdf")
+    click_target(qtbot, window, "World")
+    preview(qtbot, window, "Earth")
+    apply(qtbot, window)
+    window.actions["save"].trigger()
+    wait(qtbot, window)
+    assert window.last_error is None
+    assert window.windowTitle().startswith("新檔 v2.pdf — PEditor")
+    assert str(tmp_path) not in window.windowTitle()
+    click_target(qtbot, window, "Earth")
+    preview(qtbot, window, "Moon")
+    apply(qtbot, window)
+    assert window.windowTitle().startswith("新檔 v2.pdf * — ")
+    open_file(qtbot, window, FILES / "F04.pdf")
+    assert window.windowTitle().startswith("F04.pdf — ")
 
 
 def test_new_window_spawns_process(qtbot, make_window, monkeypatch):
