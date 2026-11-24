@@ -592,10 +592,12 @@ class MainWindow(QMainWindow):
         if self.document_id is None or self.service is None:
             self.setWindowTitle(base)
             return
+        # 另存後顯示新檔名（實機回報：另存後標題仍是舊檔名）；「 *」表示新檔之後又有未另存的修改
         try:
-            name = os.path.basename(self.service.document_path(self.document_id))
+            path = self._saved_path or self.service.document_path(self.document_id)
         except ServiceError:
-            name = ""
+            path = ""
+        name = os.path.basename(path)
         mark = " *" if self.unsaved else ""
         # 視窗標題顯示目前檔名，多個視窗時（工作列、Alt+Tab）以資區別（ADR-0030）
         self.setWindowTitle(f"{name}{mark} — {base}")
@@ -1069,6 +1071,7 @@ class MainWindow(QMainWindow):
         if doc == self.document_id:
             self.saved_revision = revision
             self._saved_path = path
+            self._refresh_actions()  # 標題改為新檔名
         warnings = result.get("warnings") or []
         self._status("；".join(["已另存", *warnings]))
 
