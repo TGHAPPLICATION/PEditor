@@ -12,7 +12,6 @@ from collections.abc import Callable
 
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
-    QDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -23,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from peditor.core import pages
+from peditor.ui.screen import FittedDialog, fit_size
 
 NO_TEXT = "（此頁沒有可擷取的文字，可能是掃描圖片）"
 LIMITED = "（此頁內容超過處理上限，未擷取）"
@@ -46,7 +46,7 @@ def combine(results: list[tuple[int, dict]], headers: bool = True) -> str:
     return "\n\n".join(parts)
 
 
-class TextExtractDialog(QDialog):
+class TextExtractDialog(FittedDialog):
     """extract(頁索引) → extract_text 結果（失敗時丟出 ValueError，訊息可直接顯示）；
     ask_save() → .txt 路徑或 None。"""
 
@@ -60,7 +60,7 @@ class TextExtractDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("文字擷取")
-        self.resize(680, 600)
+        fit_size(self, 680, 600)  # 小螢幕或高 DPI 時縮小，按鈕不超出畫面
         self.page_count, self._extract, self._ask_save = page_count, extract, ask_save
 
         self.range = QLineEdit(str(current_page + 1))

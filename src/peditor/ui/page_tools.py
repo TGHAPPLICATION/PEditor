@@ -13,7 +13,6 @@ from dataclasses import dataclass
 
 from PySide6.QtWidgets import (
     QCheckBox,
-    QDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -29,6 +28,7 @@ from PySide6.QtWidgets import (
 from peditor.core import pages
 from peditor.core.limits import MAX_COMPOSE_SOURCES, MAX_PAGES
 from peditor.ui.messages import reasons_text
+from peditor.ui.screen import FittedDialog, fit_size
 
 LIMITS_TEXT = (
     "結果保留每頁內容、註解、頁面大小與旋轉；不保留書籤。"
@@ -56,7 +56,7 @@ class Request:
     open_after: bool
 
 
-class PageToolsDialog(QDialog):
+class PageToolsDialog(FittedDialog):
     """probe(path) → Source 或丟出 ValueError（訊息可直接顯示）；
     ask_files／ask_file 為選檔對話框。"""
 
@@ -65,7 +65,7 @@ class PageToolsDialog(QDialog):
                  parent: QWidget | None = None) -> None:  # fmt: skip
         super().__init__(parent)
         self.setWindowTitle("頁面管理")
-        self.resize(640, 560)
+        fit_size(self, 640, 560)  # 小螢幕或高 DPI 時縮小，按鈕不超出畫面
         self.current, self._probe = current, probe
         self._ask_files, self._ask_file = ask_files, ask_file
         self.request: Request | None = None

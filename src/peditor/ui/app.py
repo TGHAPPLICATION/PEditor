@@ -63,6 +63,7 @@ from peditor.ui import theme
 from peditor.ui.jobs import JobRunner
 from peditor.ui.messages import NOTICES, reason_text, reasons_text
 from peditor.ui.page_tools import PageToolsDialog, Request, Source, probe_error_text
+from peditor.ui.screen import FittedDialog, fit_size, keep_inside
 from peditor.ui.text_extract import TextExtractDialog
 
 SMOKE_MARKER = "PEDITOR_SMOKE_OK"
@@ -352,7 +353,7 @@ class NoticeLabel(QLabel):
         self.setVisible(bool(text))
 
 
-class FindBar(QDialog):
+class FindBar(FittedDialog):
     """尋找（Ctrl+F，選單「編輯 → 尋找…」）：小型浮動視窗，不擋住頁面；Enter 或「尋找」送出。"""
 
     def __init__(self, parent: QWidget) -> None:
@@ -370,7 +371,7 @@ class FindBar(QDialog):
         layout.addWidget(self.find_button)
 
 
-class DraftDialog(QDialog):
+class DraftDialog(FittedDialog):
     """列出全部未逾期草稿，由使用者選一份復原或捨棄（ADR-0020 §5、P4 U9）。
     只顯示檔名，不顯示完整路徑。choice：("recover"|"discard", draft_id)，稍後再說為 None。"""
 
@@ -425,7 +426,7 @@ class MainWindow(QMainWindow):
     ) -> None:
         super().__init__()
         self.setWindowTitle(f"PEditor {__version__}{_build_suffix()}")
-        self.resize(1280, 860)
+        fit_size(self, 1280, 860)  # 小螢幕或高 DPI（例如 150%）時縮小，不超出畫面
         self.service = service
         self.jobs = JobRunner()
         self._ask_open = ask_open or self._dialog_open
@@ -1231,6 +1232,11 @@ class MainWindow(QMainWindow):
         dialog = DraftDialog(drafts, self)
         dialog.exec()
         return dialog.choice
+
+    def showEvent(self, event) -> None:  # noqa: N802 — Qt 介面
+        super().showEvent(event)
+        if not self.isMaximized():
+            keep_inside(self)  # 含標題列與狀態列都在螢幕可用範圍內
 
     def closeEvent(self, event) -> None:  # noqa: N802 — Qt 介面
         """正常關閉：取消進行中的請求、收下已完成的結果，再關閉文件並刪除草稿
