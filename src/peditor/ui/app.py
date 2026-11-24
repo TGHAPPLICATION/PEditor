@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -475,6 +476,7 @@ class MainWindow(QMainWindow):
         toolbar = self.addToolBar("檔案")
         self.actions: dict[str, QAction] = {}
         for name, text, key, slot in (
+            ("new_window", "開新視窗", QKeySequence.StandardKey.New, self.new_window),
             ("open", "開啟", QKeySequence.StandardKey.Open, self.open_dialog),
             ("save", "另存新檔", QKeySequence.StandardKey.SaveAs, self.save_dialog),
             ("undo", "復原", QKeySequence.StandardKey.Undo, self.undo),
@@ -538,7 +540,7 @@ class MainWindow(QMainWindow):
         panel_action.setText("編輯面板")
         self.actions["panel"] = panel_action
         menus = (
-            ("檔案", ["open", "save"]),
+            ("檔案", ["new_window", None, "open", "save"]),
             ("編輯", ["undo", "redo", None, "find", "manual_cell", "cancel"]),
             ("檢視", ["zoom_in", "zoom_out", "zoom_reset", "fit_width", None, "panel"]),
             ("工具", ["page_tools"]),
@@ -551,6 +553,10 @@ class MainWindow(QMainWindow):
                     menu.addSeparator()
                 else:
                     menu.addAction(self.actions[name])
+        # 目前檔名顯示在選單列右側與視窗標題，多個視窗時以資區別（ADR-0030）
+        self.file_label = QLabel("")
+        self.file_label.setObjectName("file_label")
+        self.menuBar().setCornerWidget(self.file_label, Qt.Corner.TopRightCorner)
         self._refresh_actions()
 
     # --- 狀態 ----------------------------------------------------------
@@ -562,7 +568,32 @@ class MainWindow(QMainWindow):
         self.progress.setVisible(busy)
         self._refresh_actions()
 
+    def _update_title(self) -> None:
+        base = f"PEditor {__version__}{_build_suffix()}"
+        if self.document_id is None or self.service is None:
+            self.setWindowTitle(base)
+            self.file_label.setText("")
+            return
+        try:
+            name = os.path.basename(self.service.document_path(self.document_id))
+        except ServiceError:
+            name = ""
+        mark = " *" if self.unsaved else ""
+        self.setWindowTitle(f"{name}{mark} — {base}")
+        self.file_label.setText(name + ("　・　未另存的修改" if self.unsaved else ""))
+        self.file_label.setToolTip(name)
+
+    def new_window(self) -> None:
+        """另開一個 PEditor（各自一個行程與 worker，ADR-0030）。"""
+        try:
+            spawn_window()
+        except OSError:
+            self._status("無法開啟新視窗")
+            return
+        self._status("已開啟新視窗")
+
     def _refresh_actions(self) -> None:
+        self._update_title()
         busy, opened = self.jobs.busy, self.document_id is not None
         history = (self.service.history(self.document_id)
                    if opened and self.service else {"undo": 0, "redo": 0})  # fmt: skip
@@ -1134,6 +1165,24 @@ def _shown(text: str, original: str | None = None) -> str:
     if original is not None and text != original:
         return text.replace("\ufffd", "□") + "（MuPDF 擷取，僅供參考）"
     return text.replace("\ufffd", "□")
+
+
+def _self_command() -> list[str]:
+    """重新啟動本程式的指令：打包後為執行檔本身，開發環境為 `python -m peditor`。"""
+    if getattr(sys, "frozen", False):
+        return [sys.executable]
+    return [sys.executable, "-m", "peditor"]
+
+
+def spawn_window() -> None:
+    """開新視窗：另啟一個獨立的 PEditor 行程（不帶任何參數或檔案路徑）。"""
+    subprocess.Popen(  # noqa: S603 — 固定指令，不經 shell
+        _self_command(),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        close_fds=True,
+    )
 
 
 def prepare_storage():

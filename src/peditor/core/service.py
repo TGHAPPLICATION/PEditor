@@ -159,6 +159,7 @@ class DocumentService:
         doc = _Doc(path, result["sha256"], document_id, revision=result["revision"])
         if self.drafts is not None:
             doc.draft_id = self.drafts.new_id()
+            self.drafts.claim(doc.draft_id)  # 多視窗：其他 PEditor 不列出、不刪除（ADR-0030）
         self._docs[document_id] = doc
         return result
 
@@ -444,6 +445,8 @@ class DocumentService:
                 self.drafts.discard(doc.draft_id)
             except ProtocolError:
                 pass  # 刪不掉的草稿於 7 天後由 purge 刪除
+            finally:
+                self.drafts.release(doc.draft_id)
         if doc.worker_id is not None and self._worker is not None:
             try:
                 self._call("close_document", document_id=doc.worker_id)
@@ -471,6 +474,8 @@ class DocumentService:
             worker, self._worker = self._worker, None
         if worker is not None:
             worker.kill()
+        if self.drafts is not None:  # 結束時放開草稿鎖（不刪草稿）；下次或其他視窗可復原
+            self.drafts.release_all()
 
     def __enter__(self) -> DocumentService:
         return self

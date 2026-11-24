@@ -154,6 +154,8 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | P9-09 | ADR-0029 | 打包：主題與圖示內嵌於程式碼，無新增資料檔 | CI release job 建置與 `--self-check` | — | CI run 43390191795 雙平台 release success |
 | P9-10 | ADR-0029 | 文件：spec §4／§6、THREAT_MODEL T16、已知限制 F13 | 文件審查（獨立核對） | — | 完成 |
 | P9-11 | ADR-0029 | Windows 沙箱實機（清單 P9a～P9e） | 驗收頁面 | I02、T05、I01、S06 | PASS（2026-11-20，安裝包推定 3ed4441） |
+| P10-01 | ADR-0030 | 多視窗：開啟中文件的草稿持有檔案鎖，其他視窗不列出、不捨棄、不 purge；結束或當機後可復原 | `tests/unit/test_drafts_multi.py`、`tests/integration/test_drafts.py`、`tests/gui/test_drafts_ui.py` | — | PASS（本機 Linux）；Windows 實機待驗 |
+| P10-02 | ADR-0030 | 「檔案 → 開新視窗」（Ctrl+N）；視窗標題與選單列右側顯示檔名與未另存狀態 | `tests/gui/test_multi_window.py` | F04 | PASS（本機 Linux offscreen）；Windows 實機待驗 |
 | G8-05 | P8 | 標明 macOS 最低支援版本 | ADR-0025 §3（15.0、Apple Silicon） | — | 完成 |
 
 ## 共通（§8）

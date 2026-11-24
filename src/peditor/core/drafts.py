@@ -23,6 +23,38 @@ from peditor.core.protocol import ProtocolError
 RETENTION_S = 7 * 24 * 3600
 _NAME = re.compile(r"^[0-9a-f]{16}\.json$")
 _ASSET = re.compile(r"^(?P<draft>[0-9a-f]{16})-(?P<sha>[0-9a-f]{64})\.img$")
+_LOCK = re.compile(r"^(?P<draft>[0-9a-f]{16})\.lock$")
+
+
+def _try_lock(fd: int) -> bool:
+    """非阻塞取得整個檔案的排他鎖（行程結束時由作業系統釋放）。"""
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except OSError:
+        return False
+
+
+def _unlock(fd: int) -> None:
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)
+
+
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -40,6 +72,7 @@ class DraftStore:
     def __init__(self, folder: str | os.PathLike | None = None, now=time.time) -> None:
         self.folder = Path(folder) if folder is not None else default_dir()
         self._now = now
+        self._held: dict[str, int] = {}  # 本行程持有的草稿鎖（ADR-0030：多個視窗同時執行）
         try:
             self.folder.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
@@ -48,6 +81,56 @@ class DraftStore:
 
     def new_id(self) -> str:
         return secrets.token_hex(8)
+
+    # --- 多視窗（ADR-0030）：開啟中的文件持有草稿鎖；其他視窗不列出、不刪除 ----------
+    def claim(self, draft_id: str) -> bool:
+        """開啟文件時取得草稿鎖；當機或強制結束時由作業系統釋放，下次啟動即可復原。"""
+        if draft_id in self._held:
+            return True
+        if not _NAME.match(f"{draft_id}.json"):
+            return False
+        try:
+            fd = os.open(self._lock_file(draft_id), os.O_RDWR | os.O_CREAT, 0o600)
+        except OSError:
+            return False
+        if not _try_lock(fd):
+            os.close(fd)
+            return False
+        self._held[draft_id] = fd
+        return True
+
+    def release(self, draft_id: str) -> None:
+        fd = self._held.pop(draft_id, None)
+        if fd is None:
+            return
+        _unlock(fd)
+        try:
+            self._lock_file(draft_id).unlink(missing_ok=True)
+        except OSError:
+            pass  # 另一個行程正好在檢查：留給 purge
+
+    def release_all(self) -> None:
+        for draft_id in list(self._held):
+            fd = self._held.pop(draft_id)
+            _unlock(fd)
+
+    def in_use(self, draft_id: str) -> bool:
+        """另一個執行中的 PEditor 正開著這份草稿的文件（本行程持有的不算）。"""
+        if draft_id in self._held:
+            return False
+        path = self._lock_file(draft_id)
+        try:
+            fd = os.open(path, os.O_RDWR)
+        except FileNotFoundError:
+            return False
+        except OSError:
+            return True  # 無法判斷時保守視為使用中，不刪
+        locked = not _try_lock(fd)
+        if locked:
+            os.close(fd)
+        else:
+            _unlock(fd)
+        return locked
 
     def save(self, draft_id: str, path: str, sha256: str, log: list[dict], position: int,
              assets: dict[str, bytes] | None = None) -> None:  # fmt: skip
@@ -125,6 +208,8 @@ class DraftStore:
         for name in sorted(self._names()):
             if not _NAME.match(name):
                 continue
+            if self.in_use(name[:-5]):
+                continue  # 另一個視窗正在編輯，不提供復原
             data = self.load(name[:-5])
             if data is None:
                 continue
@@ -134,6 +219,8 @@ class DraftStore:
         return out
 
     def discard(self, draft_id: str) -> None:
+        if self.in_use(draft_id):
+            raise ProtocolError("SAVE_FAILED", "草稿正由另一個 PEditor 視窗使用")
         if _NAME.match(f"{draft_id}.json"):
             try:
                 self._file(draft_id).unlink(missing_ok=True)
@@ -141,6 +228,8 @@ class DraftStore:
                     match = _ASSET.match(name)
                     if match and match["draft"] == draft_id:
                         (self.folder / name).unlink(missing_ok=True)
+                if draft_id not in self._held:  # 舊執行留下、已無人持有的鎖檔
+                    self._lock_file(draft_id).unlink(missing_ok=True)
             except OSError as exc:
                 raise ProtocolError("SAVE_FAILED", "無法刪除復原草稿") from exc
 
@@ -153,7 +242,13 @@ class DraftStore:
                 # 草稿已不存在的新圖（例如寫入中斷）；只刪舊檔，避免刪到另一個執行中程式剛寫的圖
                 if not (self.folder / f"{_ASSET.match(name)['draft']}.json").exists():
                     self._remove_if_old(path)
+            elif _LOCK.match(name):  # 沒有人持有、草稿也不在的鎖檔
+                draft = _LOCK.match(name)["draft"]
+                if not (self.folder / f"{draft}.json").exists() and not self.in_use(draft):
+                    self._remove_if_old(path)
             elif _NAME.match(name):
+                if self.in_use(name[:-5]):
+                    continue
                 try:
                     data = json.loads(path.read_text(encoding="utf-8"))
                 except (OSError, ValueError):
@@ -184,6 +279,9 @@ class DraftStore:
                 path.unlink()
         except OSError:
             pass
+
+    def _lock_file(self, draft_id: str) -> Path:
+        return self.folder / f"{draft_id}.lock"
 
     def _file(self, draft_id: str) -> Path:
         return self.folder / f"{draft_id}.json"
