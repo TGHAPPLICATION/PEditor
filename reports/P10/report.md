@@ -66,6 +66,7 @@ uv run pytest -q --deselect tests/integration/test_fixtures.py::test_generator_r
 | U3 | `a8de098` 是 `0cd8bd8` 的 cherry-pick（讓 P10 分支自足），實機測的是 `0cd8bd8` | 已記錄 |
 | U4 | 取得草稿鎖失敗（極罕見：新草稿編號剛好被另一行程持有）時不提示，該草稿不受跨視窗保護 | 低，已記錄未修 |
 | U5 | 以「-」開頭的相對檔名會被當成選項；檔案總管一律傳絕對路徑，不影響右鍵開啟 | 低，已記錄未修 |
+| U6 | PR #19 的 CI（`39fb4c3`）windows-latest 兩次 test 中一次 `test_no_listening_sockets` 失敗：列出 214 筆系統服務的 socket（pid 948、3984 等）。原因是測試輔助程式以父 pid 建行程樹，Windows 不改掛孤兒行程，父 pid 被重用時（wininit、csrss 的父行程 smss 早已結束）整串系統服務被誤認為測試行程的子孫。修正：建立時間早於父行程者不算子行程（`tests/security/network.py`），不是放寬檢查；同一 commit 另一次 windows test 通過 | 已修正，重跑 CI |
 
 ## 10. 關卡結果
 
