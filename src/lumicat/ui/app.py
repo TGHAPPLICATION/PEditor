@@ -1150,8 +1150,16 @@ class MainWindow(QMainWindow):
             except ServiceError as exc:
                 raise ValueError(reason_text(exc.code)) from None
 
+        def ocr(page_index: int) -> dict:
+            try:
+                return self.service.ocr_page(doc, page_index)
+            except ServiceError as exc:
+                raise ValueError(reason_text(exc.code)) from None
+
+        # 作業系統內建 OCR 只在 Windows、macOS（ADR-0035）
+        ocr_call = ocr if sys.platform in ("win32", "darwin") else None
         dialog = TextExtractDialog(self.page_count, self.page_index, extract,
-                                   self._dialog_save_text, self)  # fmt: skip
+                                   self._dialog_save_text, self, ocr_call)  # fmt: skip
         self._exec_dialog(dialog)
 
     def _exec_dialog(self, dialog: QDialog) -> None:

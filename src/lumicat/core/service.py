@@ -185,6 +185,10 @@ class DocumentService:
         """文字擷取（ADR-0033）：一頁的文字（含已套用、未另存的修改）；limited＝內容超過處理上限未擷取。"""
         return self._doc_call(document_id, "extract_text", {"page_index": page_index}, None)
 
+    def ocr_page(self, document_id: str, page_index: int) -> dict:
+        """作業系統內建 OCR（ADR-0035）：辨識一頁（含未另存的修改）點陣中的文字；只讀。"""
+        return self._doc_call(document_id, "ocr_page", {"page_index": page_index}, None)
+
     def plan_text_edit(
         self,
         document_id: str,

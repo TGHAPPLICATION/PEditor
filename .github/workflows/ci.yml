@@ -29,6 +29,8 @@ jobs:
         os: [windows-latest, macos-15]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    env:
+      LUMICAT_REQUIRE_OCR: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -48,6 +50,14 @@ jobs:
           key: fonts-${{ hashFiles('tests/fixtures/fonts/fonts.json') }}
       - name: Fetch fixture fonts (pinned commit + SHA-256)
         run: uv run python scripts/fetch_fonts.py
+      # 作業系統內建 OCR（ADR-0035）：Windows 安裝「中文（台灣）」OCR 選用功能；OCR 測試在 CI 必須實跑
+      - name: Windows OCR language (zh-TW)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $cap = Get-WindowsCapability -Online -Name "Language.OCR~~~zh-TW~0.0.1.0"
+          if ($cap.State -ne "Installed") { Add-WindowsCapability -Online -Name "Language.OCR~~~zh-TW~0.0.1.0" | Out-Null }
+          (Get-WindowsCapability -Online -Name "Language.OCR~~~zh-TW~0.0.1.0").State
       # 與人工實機驗證同一支腳本（manual-steps §3、§8），差別只在不開視窗
       - name: P0 check script (Windows)
         if: runner.os == 'Windows'
@@ -55,6 +65,9 @@ jobs:
       - name: P0 check script (macOS)
         if: runner.os == 'macOS'
         run: bash scripts/p0_macos_check.sh --skip-launch
+      - name: OCR accuracy (synthetic scans)
+        shell: bash
+        run: uv run python scripts/ocr_benchmark.py | tee -a "$GITHUB_STEP_SUMMARY"
       # 檢查腳本只印每步最後 5 行；失敗時印出完整 log 以便查明原因（P4 U15：Windows 偶發 0xC0000005）
       - name: Full check log (on failure)
         if: failure()

@@ -26,6 +26,8 @@ from lumicat.core.limits import MAX_EXTRACT_TOTAL_CHARS
 from lumicat.ui.screen import FittedDialog, fit_size
 
 NO_TEXT = "（此頁沒有可擷取的文字，可能是掃描圖片）"
+OCR_NOTE = "（以下為 OCR 辨識結果，可能有錯字，請核對）"
+OCR_EMPTY = "（OCR 辨識不到文字）"
 LIMITED = "（此頁內容超過處理上限，未擷取）"
 
 
@@ -42,14 +44,18 @@ def combine(results: list[tuple[int, dict]], headers: bool = True) -> str:
             if result["text"] and not result["limited"]:
                 parts.append(result["text"])
             continue
-        body = LIMITED if result["limited"] else (result["text"] or NO_TEXT)
+        if result.get("ocr"):  # 作業系統 OCR 的結果另加註記（ADR-0035）
+            body = f"{OCR_NOTE}\n{result['text']}" if result["text"] else OCR_EMPTY
+        else:
+            body = LIMITED if result["limited"] else (result["text"] or NO_TEXT)
         parts.append(f"{page_header(index + 1)}\n{body}")
     return "\n\n".join(parts)
 
 
 class TextExtractDialog(FittedDialog):
     """extract(頁索引) → extract_text 結果（失敗時丟出 ValueError，訊息可直接顯示）；
-    ask_save() → .txt 路徑或 None。"""
+    ask_save() → .txt 路徑或 None；
+    ocr(頁索引) → ocr_page 結果（None＝此平台不提供 OCR，ADR-0035）。"""
 
     def __init__(
         self,
@@ -58,11 +64,13 @@ class TextExtractDialog(FittedDialog):
         extract: Callable[[int], dict],
         ask_save: Callable[[], str | None],
         parent: QWidget | None = None,
+        ocr: Callable[[int], dict] | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("文字擷取")
         fit_size(self, 680, 600)  # 小螢幕或高 DPI 時縮小，按鈕不超出畫面
         self.page_count, self._extract, self._ask_save = page_count, extract, ask_save
+        self._ocr = ocr
 
         self.range = QLineEdit(str(current_page + 1))
         self.range.setPlaceholderText("例如 1-3,5")
@@ -79,6 +87,11 @@ class TextExtractDialog(FittedDialog):
         top.addWidget(caption)
         top.addWidget(self.range, 1)
         top.addWidget(self.extract_button)
+        # 沒有文字的頁才出現；按下才辨識（每頁可能要幾秒，工程師 2026-11-25 選手動）
+        self.ocr_button = QPushButton("辨識圖片文字")
+        self.ocr_button.setToolTip("用作業系統內建的文字辨識（OCR）辨識沒有文字的頁")
+        self.ocr_button.setVisible(False)
+        top.addWidget(self.ocr_button)
 
         self.search = QLineEdit()
         self.search.setPlaceholderText("在擷取結果中搜尋")
@@ -120,6 +133,7 @@ class TextExtractDialog(FittedDialog):
         self.find_button.clicked.connect(self.find_next)
         self.search.returnPressed.connect(self.find_next)
         self.headers_button.toggled.connect(self._show)
+        self.ocr_button.clicked.connect(self.run_ocr)
         self.copy_button.clicked.connect(self.copy_all)
         self.save_button.clicked.connect(self.save_text)
         self.close_button.clicked.connect(self.accept)
@@ -132,6 +146,34 @@ class TextExtractDialog(FittedDialog):
             button.setEnabled(has_text)
         # 只要有擷取結果就能切換（移除頁碼後若只剩空白頁，仍要能加回，P12 獨立核對）
         self.headers_button.setEnabled(bool(self.results))
+        self.ocr_button.setVisible(self._ocr is not None and bool(self._pending_ocr()))
+
+    def _pending_ocr(self) -> list[int]:
+        """還沒辨識過、沒有文字、也沒有超過處理上限的頁。"""
+        return [n for n, (_i, r) in enumerate(self.results)
+                if not r["text"] and not r["limited"] and not r.get("ocr")]  # fmt: skip
+
+    def run_ocr(self) -> None:
+        """依序辨識沒有文字的頁；任一頁失敗即停止並顯示原因（已辨識的頁保留）。"""
+        if self._ocr is None:
+            return
+        done = 0
+        for n in self._pending_ocr():
+            index, _result = self.results[n]
+            self.info.setText(f"辨識第 {index + 1} 頁中…")
+            QGuiApplication.processEvents()
+            try:
+                found = self._ocr(index)
+            except ValueError as exc:
+                self._show()
+                self.info.setText(str(exc))
+                self._refresh()
+                return
+            self.results[n] = (index, {"text": found["text"], "limited": False, "ocr": True})
+            done += 1
+        self._show()
+        self.info.setText(f"已用 OCR 辨識 {done} 頁；辨識結果可能有錯字，請核對")
+        self._refresh()
 
     def run(self) -> None:
         # 失敗時清空舊結果，避免把上一次的內容誤認為這次頁碼的結果（P12 獨立核對）

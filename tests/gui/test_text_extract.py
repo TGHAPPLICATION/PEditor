@@ -184,3 +184,62 @@ def test_save_does_not_overwrite_appended_name_and_is_atomic(qtbot, tmp_path, mo
     assert dialog.info.text() == "無法寫入文字檔"
     assert existing.read_text(encoding="utf-8") == "原本的內容"  # 失敗不留半個檔
     assert sorted(p.name for p in tmp_path.iterdir()) == ["結果.txt"]
+
+
+def make_ocr_dialog(qtbot, ocr):
+    dialog = TextExtractDialog(4, 0, PAGES.__getitem__, lambda: None, None, ocr)
+    qtbot.addWidget(dialog)
+    return dialog
+
+
+def test_ocr_button_only_for_pages_without_text(qtbot):
+    """ADR-0035：有沒有文字的頁且平台支援時才出現「辨識圖片文字」。"""
+    dialog = make_ocr_dialog(qtbot, lambda i: {"text": "辨識", "lines": 1})
+    assert not dialog.ocr_button.isVisibleTo(dialog)  # 第 1 頁有文字
+    dialog.range.setText("1-4")
+    dialog.run()
+    assert dialog.ocr_button.isVisibleTo(dialog)  # 第 2 頁沒有文字（第 4 頁超限不辨識）
+    plain = make_ocr_dialog(qtbot, None)
+    plain.range.setText("1-4")
+    plain.run()
+    assert not plain.ocr_button.isVisibleTo(plain)  # 平台不提供 OCR
+
+
+def test_ocr_fills_empty_pages_with_note(qtbot):
+    calls = []
+
+    def ocr(index):
+        calls.append(index)
+        return {"text": "掃描頁的文字", "lines": 1}
+
+    dialog = make_ocr_dialog(qtbot, ocr)
+    dialog.range.setText("1-4")
+    dialog.run()
+    qtbot.mouseClick(dialog.ocr_button, Qt.MouseButton.LeftButton)
+    assert calls == [1]  # 只辨識沒有文字、未超限的頁
+    text = dialog.text.toPlainText()
+    assert "—— 第 2 頁 ——\n（以下為 OCR 辨識結果，可能有錯字，請核對）\n掃描頁的文字" in text
+    assert "已用 OCR 辨識 1 頁" in dialog.info.text()
+    assert not dialog.ocr_button.isVisibleTo(dialog)  # 辨識過就不再出現
+    qtbot.mouseClick(dialog.headers_button, Qt.MouseButton.LeftButton)  # 移除頁碼時也移除註記
+    assert dialog.text.toPlainText() == "第一頁內容\n第二行\n\n掃描頁的文字\n\nHello 第三頁"
+
+
+def test_ocr_failure_shows_reason_and_keeps_button(qtbot):
+    def ocr(_index):
+        raise ValueError("系統未安裝繁體中文文字辨識")
+
+    dialog = make_ocr_dialog(qtbot, ocr)
+    dialog.range.setText("2")
+    dialog.run()
+    qtbot.mouseClick(dialog.ocr_button, Qt.MouseButton.LeftButton)
+    assert dialog.info.text() == "系統未安裝繁體中文文字辨識"
+    assert NO_TEXT in dialog.text.toPlainText() and dialog.ocr_button.isVisibleTo(dialog)
+
+
+def test_ocr_empty_result_noted(qtbot):
+    dialog = make_ocr_dialog(qtbot, lambda i: {"text": "", "lines": 0})
+    dialog.range.setText("2")
+    dialog.run()
+    dialog.run_ocr()
+    assert dialog.text.toPlainText() == "—— 第 2 頁 ——\n（OCR 辨識不到文字）"

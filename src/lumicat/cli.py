@@ -185,3 +185,21 @@ def _blind_edit(service: DocumentService, doc: str, opened: dict, case: dict, de
         return result
     except ServiceError as exc:
         return {"ready": False, "error": exc.code}
+
+
+def ocr_probe(argv: list[str]) -> int:
+    """作業系統內建 OCR 自我檢查（ADR-0035；打包後的 release 自我檢查與 CI 用）。
+    只輸出狀態代碼與字數，不輸出辨識文字（文件內容不進日誌）。"""
+    parser = argparse.ArgumentParser(prog="lumicat ocr-probe", description="OCR 自我檢查")
+    parser.add_argument("pdf", type=Path)
+    parser.add_argument("--page", type=int, default=1)
+    args = parser.parse_args(argv)
+    with DocumentService() as service:
+        try:
+            document_id = service.open_document(args.pdf)["document_id"]
+            found = service.ocr_page(document_id, args.page - 1)
+        except ServiceError as exc:
+            print(json.dumps({"status": exc.code}))
+            return 3
+    print(json.dumps({"status": "ok", "chars": len(found["text"]), "lines": found["lines"]}))
+    return 0

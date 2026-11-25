@@ -34,6 +34,8 @@ ERROR_CODES = frozenset(
         "MALFORMED_DOCUMENT",
         "ACTIVE_CONTENT",
         "UNSUPPORTED_FEATURE",
+        "OCR_UNAVAILABLE",  # ADR-0035：作業系統沒有可用的文字辨識
+        "OCR_LANGUAGE_MISSING",  # ADR-0035：未安裝繁體中文辨識
     }
 )
 # 協定層錯誤（非能力判定；ADR-0016）：請求格式錯誤、worker 異常結束
@@ -47,6 +49,7 @@ OPERATIONS = frozenset(
         "render_page",
         "find_text",
         "extract_text",  # 文字擷取（ADR-0033，只讀）
+        "ocr_page",  # 作業系統內建 OCR（ADR-0035，只讀）
         "plan_text_edit",
         "register_asset",  # 圖片替換的新圖（ADR-0022）
         "plan_image_edit",
@@ -108,6 +111,7 @@ RESULT_FIELDS: dict[str, dict[str, type]] = {
     "render_page": {"width": int, "height": int, "png_base64": str},
     "find_text": {"span_id": str},
     "extract_text": {"text": str, "limited": bool},
+    "ocr_page": {"text": str, "lines": int},
     "plan_text_edit": _PLAN,
     "plan_image_edit": _PLAN,
     "plan_cell_edit": _PLAN,

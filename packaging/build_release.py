@@ -35,6 +35,16 @@ DOCS = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
 # 隨安裝包散布的套件（uv export --no-dev）與 PyInstaller（bootloader 編入執行檔）
 LICENSED = ["pymupdf", "pikepdf", "pyside6-essentials", "shiboken6", "pillow", "lxml", "packaging",
             "fonttools", "pyinstaller"]  # fmt: skip
+# 作業系統內建 OCR 的橋接套件（ADR-0035，MIT），依平台
+if sys.platform == "win32":
+    LICENSED += ["winrt-runtime", "winrt-windows-foundation",
+                 "winrt-windows-foundation-collections",
+                 "winrt-windows-globalization", "winrt-windows-graphics-imaging",
+                 "winrt-windows-media-ocr", "winrt-windows-storage-streams",
+                 "typing-extensions"]  # fmt: skip
+elif sys.platform == "darwin":
+    LICENSED += ["pyobjc-core", "pyobjc-framework-cocoa", "pyobjc-framework-quartz",
+                 "pyobjc-framework-coreml", "pyobjc-framework-vision"]  # fmt: skip
 EXTRA_LICENSES = ROOT / "packaging" / "licenses"
 # 安裝包必須附上的授權檔（自我檢查；相對 licenses/）
 REQUIRED_LICENSES = [
@@ -139,6 +149,9 @@ def build() -> Path:
         "--paths", str(ROOT / "src"),
         "--osx-bundle-identifier", BUNDLE_ID,
         # 執行檔／.app 圖示（ADR-0034）
+        # 作業系統內建 OCR（ADR-0035）：PyWinRT／PyObjC 的子模組由 worker 動態載入，需明確帶入
+        *(["--collect-submodules", "winrt"] if sys.platform == "win32" else []),
+        *(["--hidden-import", "Vision"] if sys.platform == "darwin" else []),
         "--icon", str(ROOT / "packaging" / "icons" / ("lumicat.icns" if sys.platform == "darwin"
                                                        else "lumicat.ico")),
     ]  # fmt: skip
@@ -182,6 +195,16 @@ def self_check(exe: Path) -> dict:
         if got != mode:
             raise SystemExit(f"edit-text {fid} 模式 {got}，預期 {mode}")
         results[fid] = f"mode {mode}"
+    # 作業系統內建 OCR 元件有打包進去（ADR-0035）：能載入即可；建置機沒裝繁中辨識語言不算失敗
+    probe = subprocess.run([str(exe), "ocr-probe", str(FIXTURES / "T01.pdf")], capture_output=True,
+                           text=True, env=env, timeout=300, check=False)  # fmt: skip
+    try:
+        status = json.loads(probe.stdout.strip().splitlines()[-1])["status"]
+    except (ValueError, IndexError, KeyError):
+        raise SystemExit(f"ocr-probe 輸出無法解析（exit {probe.returncode}）") from None
+    if status not in ("ok", "OCR_LANGUAGE_MISSING"):
+        raise SystemExit(f"ocr-probe 失敗：{status}")
+    results["ocr"] = status
     return results
 
 

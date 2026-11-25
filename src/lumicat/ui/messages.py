@@ -24,6 +24,11 @@ REASONS = {
     "NO_TEXT_LAYER": "此頁沒有文字層（例如掃描或圖片頁），只能檢視",
     "MALFORMED_DOCUMENT": "檔案結構損壞或需修復，不提供編輯",
     "ACTIVE_CONTENT": "文件含主動內容（JavaScript、自動動作等），不提供編輯",
+    "OCR_UNAVAILABLE": "此電腦的作業系統沒有可用的文字辨識（需要 Windows 10 以上或 macOS 13 以上）",
+    "OCR_LANGUAGE_MISSING": (
+        "系統未安裝繁體中文文字辨識。Windows：設定 → 時間與語言 → 語言與地區 → "
+        "中文（台灣）→ 語言選項 → 安裝「光學字元辨識」（需系統管理員權限，可請資訊人員協助）"
+    ),
     "INVALID_REQUEST": "操作無法執行",
     "WORKER_FAILED": "處理程序異常結束，已重新啟動；未提交變更",
 }

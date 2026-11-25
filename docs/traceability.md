@@ -167,6 +167,11 @@ fixture 欄引用 `tests/fixtures/manifest.csv` 的 fixture_id；hash 見 manife
 | P13-01 | ADR-0034 §1～§2 | 全部改名 LUMICAT（套件、命令列、環境變數、執行檔、標題、關於、安裝程式、右鍵選單、機碼、CI 產物）；歷史紀錄與 fixture 不改 | 全部測試隨改名更新、`tests/gui/test_brand.py::test_window_title_and_app_name`、`::test_installer_branding` | — | PASS（本機 Linux）；Windows 實機待驗 |
 | P13-02 | ADR-0034 §3 | 舊資料夾 PEditor 改名沿用（失敗時用舊的）；舊暫存檔名仍清除 | `tests/gui/test_brand.py::test_old_data_folder_is_renamed`、`::test_old_data_folder_kept_when_rename_fails`、`::test_old_temp_name_still_cleaned` | — | PASS（本機 Linux）；Windows 實機待驗 |
 | P13-03 | ADR-0034 §4～§6 | 圖示（視窗、執行檔、安裝程式）與品牌配色（對比度照檢查） | `tests/gui/test_brand.py::test_app_icon_has_all_sizes`、`::test_brand_colors`、`tests/gui/test_theme.py` | — | PASS（本機 Linux offscreen）；Windows 實機待驗 |
+| P14-01 | ADR-0035 §1～§2、§4 | 作業系統內建 OCR、新增相依（依平台）、錯誤碼、授權清單、威脅模型 T18 | `tests/unit/test_protocol_codes.py`；文件審查 | — | PASS（本機 Linux）；CI 待驗 |
+| P14-02 | ADR-0035 §3 | worker `ocr_page`：灰階點陣、長邊上限、超限頁、頁碼驗證、中文合併、排序；其他平台 OCR_UNAVAILABLE | `tests/unit/test_ocr_helpers.py`、`tests/integration/test_ocr_page.py` | F04、T05 | PASS（本機 Linux：參數與不支援路徑）；Windows／macOS 由 CI 實際辨識 |
+| P14-03 | ADR-0035 §5 | 文字擷取「辨識圖片文字」：只在沒有文字的頁出現、手動、結果加註、失敗顯示原因 | `tests/gui/test_text_extract.py::test_ocr_*` | — | PASS（本機 Linux offscreen）；Windows 實機待驗 |
+| P14-04 | ADR-0035 §6 | 合成掃描頁字元正確率量測（CI 摘要）；T05 ≥80% | `tests/integration/test_ocr_page.py::test_recognizes_scanned_traditional_chinese`、`scripts/ocr_benchmark.py` | T01～T05、F02 | CI 待驗 |
+| P14-05 | ADR-0035 §6 | 打包：PyWinRT／PyObjC 帶入；發布自我檢查 `ocr-probe` | CI release | T01 | CI 待驗 |
 | G8-05 | P8 | 標明 macOS 最低支援版本 | ADR-0025 §3（15.0、Apple Silicon） | — | 完成 |
 
 ## 共通（§8）

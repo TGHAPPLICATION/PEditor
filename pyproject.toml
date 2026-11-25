@@ -12,6 +12,15 @@ dependencies = [
     "pikepdf>=9",             # MPL-2.0
     "PySide6-Essentials>=6.8", # LGPL-3.0，動態連結（ADR-0002）
     "fonttools>=4.50",         # MIT；模式 A 字形檢查、模式 B 子集化（ADR-0018）
+    # 作業系統內建 OCR（ADR-0035）：Windows.Media.Ocr 經 PyWinRT（MIT）、macOS Vision 經 PyObjC（MIT）
+    "winrt-runtime>=2; sys_platform == 'win32'",
+    "winrt-Windows.Foundation>=2; sys_platform == 'win32'",
+    "winrt-Windows.Foundation.Collections>=2; sys_platform == 'win32'",
+    "winrt-Windows.Globalization>=2; sys_platform == 'win32'",
+    "winrt-Windows.Graphics.Imaging>=2; sys_platform == 'win32'",
+    "winrt-Windows.Media.Ocr>=2; sys_platform == 'win32'",
+    "winrt-Windows.Storage.Streams>=2; sys_platform == 'win32'",
+    "pyobjc-framework-Vision>=10; sys_platform == 'darwin'",
 ]
 
 [project.scripts]

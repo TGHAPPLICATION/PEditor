@@ -42,6 +42,10 @@ def main(argv: list[str] | None = None) -> int:
         from lumicat.cli import edit_text
 
         return edit_text(argv[1:])
+    if argv[:1] == ["ocr-probe"]:  # 作業系統內建 OCR 自我檢查（ADR-0035）
+        from lumicat.cli import ocr_probe
+
+        return ocr_probe(argv[1:])
     if argv[:1] == ["blind-run"]:  # 盲測（P8，保管人在離線實機執行）
         from lumicat.cli import blind_run
 
