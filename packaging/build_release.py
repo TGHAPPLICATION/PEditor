@@ -35,19 +35,17 @@ DOCS = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
 # 隨安裝包散布的套件（uv export --no-dev）與 PyInstaller（bootloader 編入執行檔）
 LICENSED = ["pymupdf", "pikepdf", "pyside6-essentials", "shiboken6", "pillow", "lxml", "packaging",
             "fonttools", "pyinstaller"]  # fmt: skip
-# 作業系統內建 OCR 的橋接套件（ADR-0035，MIT），依平台
+# 作業系統內建 OCR 的橋接套件（ADR-0035，MIT）。PyWinRT 與 pyobjc-core／Vision／CoreML 的 wheel
+# 沒附授權檔，授權全文放在 packaging/licenses/pywinrt、pyobjc（見該處 README）
 if sys.platform == "win32":
-    LICENSED += ["winrt-runtime", "winrt-windows-foundation",
-                 "winrt-windows-foundation-collections",
-                 "winrt-windows-globalization", "winrt-windows-graphics-imaging",
-                 "winrt-windows-media-ocr", "winrt-windows-storage-streams",
-                 "typing-extensions"]  # fmt: skip
+    LICENSED += ["typing-extensions"]
 elif sys.platform == "darwin":
-    LICENSED += ["pyobjc-core", "pyobjc-framework-cocoa", "pyobjc-framework-quartz",
-                 "pyobjc-framework-coreml", "pyobjc-framework-vision"]  # fmt: skip
+    LICENSED += ["pyobjc-framework-cocoa", "pyobjc-framework-quartz"]
 EXTRA_LICENSES = ROOT / "packaging" / "licenses"
 # 安裝包必須附上的授權檔（自我檢查；相對 licenses/）
 REQUIRED_LICENSES = [
+    "pywinrt/LICENSE",
+    "pyobjc/LICENSE.txt",
     "qt/LGPL-3.0-only.txt",
     "qt/GPL-3.0-only.txt",
     "python/PSF-2.0.txt",
