@@ -58,3 +58,10 @@ def test_accuracy_metric():
     assert bench.accuracy("臺北市政府", "台北市政府") == 0.8  # 一字錯
     assert bench.accuracy("（第１條）", "(第1條)") == 1.0  # 標點、全半形不計
     assert bench.accuracy("", "") == 1.0
+
+
+def test_blank_render_fixture_not_counted(tmp_path):
+    """T01、F02 的原檔在 MuPDF 畫面空白（PREVIEW_UNRELIABLE），不能當掃描樣本
+    （CI 量測曾因此得 0%）。"""
+    assert not bench.make_scanned(FILES / "T01.pdf", tmp_path / "t01.pdf")
+    assert bench.make_scanned(FILES / "T05.pdf", tmp_path / "t05.pdf")

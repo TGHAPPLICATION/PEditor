@@ -24,14 +24,19 @@ FIXTURES = ("T01", "T02", "T03", "T04", "T05", "F02")
 SCAN_DPI = 200  # 一般辦公掃描解析度
 
 
-def make_scanned(source: Path, target: Path, dpi: int = SCAN_DPI) -> None:
-    """每頁畫成灰階點陣後放進新 PDF：沒有文字層，模擬掃描檔。"""
+def make_scanned(source: Path, target: Path, dpi: int = SCAN_DPI) -> bool:
+    """每頁畫成灰階點陣後放進新 PDF：沒有文字層，模擬掃描檔。回傳第 1 頁是否畫得出內容。
+    T01、F02 的字型 CID 與字型程式不一致，MuPDF 畫出空白頁（PREVIEW_UNRELIABLE），不計入。"""
+    inked = False
     with pymupdf.open(source) as src, pymupdf.open() as out:
-        for page in src:
+        for number, page in enumerate(src):
             pix = page.get_pixmap(dpi=dpi, colorspace=pymupdf.csGRAY)
+            if number == 0:
+                inked = any(value < 128 for value in pix.samples)
             new = out.new_page(width=page.rect.width, height=page.rect.height)
             new.insert_image(new.rect, stream=pix.tobytes("png"))
         out.save(target)
+    return inked
 
 
 def chars(text: str) -> list[str]:
@@ -48,10 +53,14 @@ def accuracy(reference: str, found: str) -> float:
     return sum(block.size for block in matcher.get_matching_blocks()) / len(ref)
 
 
-def measure(name: str, service: DocumentService, work: Path) -> tuple[str, int, float, float]:
+def measure(
+    name: str, service: DocumentService, work: Path
+) -> tuple[str, int, float, float] | None:
+    """None＝原檔畫不出內容，無法模擬掃描（不計）。"""
     source = FILES / f"{name}.pdf"
     scanned = work / f"{name}-scan.pdf"
-    make_scanned(source, scanned)
+    if not make_scanned(source, scanned):
+        return None
     original = service.open_document(source)["document_id"]
     reference = service.extract_text(original, 0)["text"]
     doc = service.open_document(scanned)["document_id"]
@@ -62,14 +71,18 @@ def measure(name: str, service: DocumentService, work: Path) -> tuple[str, int, 
 
 
 def main() -> int:
-    rows = []
+    rows, blank = [], []
     with tempfile.TemporaryDirectory() as tmp, DocumentService() as service:
         for name in FIXTURES:
             try:
-                rows.append(measure(name, service, Path(tmp)))
+                row = measure(name, service, Path(tmp))
             except ServiceError as exc:
                 print(f"OCR 無法執行：{exc.code}")
                 return 2
+            if row is None:
+                blank.append(name)
+            else:
+                rows.append(row)
     print(f"### OCR 準確度（{sys.platform}，合成掃描 {SCAN_DPI} dpi）\n")
     print("| fixture | 參考字數 | 字元正確率 | 秒 |")
     print("| --- | --- | --- | --- |")
@@ -78,6 +91,9 @@ def main() -> int:
     total = sum(r[1] for r in rows)
     weighted = sum(r[1] * r[2] for r in rows) / total if total else 0.0
     print(f"| 合計 | {total} | {weighted:.1%} | {sum(r[3] for r in rows):.2f} |")
+    if blank:
+        names = "、".join(blank)
+        print(f"\n不計：{names}（原檔字型 CID 與字型程式不一致，畫面空白，無法模擬掃描）")
     return 0
 
 
